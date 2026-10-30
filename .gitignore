@@ -1,0 +1,29 @@
+# Source references — analysed, never committed (only UniverseAPI engine is)
+/ani-cli/
+/MovieBox-TUI/
+/freeflix-cli/
+/custom api/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node / Tauri
+node_modules/
+dist/
+target/
+src-tauri/target/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Local secrets
+.env
+.env.*
+*.key
