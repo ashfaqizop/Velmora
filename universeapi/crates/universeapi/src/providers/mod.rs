@@ -1,12 +1,14 @@
 //! Content providers. Each maps a site/API into the unified model.
 
 pub mod anime_sama;
+pub mod coflix;
 pub mod dramachi;
 pub mod french_stream;
 pub mod fourkhdhub;
 pub mod hdhub;
 pub mod hianime;
 pub mod moviebox;
+pub mod torrents;
 pub mod zokoanime;
 
 use std::sync::{Arc, RwLock};

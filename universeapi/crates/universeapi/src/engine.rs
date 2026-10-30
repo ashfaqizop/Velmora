@@ -14,7 +14,7 @@ use crate::error::{Error, Result};
 use crate::metadata::{anilist::Anilist, cinemeta::Cinemeta, tmdb::Tmdb};
 use crate::model::*;
 use crate::net::{BlockedFallback, Http};
-use crate::providers::{anime_sama::AnimeSama, dramachi::Dramachi, french_stream::FrenchStream, fourkhdhub::FourKHdHub, hdhub::HdHub, hianime::HiAnime, moviebox::MovieBox, same_title, zokoanime::ZokoAnime, Ctx, Provider};
+use crate::providers::{anime_sama::AnimeSama, coflix::Coflix, dramachi::Dramachi, french_stream::FrenchStream, fourkhdhub::FourKHdHub, hdhub::HdHub, hianime::HiAnime, moviebox::MovieBox, same_title, torrents::{Eztv, Nyaa, Yts}, zokoanime::ZokoAnime, Ctx, Provider};
 use crate::rank;
 use crate::resolvers::WebSolver;
 
@@ -83,6 +83,10 @@ impl Engine {
             Arc::new(Dramachi::new(ctx.clone())),
             Arc::new(AnimeSama::new(ctx.clone())),
             Arc::new(FrenchStream::new(ctx.clone())),
+            Arc::new(Coflix::new(ctx.clone())),
+            Arc::new(Yts::new(ctx.clone())),
+            Arc::new(Eztv::new(ctx.clone())),
+            Arc::new(Nyaa::new(ctx.clone())),
             Arc::new(ZokoAnime::new(ctx.clone())),
             Arc::new(HiAnime::new(ctx.clone())),
         ];
@@ -195,7 +199,10 @@ impl Engine {
 
     fn search_targets(&self) -> Vec<Arc<dyn Provider>> {
         let mut v: Vec<Arc<dyn Provider>> = vec![self.movie_tv_meta(), self.anilist.clone()];
-        v.extend(self.content.iter().filter(|p| self.enabled(p.id()) && p.id() != ProviderId::ZokoAnime).cloned());
+        // Torrent and id-addressed providers only add sources; they never list titles.
+        v.extend(
+            self.content.iter().filter(|p| self.enabled(p.id()) && p.id() != ProviderId::ZokoAnime && !p.id().is_torrent()).cloned(),
+        );
         v
     }
 
@@ -245,6 +252,7 @@ impl Engine {
 
     /// Find, resolve, verify and rank every source for a title.
     pub async fn sources(&self, title: &TitleSummary, target: Target, mode: AudioMode) -> SourcesReport {
+        let title = &self.with_ids(title).await;
         let prefs = self.ctx.prefs();
         let kind = title.kind;
         let mut providers: Vec<Arc<dyn Provider>> = self
@@ -282,6 +290,23 @@ impl Engine {
         }
         rank::rank(&mut report.sources, &prefs, kind, target);
         report
+    }
+
+    /// Search hits often lack external ids (a TMDB search result has no IMDb
+    /// id until its detail is fetched). Fill them from the title's own detail
+    /// page so id-addressed providers (YTS, EZTV, ZokoAnime) can be used.
+    async fn with_ids(&self, title: &TitleSummary) -> TitleSummary {
+        let mut t = title.clone();
+        let missing = match t.kind {
+            MediaKind::Anime => t.ids.mal.is_none(),
+            _ => t.ids.imdb.is_none(),
+        };
+        if missing {
+            if let Ok(d) = self.detail(&t.origin).await {
+                t.ids.absorb(&d.summary.ids);
+            }
+        }
+        t
     }
 
     async fn provider_sources(

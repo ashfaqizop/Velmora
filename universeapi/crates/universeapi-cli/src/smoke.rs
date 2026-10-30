@@ -230,6 +230,54 @@ pub async fn run(engine: &Engine) -> SmokeReport {
     })
     .await;
 
+    check(&mut r, "coflix: movie players", false, async {
+        let p = engine.provider(ProviderId::Coflix).unwrap();
+        let hits = p.search("dune").await?;
+        let m = hits.iter().find(|h| h.kind == MediaKind::Movie).ok_or_else(|| anyhow::anyhow!("no movie hit"))?;
+        let d = p.detail(&m.origin.id).await?;
+        let mut src = p.sources(&d, Target::Movie, AudioMode::Dub).await?;
+        engine.verify(&mut src).await;
+        let ok: Vec<_> = src.iter().filter(|s| s.verified == Some(true)).map(|s| s.host.clone()).collect();
+        ensure(!ok.is_empty(), format!("0 verified of {}", src.len()))?;
+        anyhow::Ok(format!("{} — verified {ok:?}", d.summary.name))
+    })
+    .await;
+
+    // ── Torrents ───────────────────────────────────────────────────────
+    let torrent_check = |provider: ProviderId, ids: ExternalIds, kind: MediaKind, target: Target| async move {
+        let p = engine.provider(provider).unwrap();
+        let s = p.sources_by_ids(&ids, kind, target, AudioMode::Sub).await?.unwrap_or_default();
+        let best = s.iter().filter_map(|x| x.torrent.as_ref().and_then(|t| t.seeders)).max().unwrap_or(0);
+        ensure(!s.is_empty() && best > 0, format!("{} torrents, best seeders {best}", s.len()))?;
+        anyhow::Ok(format!("{} torrents, best seeders {best}", s.len()))
+    };
+    check(
+        &mut r,
+        "yts: Dune (tt1160419) by IMDb id",
+        false,
+        torrent_check(ProviderId::Yts, ExternalIds { imdb: Some("tt1160419".into()), ..Default::default() }, MediaKind::Movie, Target::Movie),
+    )
+    .await;
+    check(
+        &mut r,
+        "eztv: Breaking Bad S01E01 by IMDb id",
+        false,
+        torrent_check(
+            ProviderId::Eztv,
+            ExternalIds { imdb: Some("tt0903747".into()), ..Default::default() },
+            MediaKind::Series,
+            Target::Episode { season: 1, episode: 1 },
+        ),
+    )
+    .await;
+    check(&mut r, "nyaa: Frieren episode 3", false, async {
+        let p = engine.provider(ProviderId::Nyaa).unwrap();
+        let d = p.detail("Sousou no Frieren").await?;
+        let s = p.sources(&d, Target::Episode { season: 1, episode: 3 }, AudioMode::Sub).await?;
+        anyhow::Ok(format!("{} torrents; top: {}", s.len(), s.first().map(|x| x.label.as_str()).unwrap_or("")))
+    })
+    .await;
+
     // ── Anime ──────────────────────────────────────────────────────────
     check(&mut r, "zokoanime: MAL fast path (Frieren ep1)", true, async {
         let ids = ExternalIds { mal: Some(52991), ..Default::default() };

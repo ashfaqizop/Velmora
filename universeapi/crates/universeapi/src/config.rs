@@ -138,7 +138,7 @@ impl Default for Registry {
         m(AnimeSama, &["https://anime-sama.pw"]);
         m(FrenchStream, &["https://french-stream.net"]);
         m(Coflix, &["https://coflix.ac"]);
-        m(Yts, &["https://yts.mx"]);
+        m(Yts, &["https://movies-api.accel.li", "https://yts.lt"]);
         m(Eztv, &["https://eztvx.to"]);
         m(Nyaa, &["https://nyaa.si"]);
         Self {
