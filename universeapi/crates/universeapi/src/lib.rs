@@ -26,6 +26,7 @@ pub mod metadata;
 pub mod model;
 pub mod net;
 pub mod providers;
+pub mod proxy;
 pub mod rank;
 pub mod release;
 pub mod resolvers;

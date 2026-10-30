@@ -25,10 +25,11 @@ universeapi/
 | Engine | merged search (progressive stream), home rails, cross-provider source gathering, **1 KB range-probe verification** (drops ad/decoy pages), preference-driven ranking |
 | Torrents | librqbit session (feature `torrent`, on by default): picks the episode inside season packs, streams while downloading with a seekable reader, pauses when done unless seeding is turned on |
 | Downloads | queue sized by `max_concurrent_downloads` (changeable live), pause/resume/cancel, HTTP resume from `.part` files, HLS/DASH remuxed to MKV by the ffmpeg sidecar with every track, torrents through the shared session, season zips extracted, subtitles saved beside the video |
+| Player proxy | `engine.proxy()`: register a source, hand the returned path to the player; requests carry the source's Referer/Cookie/User-Agent, absolute URLs in HLS/DASH manifests are rewritten (relative ones resolve on their own), torrents stream from `/t/{token}` with byte ranges |
 | Infra | retry + jittered backoff, Cloudflare detection, Chrome-fingerprint fallback (`impersonate` feature, `wreq` on BoringSSL) used only after the normal client is refused, two-level TTL cache (memory + disk), release-name parser |
 
-Planned in the next drop: the media proxy (header injection and HLS/DASH
-rewriting for the in-app player).
+Remaining before v1.0: publishing `registry.json` on the `config` branch and
+tagging the release.
 
 ## Usage
 

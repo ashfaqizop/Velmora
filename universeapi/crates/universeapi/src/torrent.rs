@@ -80,16 +80,13 @@ impl TorrentEngine {
             .map_err(terr)?;
         let handle = added.into_handle().ok_or_else(|| Error::Torrent("torrent was listed but not added".into()))?;
 
-        let files = match read_files(&handle) {
-            Ok(f) => f,
-            Err(_) => {
-                tokio::time::timeout(METADATA_TIMEOUT, handle.wait_until_initialized())
-                    .await
-                    .map_err(|_| Error::Torrent("timed out initialising torrent".into()))?
-                    .map_err(terr)?;
-                read_files(&handle)?
-            }
-        };
+        // librqbit initialises (checks existing pieces) even a paused torrent and
+        // refuses file-selection changes until that is done.
+        tokio::time::timeout(METADATA_TIMEOUT, handle.wait_until_initialized())
+            .await
+            .map_err(|_| Error::Torrent("timed out initialising torrent".into()))?
+            .map_err(terr)?;
+        let files = read_files(&handle)?;
         let selected = pick_file(&files, episode).ok_or_else(|| Error::Torrent("torrent has no files".into()))?;
         let only: HashSet<usize> = [selected].into_iter().collect();
         self.session.update_only_files(&handle, &only).await.map_err(terr)?;

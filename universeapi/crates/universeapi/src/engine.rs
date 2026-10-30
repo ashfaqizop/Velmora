@@ -67,6 +67,7 @@ pub struct Engine {
     content: Vec<Arc<dyn Provider>>,
     download_dir: PathBuf,
     downloads: Arc<crate::download::DownloadManager>,
+    proxy: Arc<crate::proxy::MediaProxy>,
     #[cfg(feature = "torrent")]
     torrents: crate::download::TorrentSlot,
 }
@@ -91,6 +92,11 @@ impl Engine {
         let ctx = Arc::new(Ctx::new(http, cache, opts.registry, opts.preferences, opts.web_solver));
         #[cfg(feature = "torrent")]
         let torrents: crate::download::TorrentSlot = Arc::new(tokio::sync::OnceCell::new());
+        let proxy = Arc::new(crate::proxy::MediaProxy::new(
+            ctx.http.clone(),
+            #[cfg(feature = "torrent")]
+            torrents.clone(),
+        ));
         let downloads = Arc::new(crate::download::DownloadManager::new(
             ctx.clone(),
             download_dir.clone(),
@@ -119,10 +125,16 @@ impl Engine {
             content,
             download_dir,
             downloads,
+            proxy,
             #[cfg(feature = "torrent")]
             torrents,
             ctx,
         })
+    }
+
+    /// Media proxy for the in-app player (header injection, manifest rewriting, torrent streaming).
+    pub fn proxy(&self) -> &Arc<crate::proxy::MediaProxy> {
+        &self.proxy
     }
 
     /// Download queue (direct files, HLS/DASH via ffmpeg, torrents).

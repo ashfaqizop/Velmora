@@ -359,6 +359,64 @@ pub async fn run(engine: &Engine) -> SmokeReport {
     })
     .await;
 
+    // ── Media proxy: master → variant → segment, headers injected ──────
+    check(&mut r, "proxy: HLS master, variant and segment", false, async {
+        use universeapi::proxy::ProxyBody;
+        let ids = ExternalIds { mal: Some(52991), ..Default::default() };
+        let p = engine.provider(ProviderId::ZokoAnime).unwrap();
+        let src = p
+            .sources_by_ids(&ids, MediaKind::Anime, Target::Episode { season: 1, episode: 1 }, AudioMode::Sub)
+            .await?
+            .unwrap_or_default()
+            .into_iter()
+            .find(|s| s.format == universeapi::model::StreamFormat::Hls)
+            .ok_or_else(|| anyhow::anyhow!("no HLS source"))?;
+        let proxy = engine.proxy();
+        let master = proxy.register(&src)?;
+
+        // resolve a playlist entry the way a player does, relative to the proxied URL
+        let resolve = |base: &str, entry: &str| -> String {
+            if entry.starts_with('/') {
+                return entry.to_string();
+            }
+            let path = base.split('?').next().unwrap_or(base);
+            format!("{}/{entry}", &path[..path.rfind('/').unwrap_or(0)])
+        };
+        let text = |b: ProxyBody| match b {
+            ProxyBody::Bytes(v) => String::from_utf8_lossy(&v).into_owned(),
+            ProxyBody::Stream(_) => String::new(),
+        };
+        let first_uri = |t: &str| t.lines().map(str::trim).find(|l| !l.is_empty() && !l.starts_with('#')).map(str::to_string);
+
+        let m = proxy.handle(&master, None).await?;
+        ensure(m.status == 200, format!("master status {}", m.status))?;
+        let mt = text(m.body);
+        ensure(mt.starts_with("#EXTM3U"), "master is not a playlist")?;
+        let variant = resolve(&master, &first_uri(&mt).ok_or_else(|| anyhow::anyhow!("empty master"))?);
+        let v = proxy.handle(&variant, None).await?;
+        let vt = text(v.body);
+        ensure(vt.starts_with("#EXTM3U"), format!("variant {} is not a playlist", v.status))?;
+        let seg = resolve(&variant, &first_uri(&vt).ok_or_else(|| anyhow::anyhow!("empty variant"))?);
+        let s = proxy.handle(&seg, Some("bytes=0-65535")).await?;
+        let got = match s.body {
+            ProxyBody::Stream(mut st) => {
+                use futures::StreamExt;
+                let mut n = 0usize;
+                while let Some(chunk) = st.next().await {
+                    n += chunk?.len();
+                    if n >= 4096 {
+                        break;
+                    }
+                }
+                n
+            }
+            ProxyBody::Bytes(b) => b.len(),
+        };
+        ensure((200..300).contains(&s.status) && got > 0, format!("segment status {} with {got} bytes", s.status))?;
+        anyhow::Ok(format!("master → variant → segment ok ({} → {got} bytes)", s.status))
+    })
+    .await;
+
     // ── Anime ──────────────────────────────────────────────────────────
     check(&mut r, "zokoanime: MAL fast path (Frieren ep1)", true, async {
         let ids = ExternalIds { mal: Some(52991), ..Default::default() };

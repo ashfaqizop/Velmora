@@ -444,8 +444,11 @@ impl MovieBox {
         }
 
         if out.is_empty() {
+            // Placeholder clips with nothing recoverable means MovieBox keeps the
+            // title for paid members, even when the response carries no vipInfo
+            // (seen from US datacenter IPs). Report it as unavailable, not broken.
             return Err(if placeholders > 0 {
-                Error::provider(ProviderId::MovieBox, "MovieBox serves only a placeholder clip for this title")
+                Error::NotFound(MEMBERS_ONLY.into())
             } else {
                 Error::NotFound("MovieBox has no streams for this title".into())
             });
