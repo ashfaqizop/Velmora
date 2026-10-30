@@ -134,16 +134,34 @@ pub async fn run(engine: &Engine) -> SmokeReport {
         .await;
     }
 
-    check(&mut r, "moviebox: series episode sources", false, async {
+    check(&mut r, "moviebox: series episode (files or members-only gate)", true, async {
         let hits = mb.search("breaking bad").await?;
         let show = hits.iter().find(|h| h.kind.is_episodic()).ok_or_else(|| anyhow::anyhow!("no series hit"))?;
         let d = mb.detail(&show.origin.id).await?;
         ensure(!d.seasons.is_empty(), "no seasons parsed")?;
-        let mut src = mb.sources(&d, Target::Episode { season: 1, episode: 1 }, AudioMode::Sub).await?;
-        engine.verify(&mut src).await;
-        let ok = src.iter().filter(|s| s.verified == Some(true)).count();
-        ensure(ok > 0, format!("0 verified of {}", src.len()))?;
-        anyhow::Ok(format!("{} — {} seasons, S1E1 {ok} verified", d.summary.name, d.seasons.len()))
+        match mb.sources(&d, Target::Episode { season: 1, episode: 1 }, AudioMode::Sub).await {
+            Ok(mut src) => {
+                engine.verify(&mut src).await;
+                let ok = src.iter().filter(|s| s.verified == Some(true)).count();
+                ensure(ok > 0, format!("0 verified of {}", src.len()))?;
+                anyhow::Ok(format!("{} — {} seasons, S1E1 {ok} verified", d.summary.name, d.seasons.len()))
+            }
+            // Members-only series are expected; the engine falls through to other providers.
+            Err(universeapi::Error::NotFound(m)) if m == universeapi::providers::moviebox::MEMBERS_ONLY => {
+                anyhow::Ok(format!("{} — members-only on MovieBox, handled", d.summary.name))
+            }
+            Err(e) => Err(e.into()),
+        }
+    })
+    .await;
+
+    check(&mut r, "engine: series episode across providers", true, async {
+        let hits = engine.search("breaking bad").await;
+        let show = hits.iter().find(|h| h.kind.is_episodic()).ok_or_else(|| anyhow::anyhow!("no series hit"))?;
+        let rep = engine.sources(show, Target::Episode { season: 1, episode: 1 }, AudioMode::Sub).await;
+        let best = rep.sources.first().ok_or_else(|| anyhow::anyhow!("no sources at all: {:?}", rep.errors))?;
+        let providers: std::collections::BTreeSet<String> = rep.sources.iter().map(|s| s.provider.to_string()).collect();
+        anyhow::Ok(format!("{} sources from {providers:?}; best {} {} {:?}", rep.sources.len(), best.provider, best.host, best.tags.resolution))
     })
     .await;
 
@@ -275,6 +293,29 @@ pub async fn run(engine: &Engine) -> SmokeReport {
         let d = p.detail("Sousou no Frieren").await?;
         let s = p.sources(&d, Target::Episode { season: 1, episode: 3 }, AudioMode::Sub).await?;
         anyhow::Ok(format!("{} torrents; top: {}", s.len(), s.first().map(|x| x.label.as_str()).unwrap_or("")))
+    })
+    .await;
+
+    // ── Torrent engine (librqbit): legal, well-seeded Ubuntu ISO ────────
+    check(&mut r, "torrent engine: metadata + stream first 256 KiB", false, async {
+        use tokio::io::AsyncReadExt;
+        let page = engine.ctx().http.get_text("https://releases.ubuntu.com/24.04/", &[]).await?;
+        let name = page
+            .split('"')
+            .find(|s| s.ends_with("-live-server-amd64.iso.torrent"))
+            .ok_or_else(|| anyhow::anyhow!("no .torrent link on releases page"))?;
+        let url = format!("https://releases.ubuntu.com/24.04/{name}");
+        let te = engine.torrents().await?;
+        let job = te.add(&url, None).await?;
+        let file = job.selected_file().map(|f| (f.name.clone(), f.len)).unwrap_or_default();
+        let mut reader = te.stream(&job).await?;
+        let mut buf = vec![0u8; 256 * 1024];
+        tokio::time::timeout(std::time::Duration::from_secs(120), reader.read_exact(&mut buf))
+            .await
+            .map_err(|_| anyhow::anyhow!("no data within 120 s"))??;
+        let p = te.progress(&job);
+        te.remove(job, true).await?;
+        anyhow::Ok(format!("{} ({} MB) streamed 256 KiB; {} bytes fetched", file.0, file.1 / 1_000_000, p.downloaded))
     })
     .await;
 

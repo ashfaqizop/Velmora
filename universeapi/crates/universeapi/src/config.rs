@@ -33,6 +33,8 @@ pub struct Preferences {
     /// Probe resolved links before returning them (drops ad/decoy pages).
     pub verify_sources: bool,
     pub max_concurrent_downloads: usize,
+    /// Keep uploading after a torrent finishes (off by default).
+    pub seed_after_download: bool,
     /// TMDB/Cinemeta region; `None` = global.
     pub region: Option<String>,
 }
@@ -59,6 +61,7 @@ impl Default for Preferences {
             disabled_providers: Vec::new(),
             verify_sources: true,
             max_concurrent_downloads: 3,
+            seed_after_download: false,
             region: None,
         }
     }
@@ -139,7 +142,7 @@ impl Default for Registry {
         m(FrenchStream, &["https://french-stream.net"]);
         m(Coflix, &["https://coflix.ac"]);
         m(Yts, &["https://movies-api.accel.li", "https://yts.lt"]);
-        m(Eztv, &["https://eztvx.to"]);
+        m(Eztv, &["https://eztvx.to", "https://eztv.re"]);
         m(Nyaa, &["https://nyaa.si"]);
         Self {
             version: REGISTRY_VERSION,

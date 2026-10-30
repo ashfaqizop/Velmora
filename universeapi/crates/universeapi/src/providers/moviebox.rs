@@ -37,6 +37,7 @@ const RETRY_STATUS: &[u16] = &[403, 406, 407, 429, 500, 502, 503, 504];
 /// DASH segments are served only with this Referer.
 pub const STREAM_REFERER: &str = "https://sportslive.wine";
 const SESSION_KEY: &str = "moviebox:session";
+pub const MEMBERS_ONLY: &str = "MovieBox keeps this series for paid members; other providers serve it";
 const API: &str = "/wefeed-mobile-bff";
 
 // ── signing ──────────────────────────────────────────────────────────────
@@ -634,6 +635,20 @@ pub fn dubs(v: &Value) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
+/// MovieBox gates some subjects (all series, as of 2026-10) behind its paid
+/// membership: `vipInfo.requireMemberType > 0`. Visitor sessions then get a
+/// placeholder clip for every episode, so the engine skips them and lets
+/// other providers serve the title.
+pub fn members_only(v: &Value) -> bool {
+    let s = subject_of(v);
+    v.get("vipInfo")
+        .or_else(|| s.get("vipInfo"))
+        .and_then(|i| i.get("requireMemberType"))
+        .and_then(Value::as_i64)
+        .unwrap_or(0)
+        > 0
+}
+
 pub fn is_placeholder(url: &str) -> bool {
     let l = url.to_ascii_lowercase();
     l.contains("1c7de0bd3393702d9191801f15f88f8d")
@@ -817,6 +832,9 @@ impl Provider for MovieBox {
         // Dubs in the user's preferred audio languages (max 2 extra subjects).
         let mut wanted_dubs: Vec<(String, String)> = Vec::new();
         if let Ok(subject) = self.subject(&id).await {
+            if se > 0 && members_only(&subject) {
+                return Err(Error::NotFound(MEMBERS_ONLY.into()));
+            }
             for (dub_id, code) in dubs(&subject) {
                 if dub_id != id && prefs.audio_languages.contains(&code) && wanted_dubs.len() < 2 {
                     wanted_dubs.push((dub_id, code));
@@ -912,6 +930,13 @@ mod tests {
         let ph = json!({"resourceLink":"https://macdn.aoneroom.com/other/notice.mp4","se":0,"ep":0});
         assert!(resource_source(&ph, 0, 0, "ua").is_none());
         assert_eq!(dubs(&json!({"subject":{"dubs":[{"subjectId":7,"lanName":"Hindi"},{"subjectId":8,"lanName":"Klingon"}]}})), vec![("7".to_string(), "hi".to_string())]);
+    }
+
+    #[test]
+    fn membership_gate() {
+        assert!(members_only(&json!({"subject":{"subjectId":"1"},"vipInfo":{"requireMemberType":1,"freeEpisodeCount":2}})));
+        assert!(!members_only(&json!({"subject":{"subjectId":"1"},"vipInfo":{"requireMemberType":0}})));
+        assert!(!members_only(&json!({"subject":{"subjectId":"1"}})));
     }
 
     #[test]

@@ -26,7 +26,9 @@ scraper = "0.20"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util"] }
+# torrent engine; rustls build so Android needs no OpenSSL
+librqbit = { version = "9", default-features = false, features = ["rust-tls"] }
 tracing = "0.1"
 url = "2"
 # cli only

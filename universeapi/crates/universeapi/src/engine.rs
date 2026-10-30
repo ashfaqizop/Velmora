@@ -32,6 +32,8 @@ pub struct EngineOptions {
     pub web_solver: Option<Arc<dyn WebSolver>>,
     /// Browser-fingerprint transport used when a site blocks the normal client.
     pub blocked_fallback: Option<Arc<dyn BlockedFallback>>,
+    /// Where downloads (and torrent pieces) are written. Defaults to the OS temp dir.
+    pub download_dir: Option<PathBuf>,
 }
 
 /// Sources plus per-provider failures (shown in a "Sources" diagnostics sheet).
@@ -63,6 +65,9 @@ pub struct Engine {
     anilist: Arc<Anilist>,
     /// Content providers (produce sources).
     content: Vec<Arc<dyn Provider>>,
+    download_dir: PathBuf,
+    #[cfg(feature = "torrent")]
+    torrents: tokio::sync::OnceCell<crate::torrent::TorrentEngine>,
 }
 
 impl Engine {
@@ -75,6 +80,7 @@ impl Engine {
             Some(dir) => Cache::with_dir(dir),
             None => Cache::memory(),
         };
+        let download_dir = opts.download_dir.unwrap_or_else(|| std::env::temp_dir().join("velmora-downloads"));
         let ctx = Arc::new(Ctx::new(http, cache, opts.registry, opts.preferences, opts.web_solver));
         let content: Vec<Arc<dyn Provider>> = vec![
             Arc::new(MovieBox::new(ctx.clone())),
@@ -95,8 +101,21 @@ impl Engine {
             cinemeta: Arc::new(Cinemeta::new(ctx.clone())),
             anilist: Arc::new(Anilist::new(ctx.clone())),
             content,
+            download_dir,
+            #[cfg(feature = "torrent")]
+            torrents: tokio::sync::OnceCell::new(),
             ctx,
         })
+    }
+
+    pub fn download_dir(&self) -> &std::path::Path {
+        &self.download_dir
+    }
+
+    /// The torrent session, started on first use.
+    #[cfg(feature = "torrent")]
+    pub async fn torrents(&self) -> Result<&crate::torrent::TorrentEngine> {
+        self.torrents.get_or_try_init(|| crate::torrent::TorrentEngine::new(self.download_dir.join("torrents"))).await
     }
 
     pub fn ctx(&self) -> &Arc<Ctx> {

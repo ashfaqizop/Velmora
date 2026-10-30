@@ -26,6 +26,8 @@ pub mod providers;
 pub mod rank;
 pub mod release;
 pub mod resolvers;
+#[cfg(feature = "torrent")]
+pub mod torrent;
 pub mod util;
 
 pub use config::{Preferences, Registry};

@@ -23,10 +23,10 @@ universeapi/
 | Providers | **MovieBox** (signed aoneroom API: DASH + direct MP4, captions, language dubs, placeholder recovery) · **4KHDHub** (4K/1080p releases, season packs) · **HDHub** (custom API: Typesense search, listings, posts, episodes, packs) · **Dramachi** (Asian dramas, dub versions) · **Anime-Sama** (VOSTFR/VF anime) · **French-Stream** (VF/VFQ/VOSTFR films and series) · **Coflix** (French films and series) · **YTS**, **EZTV**, **Nyaa** (magnet sources by IMDb id or episode, ranked below direct links) · **ZokoAnime** (direct by MAL id) · **HiAnime** (ani-cli port) |
 | Resolvers | HubCDN · HubDrive · HubCloud (junk-filtered) · HBLinks · HBPlay · GreenMotors (gate decoded over plain HTTP, WebView fallback) · HDStream4U (P.A.C.K.E.R → HLS) · PixelDrain · French player embeds (uqload, fsvid, vidzy, ansembed/vidmoly, VOE mirrors, sibnet, sendvid, filemoon family) · ZokoAnime (XOR blob → HLS + subs) |
 | Engine | merged search (progressive stream), home rails, cross-provider source gathering, **1 KB range-probe verification** (drops ad/decoy pages), preference-driven ranking |
+| Torrents | librqbit session (feature `torrent`, on by default): picks the episode inside season packs, streams while downloading with a seekable reader, pauses when done unless seeding is turned on |
 | Infra | retry + jittered backoff, Cloudflare detection + pluggable fallback transport, two-level TTL cache (memory + disk), release-name parser |
 
-Planned in the next drops: the torrent engine (librqbit
-stream-while-downloading), the `wreq` Chrome-fingerprint fallback, the
+Planned in the next drops: the `wreq` Chrome-fingerprint fallback, the
 download manager (ffmpeg sidecar) and the media proxy.
 
 ## Usage

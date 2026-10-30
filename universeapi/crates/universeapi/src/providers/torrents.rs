@@ -274,12 +274,28 @@ impl Provider for Eztv {
             Target::Season { season } => (season as u64, None),
             Target::Movie => return Ok(None),
         };
-        let base = self.ctx.base(ProviderId::Eztv)?;
+        let reg = self.ctx.registry();
+        let mirrors = reg.mirrors(ProviderId::Eztv);
         let mut out = Vec::new();
         // Results are newest first, 100 per page; long-running shows need a few pages.
         for page in 1..=5u32 {
-            let url = format!("{base}/api/get-torrents?imdb_id={}&limit=100&page={page}", digits(imdb));
-            let r: EztvResp = self.ctx.http.get_json(&url, &[]).await?;
+            let mut resp = None;
+            let mut last = None;
+            for base in mirrors {
+                let url = format!("{}/api/get-torrents?imdb_id={}&limit=100&page={page}", base.trim_end_matches('/'), digits(imdb));
+                match self.ctx.http.get_json::<EztvResp>(&url, &[]).await {
+                    Ok(r) => {
+                        resp = Some(r);
+                        break;
+                    }
+                    Err(e) => last = Some(e),
+                }
+            }
+            let r = match (resp, last) {
+                (Some(r), _) => r,
+                (None, Some(e)) => return Err(e),
+                (None, None) => return Err(Error::Config("no EZTV mirror configured".into())),
+            };
             for t in &r.torrents {
                 let wanted = t.season == Some(season)
                     && match episode {
@@ -350,6 +366,15 @@ pub fn names_episode(title: &str, episode: u32) -> bool {
     re.is_match(title) && !batch.is_match(title)
 }
 
+/// Season a fansub title names ("S2", "Season 2", "2nd Season"); `None` = first/unspecified.
+pub fn season_of(title: &str) -> Option<u32> {
+    static SEASON: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)\bS(\d{1,2})(?:E\d+|\b)|\bseason\s*(\d{1,2})\b|\b(\d{1,2})(?:st|nd|rd|th)\s+season\b").expect("regex")
+    });
+    let c = SEASON.captures(title)?;
+    c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3)).and_then(|m| m.as_str().parse().ok())
+}
+
 impl Nyaa {
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self { ctx }
@@ -384,10 +409,10 @@ impl Provider for Nyaa {
 
     async fn sources(&self, detail: &TitleDetail, target: Target, mode: AudioMode) -> Result<Vec<Source>> {
         let name = detail.summary.origin.id.as_str();
-        let (query, filter): (String, Option<u32>) = match target {
-            Target::Episode { episode, .. } => (format!("{name} {episode:02}"), Some(episode)),
-            Target::Movie => (name.to_string(), None),
-            Target::Season { .. } => (format!("{name} batch"), None),
+        let (query, filter, season): (String, Option<u32>, u32) = match target {
+            Target::Episode { season, episode } => (format!("{name} {episode:02}"), Some(episode), season.max(1)),
+            Target::Movie => (name.to_string(), None, 1),
+            Target::Season { season } => (format!("{name} batch"), None, season.max(1)),
         };
         let query = if mode == AudioMode::Dub { format!("{query} dual audio") } else { query };
         let items = self.rss(&query).await?;
@@ -395,6 +420,7 @@ impl Provider for Nyaa {
             .iter()
             .filter(|i| i.seeders > 0)
             .filter(|i| filter.is_none_or(|e| names_episode(&i.title, e)))
+            .filter(|i| season_of(&i.title).unwrap_or(1) == season)
             .take(8)
             .map(|i| {
                 let mut s = torrent_source(ProviderId::Nyaa, &i.title, &i.hash, Some(i.seeders), Some(i.leechers), i.size);
@@ -453,5 +479,9 @@ mod tests {
         assert!(!names_episode(&items[1].title, 3), "batch ranges are not single episodes");
         assert!(names_episode("[Erai-raws] Show - 12v2 [1080p]", 12));
         assert!(names_episode("Show S01E05 1080p WEB", 5));
+        assert_eq!(season_of("[Raze] Sousou no Frieren S2 - 03 x265"), Some(2));
+        assert_eq!(season_of("[SubsPlease] Sousou no Frieren - 03 (1080p)"), None);
+        assert_eq!(season_of("Frieren 2nd Season - 03"), Some(2));
+        assert_eq!(season_of("Show S01E05 1080p"), Some(1));
     }
 }

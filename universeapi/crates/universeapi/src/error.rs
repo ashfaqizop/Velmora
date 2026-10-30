@@ -29,6 +29,9 @@ pub enum Error {
     #[error("configuration error: {0}")]
     Config(String),
 
+    #[error("torrent: {0}")]
+    Torrent(String),
+
     #[error("[{provider}] {message}")]
     Provider { provider: ProviderId, message: String },
 }
