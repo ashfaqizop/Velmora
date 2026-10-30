@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "mirrors": {
+    "hd_hub": ["https://new10.hdhub4u.cl", "https://new11.hdhub4u.limo"],
+    "hi_anime": ["https://hianime.at"],
+    "zoko_anime": ["https://zokoanime.video"]
+  },
+  "hdhub": {
+    "force_mirror": null,
+    "host_cdn": "https://h4.suncdn.org/host/",
+    "search_url": "https://search.pingora.fyi",
+    "search_collection": "post",
+    "rails": [
+      ["hdhub_latest", "Latest on HDHub", ""],
+      ["hdhub_bollywood", "Bollywood", "bollywood-movies"],
+      ["hdhub_south", "South Hindi Dubbed", "south-hindi-movies"]
+    ]
+  },
+  "host_aliases": {},
+  "disabled": []
+}

@@ -1,0 +1,25 @@
+[package]
+name = "universeapi-cli"
+description = "CI / developer CLI for the UniverseAPI Engine (live smoke tests, search, sources)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "universeapi"
+path = "src/main.rs"
+
+[dependencies]
+universeapi.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

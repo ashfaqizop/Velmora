@@ -1,0 +1,133 @@
+name: UniverseAPI Engine
+
+on:
+  push:
+    branches: [main]
+    paths: ["universeapi/**", ".github/workflows/universeapi.yml"]
+  pull_request:
+    paths: ["universeapi/**", ".github/workflows/universeapi.yml"]
+  schedule:
+    - cron: "17 3 * * *" # daily live smoke test, 03:17 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: universeapi-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: universeapi
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    if: github.event_name != 'schedule'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: universeapi
+      - name: Build
+        run: cargo build --workspace --all-targets
+      - name: Unit tests
+        run: cargo test --workspace
+      - name: Upload Cargo.lock
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-lock
+          path: universeapi/Cargo.lock
+
+  lint:
+    name: Lint
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: universeapi
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+        continue-on-error: true
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  android:
+    name: Android check (arm64)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: universeapi
+          key: android
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - name: cargo ndk check
+        run: cargo ndk -t arm64-v8a check -p universeapi
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
+
+  smoke:
+    name: Live smoke test
+    needs: [test]
+    if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && needs.test.result == 'success'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      UNIVERSEAPI_TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
+      UNIVERSEAPI_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: universeapi
+          key: smoke
+      - name: Run smoke test
+        id: smoke
+        run: cargo run --release -p universeapi-cli -- smoke --report smoke.json
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report
+          path: universeapi/smoke.json
+      - name: Open / update issue on scheduled failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="Daily UniverseAPI smoke test failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ -f smoke.json ]; then
+            body="$body"$'\n\n```json\n'"$(head -c 60000 smoke.json)"$'\n```'
+          fi
+          existing=$(gh issue list --label smoke-failure --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh label create smoke-failure --color B60205 --description "UniverseAPI live provider breakage" 2>/dev/null || true
+            gh issue create --title "UniverseAPI: live provider check failing" --label smoke-failure --body "$body"
+          fi
