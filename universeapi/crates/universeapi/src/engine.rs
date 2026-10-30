@@ -14,7 +14,7 @@ use crate::error::{Error, Result};
 use crate::metadata::{anilist::Anilist, cinemeta::Cinemeta, tmdb::Tmdb};
 use crate::model::*;
 use crate::net::{BlockedFallback, Http};
-use crate::providers::{hdhub::HdHub, hianime::HiAnime, same_title, zokoanime::ZokoAnime, Ctx, Provider};
+use crate::providers::{hdhub::HdHub, hianime::HiAnime, moviebox::MovieBox, same_title, zokoanime::ZokoAnime, Ctx, Provider};
 use crate::rank;
 use crate::resolvers::WebSolver;
 
@@ -77,6 +77,7 @@ impl Engine {
         };
         let ctx = Arc::new(Ctx::new(http, cache, opts.registry, opts.preferences, opts.web_solver));
         let content: Vec<Arc<dyn Provider>> = vec![
+            Arc::new(MovieBox::new(ctx.clone())),
             Arc::new(HdHub::new(ctx.clone())),
             Arc::new(ZokoAnime::new(ctx.clone())),
             Arc::new(HiAnime::new(ctx.clone())),

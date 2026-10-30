@@ -20,12 +20,12 @@ universeapi/
 | Layer | Contents |
 |---|---|
 | Metadata | **TMDB** (when a key is configured) · **Cinemeta** (no key, fallback) · **AniList** (anime trending, airing today, MAL ids) |
-| Providers | **HDHub** (custom API: Typesense search, listings, posts, episodes, packs) · **ZokoAnime** (direct by MAL id) · **HiAnime** (ani-cli port) |
+| Providers | **MovieBox** (signed aoneroom API: DASH + direct MP4, captions, language dubs, placeholder recovery) · **HDHub** (custom API: Typesense search, listings, posts, episodes, packs) · **ZokoAnime** (direct by MAL id) · **HiAnime** (ani-cli port) |
 | Resolvers | HubCDN · HubDrive · HubCloud (junk-filtered) · HBLinks · HBPlay · GreenMotors (via app WebView) · HDStream4U (P.A.C.K.E.R → HLS) · PixelDrain · ZokoAnime (XOR blob → HLS + subs) |
 | Engine | merged search (progressive stream), home rails, cross-provider source gathering, **1 KB range-probe verification** (drops ad/decoy pages), preference-driven ranking |
 | Infra | retry + jittered backoff, Cloudflare detection + pluggable fallback transport, two-level TTL cache (memory + disk), release-name parser |
 
-Planned in the next drops: MovieBox, 4KHDHub, Dramachi, French sources
+Planned in the next drops: 4KHDHub, Dramachi, French sources
 (Anime-Sama, French-Stream, Coflix), torrents (YTS, EZTV, Nyaa + librqbit
 stream-while-downloading), the `wreq` Chrome-fingerprint fallback, the
 download manager (ffmpeg sidecar) and the media proxy.

@@ -2,6 +2,7 @@
 
 pub mod hdhub;
 pub mod hianime;
+pub mod moviebox;
 pub mod zokoanime;
 
 use std::sync::{Arc, RwLock};

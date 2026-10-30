@@ -109,6 +109,44 @@ pub async fn run(engine: &Engine) -> SmokeReport {
         .await;
     }
 
+    // ── MovieBox ───────────────────────────────────────────────────────
+    let mb = engine.provider(ProviderId::MovieBox).unwrap();
+    let mut mb_movie: Option<TitleSummary> = None;
+    check(&mut r, "moviebox: signed login + search", true, async {
+        let hits = mb.search("the batman").await?;
+        ensure(!hits.is_empty(), "0 hits")?;
+        mb_movie = hits.iter().find(|h| h.kind == MediaKind::Movie).cloned();
+        anyhow::Ok(format!("{} hits, first: {} ({:?})", hits.len(), hits[0].name, hits[0].year))
+    })
+    .await;
+
+    if let Some(m) = mb_movie.clone() {
+        check(&mut r, "moviebox: movie sources verified", true, async {
+            let d = mb.detail(&m.origin.id).await?;
+            let mut src = mb.sources(&d, Target::Movie, AudioMode::Sub).await?;
+            engine.verify(&mut src).await;
+            let ok: Vec<_> = src.iter().filter(|s| s.verified == Some(true)).collect();
+            ensure(!ok.is_empty(), format!("0 verified of {}", src.len()))?;
+            let subs = src.iter().map(|s| s.subtitles.len()).max().unwrap_or(0);
+            let kinds: Vec<String> = ok.iter().map(|s| format!("{:?}/{:?}", s.format, s.tags.resolution)).collect();
+            anyhow::Ok(format!("{} — {} verified {:?}, {subs} subtitle tracks", d.summary.name, ok.len(), kinds))
+        })
+        .await;
+    }
+
+    check(&mut r, "moviebox: series episode sources", false, async {
+        let hits = mb.search("breaking bad").await?;
+        let show = hits.iter().find(|h| h.kind.is_episodic()).ok_or_else(|| anyhow::anyhow!("no series hit"))?;
+        let d = mb.detail(&show.origin.id).await?;
+        ensure(!d.seasons.is_empty(), "no seasons parsed")?;
+        let mut src = mb.sources(&d, Target::Episode { season: 1, episode: 1 }, AudioMode::Sub).await?;
+        engine.verify(&mut src).await;
+        let ok = src.iter().filter(|s| s.verified == Some(true)).count();
+        ensure(ok > 0, format!("0 verified of {}", src.len()))?;
+        anyhow::Ok(format!("{} — {} seasons, S1E1 {ok} verified", d.summary.name, d.seasons.len()))
+    })
+    .await;
+
     // ── Anime ──────────────────────────────────────────────────────────
     check(&mut r, "zokoanime: MAL fast path (Frieren ep1)", true, async {
         let ids = ExternalIds { mal: Some(52991), ..Default::default() };
