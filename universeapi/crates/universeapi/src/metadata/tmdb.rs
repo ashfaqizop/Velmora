@@ -26,6 +26,7 @@ pub struct Tmdb {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 struct Paged {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     results: Vec<Item>,
 }
 
@@ -46,13 +47,17 @@ struct Item {
     first_air_date: Option<String>,
     vote_average: Option<f32>,
     adult: bool,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     genre_ids: Vec<u32>,
     // detail-only
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     genres: Vec<Genre>,
     runtime: Option<u32>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     episode_run_time: Vec<u32>,
     external_ids: Option<ExtIds>,
     imdb_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     seasons: Vec<SeasonRef>,
     videos: Option<Videos>,
     credits: Option<Credits>,
@@ -80,6 +85,7 @@ struct SeasonRef {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 struct Videos {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     results: Vec<VideoRef>,
 }
 
@@ -95,7 +101,9 @@ struct VideoRef {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 struct Credits {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     cast: Vec<Person>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     crew: Vec<Person>,
 }
 
@@ -109,6 +117,7 @@ struct Person {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 struct SeasonDetail {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     episodes: Vec<Ep>,
 }
 

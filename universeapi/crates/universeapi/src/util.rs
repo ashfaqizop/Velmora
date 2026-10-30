@@ -18,6 +18,18 @@ pub fn b64_decode_str(input: &str) -> Option<String> {
     b64_decode(input).and_then(|b| String::from_utf8(b).ok())
 }
 
+/// Serde helper: treat an explicit JSON `null` like a missing field.
+/// `#[serde(default)]` alone only covers *absent* keys, and upstream APIs
+/// (Cinemeta, TMDB, AniList) send `"cast": null` style values.
+pub fn null_default<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + serde::Deserialize<'de>,
+{
+    use serde::Deserialize;
+    Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
+}
+
 /// Repeating-key XOR.
 pub fn xor(data: &[u8], key: &[u8]) -> Vec<u8> {
     if key.is_empty() {
@@ -141,6 +153,18 @@ mod tests {
     fn packer() {
         let src = r"<script>eval(function(p,a,c,k,e,d){while(c--)if(k[c])p=p.replace(new RegExp('\\b'+c.toString(a)+'\\b','g'),k[c]);return p}('0 1=\'2://3.4/5.6\';',7,7,'var|src|https|cdn|example|master|m3u8'.split('|'),0,{}))</script>";
         assert_eq!(unpack_packer(src).as_deref(), Some("var src='https://cdn.example/master.m3u8';"));
+    }
+
+    #[test]
+    fn nulls_become_defaults() {
+        #[derive(serde::Deserialize)]
+        struct T {
+            #[serde(default, deserialize_with = "null_default")]
+            v: Vec<String>,
+        }
+        assert!(serde_json::from_str::<T>(r#"{"v":null}"#).unwrap().v.is_empty());
+        assert!(serde_json::from_str::<T>(r#"{}"#).unwrap().v.is_empty());
+        assert_eq!(serde_json::from_str::<T>(r#"{"v":["a"]}"#).unwrap().v, vec!["a"]);
     }
 
     #[test]

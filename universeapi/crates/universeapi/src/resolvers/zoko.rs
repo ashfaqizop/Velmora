@@ -21,7 +21,7 @@ const KEY: &[u8] = b"otaku-embed-v1";
 #[derive(Debug, Deserialize)]
 pub struct EmbedConfig {
     pub src: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     pub subtitles: Vec<EmbedSub>,
     pub download_url: Option<String>,
 }

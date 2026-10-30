@@ -141,7 +141,7 @@ impl HdHub {
 
 #[derive(Debug, Deserialize)]
 struct TsResponse {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     hits: Vec<TsHit>,
 }
 
@@ -156,11 +156,11 @@ struct TsDoc {
     permalink: String,
     #[serde(default)]
     post_thumbnail: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     category: Vec<String>,
     #[serde(default)]
     imdb_id: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     stars: Vec<String>,
 }
 

@@ -18,7 +18,7 @@ pub struct Cinemeta {
 
 #[derive(Debug, Deserialize)]
 struct Catalog {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     metas: Vec<Meta>,
 }
 
@@ -43,11 +43,16 @@ struct Meta {
     release_info: Option<String>,
     #[serde(rename = "imdbRating")]
     imdb_rating: Option<String>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     genres: Vec<String>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     cast: Vec<String>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     director: Vec<String>,
     runtime: Option<String>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     trailers: Vec<Trailer>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     videos: Vec<Video>,
 }
 
@@ -225,6 +230,17 @@ mod tests {
         assert_eq!(s.year, Some(2008));
         assert_eq!(s.ids.tmdb, Some(1396));
         assert_eq!(s.rating, Some(9.5));
+    }
+
+    #[test]
+    fn tolerates_null_lists() {
+        // Regression: Cinemeta sends `"cast": null` etc. for some titles (Breaking Bad).
+        let m: Meta = serde_json::from_str(
+            r#"{"id":"tt0903747","type":"series","name":"Breaking Bad","cast":null,"genres":null,"director":null,"trailers":null,"videos":[{"season":1,"episode":1,"name":"Pilot"}]}"#,
+        )
+        .unwrap();
+        assert!(m.cast.is_empty() && m.genres.is_empty());
+        assert_eq!(m.videos.len(), 1);
     }
 
     #[test]

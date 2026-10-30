@@ -424,7 +424,7 @@ mod tests {
     /// Tauri commands require `Send` futures; this fails to compile if any
     /// public engine future stops being `Send`.
     #[allow(dead_code)]
-    fn public_futures_are_send(e: &Engine, t: &TitleSummary, r: &ProviderRef, s: &mut Vec<Source>) {
+    fn public_futures_are_send(e: &Engine, t: &TitleSummary, r: &ProviderRef, s: &mut [Source]) {
         fn assert_send<T: Send>(_: T) {}
         assert_send(e.home());
         assert_send(e.search("x"));

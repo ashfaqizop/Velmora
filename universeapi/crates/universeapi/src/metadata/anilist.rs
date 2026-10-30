@@ -24,7 +24,7 @@ const MEDIA_FIELDS: &str = "id idMal title { romaji english native } coverImage 
 #[derive(Debug, Deserialize)]
 struct Gql<T> {
     data: Option<T>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     errors: Vec<serde_json::Value>,
 }
 
@@ -37,8 +37,10 @@ struct PageData {
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
 struct PageMedia {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     media: Vec<Media>,
     #[serde(rename = "airingSchedules")]
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     airing: Vec<Airing>,
 }
 
@@ -67,9 +69,11 @@ struct Media {
     season_year: Option<u16>,
     episodes: Option<u32>,
     format: Option<String>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     genres: Vec<String>,
     is_adult: bool,
     next_airing_episode: Option<NextEp>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
     streaming_episodes: Vec<StreamingEp>,
     duration: Option<u32>,
     trailer: Option<TrailerRef>,
