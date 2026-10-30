@@ -1,5 +1,8 @@
 //! Content providers. Each maps a site/API into the unified model.
 
+pub mod anime_sama;
+pub mod dramachi;
+pub mod french_stream;
 pub mod fourkhdhub;
 pub mod hdhub;
 pub mod hianime;

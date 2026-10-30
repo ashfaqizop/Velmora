@@ -134,6 +134,7 @@ impl Default for Registry {
             ],
         );
         m(FourKHdHub, &["https://4khdhub.one"]);
+        m(Dramachi, &["https://api.nodeobjects.com"]);
         m(AnimeSama, &["https://anime-sama.pw"]);
         m(FrenchStream, &["https://french-stream.net"]);
         m(Coflix, &["https://coflix.ac"]);

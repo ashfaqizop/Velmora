@@ -14,7 +14,7 @@ use crate::error::{Error, Result};
 use crate::metadata::{anilist::Anilist, cinemeta::Cinemeta, tmdb::Tmdb};
 use crate::model::*;
 use crate::net::{BlockedFallback, Http};
-use crate::providers::{fourkhdhub::FourKHdHub, hdhub::HdHub, hianime::HiAnime, moviebox::MovieBox, same_title, zokoanime::ZokoAnime, Ctx, Provider};
+use crate::providers::{anime_sama::AnimeSama, dramachi::Dramachi, french_stream::FrenchStream, fourkhdhub::FourKHdHub, hdhub::HdHub, hianime::HiAnime, moviebox::MovieBox, same_title, zokoanime::ZokoAnime, Ctx, Provider};
 use crate::rank;
 use crate::resolvers::WebSolver;
 
@@ -80,6 +80,9 @@ impl Engine {
             Arc::new(MovieBox::new(ctx.clone())),
             Arc::new(HdHub::new(ctx.clone())),
             Arc::new(FourKHdHub::new(ctx.clone())),
+            Arc::new(Dramachi::new(ctx.clone())),
+            Arc::new(AnimeSama::new(ctx.clone())),
+            Arc::new(FrenchStream::new(ctx.clone())),
             Arc::new(ZokoAnime::new(ctx.clone())),
             Arc::new(HiAnime::new(ctx.clone())),
         ];

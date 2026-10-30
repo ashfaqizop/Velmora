@@ -186,6 +186,50 @@ pub async fn run(engine: &Engine) -> SmokeReport {
         .await;
     }
 
+    // ── Dramachi ───────────────────────────────────────────────────────
+    check(&mut r, "dramachi: search → episode → CDN file", false, async {
+        let p = engine.provider(ProviderId::Dramachi).unwrap();
+        let hits = p.search("queen of tears").await?;
+        let t = hits.first().ok_or_else(|| anyhow::anyhow!("0 hits"))?;
+        let d = p.detail(&t.origin.id).await?;
+        let eps = d.seasons.first().map(|s| s.episodes.len()).unwrap_or(0);
+        ensure(eps > 0, "no episodes")?;
+        let mut src = p.sources(&d, Target::Episode { season: 1, episode: 1 }, AudioMode::Sub).await?;
+        engine.verify(&mut src).await;
+        let ok = src.iter().filter(|s| s.verified == Some(true)).count();
+        ensure(ok > 0, format!("0 verified of {}", src.len()))?;
+        anyhow::Ok(format!("{} — {eps} eps, S1E1 {ok} verified ({})", d.summary.name, src.iter().map(|s| s.label.as_str()).collect::<Vec<_>>().join(" | ")))
+    })
+    .await;
+
+    // ── French sources ─────────────────────────────────────────────────
+    check(&mut r, "anime-sama: search → season → VOSTFR player", false, async {
+        let p = engine.provider(ProviderId::AnimeSama).unwrap();
+        let hits = p.search("frieren").await?;
+        let t = hits.first().ok_or_else(|| anyhow::anyhow!("0 hits"))?;
+        let d = p.detail(&t.origin.id).await?;
+        ensure(!d.seasons.is_empty(), "no seasons")?;
+        let mut src = p.sources(&d, Target::Episode { season: 1, episode: 1 }, AudioMode::Sub).await?;
+        engine.verify(&mut src).await;
+        let ok: Vec<_> = src.iter().filter(|s| s.verified == Some(true)).map(|s| s.host.clone()).collect();
+        ensure(!ok.is_empty(), format!("0 verified of {}", src.len()))?;
+        anyhow::Ok(format!("{} — {} seasons; verified {ok:?}", d.summary.name, d.seasons.len()))
+    })
+    .await;
+
+    check(&mut r, "french-stream: movie players", false, async {
+        let p = engine.provider(ProviderId::FrenchStream).unwrap();
+        let hits = p.search("dune").await?;
+        let m = hits.iter().find(|h| h.kind == MediaKind::Movie).ok_or_else(|| anyhow::anyhow!("no movie hit"))?;
+        let d = p.detail(&m.origin.id).await?;
+        let mut src = p.sources(&d, Target::Movie, AudioMode::Dub).await?;
+        engine.verify(&mut src).await;
+        let ok: Vec<_> = src.iter().filter(|s| s.verified == Some(true)).map(|s| s.label.clone()).collect();
+        ensure(!ok.is_empty(), format!("0 verified of {}", src.len()))?;
+        anyhow::Ok(format!("{} ({:?}) — verified {ok:?}", d.summary.name, m.year))
+    })
+    .await;
+
     // ── Anime ──────────────────────────────────────────────────────────
     check(&mut r, "zokoanime: MAL fast path (Frieren ep1)", true, async {
         let ids = ExternalIds { mal: Some(52991), ..Default::default() };

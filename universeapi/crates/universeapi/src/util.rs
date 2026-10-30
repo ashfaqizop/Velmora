@@ -86,7 +86,7 @@ pub fn year_from(text: &str) -> Option<u16> {
 }
 
 static PACKED: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?s)\}\s*\(\s*'(.*)',\s*(\d+),\s*(\d+),\s*'(.*?)'\.split\('\|'\)").expect("packer regex")
+    Regex::new(r"(?s)\}\s*\(\s*'(.*?)',\s*(\d+),\s*(\d+),\s*'(.*?)'\.split\('\|'\)").expect("packer regex")
 });
 static WORD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b\w+\b").expect("word regex"));
 
@@ -95,6 +95,15 @@ static WORD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b\w+\b").expect("w
 pub fn unpack_packer(source: &str) -> Option<String> {
     let start = source.find("eval(function(p,a,c,k,e,")?;
     let caps = PACKED.captures(&source[start..])?;
+    unpack_caps(&caps)
+}
+
+/// Unpack every packed block on a page (players often ship more than one).
+pub fn unpack_packer_all(source: &str) -> Vec<String> {
+    PACKED.captures_iter(source).filter_map(|c| unpack_caps(&c)).collect()
+}
+
+fn unpack_caps(caps: &regex::Captures<'_>) -> Option<String> {
     let payload = caps[1].replace("\\'", "'").replace("\\\\", "\\");
     let radix: u32 = caps[2].parse().ok()?;
     let count: usize = caps[3].parse().ok()?;

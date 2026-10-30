@@ -5,6 +5,7 @@
 //! than the full domain, so TLD rotations (`hubcloud.ist` → `hubcloud.foo`)
 //! keep working without a code change.
 
+pub mod embeds;
 mod hub;
 mod players;
 pub mod zoko;

@@ -285,9 +285,10 @@ impl Provider for Tmdb {
     }
 
     async fn rails(&self) -> Result<Vec<Rail>> {
-        let (movies, tv) = tokio::join!(
+        let (movies, tv, kdrama) = tokio::join!(
             self.get::<Paged>("/trending/movie/week", &[]),
-            self.get::<Paged>("/trending/tv/week", &[])
+            self.get::<Paged>("/trending/tv/week", &[]),
+            self.get::<Paged>("/discover/tv", &[("with_original_language", "ko"), ("sort_by", "popularity.desc")])
         );
         let mut rails = Vec::new();
         if let Ok(p) = movies {
@@ -301,6 +302,13 @@ impl Provider for Tmdb {
             rails.push(Rail {
                 id: "trending_series".into(),
                 title: "Trending Series".into(),
+                items: p.results.iter().map(|i| to_summary(i, "tv")).collect(),
+            });
+        }
+        if let Ok(p) = kdrama {
+            rails.push(Rail {
+                id: "kdrama".into(),
+                title: "Popular K-Dramas".into(),
                 items: p.results.iter().map(|i| to_summary(i, "tv")).collect(),
             });
         }
