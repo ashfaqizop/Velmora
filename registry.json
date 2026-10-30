@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "mirrors": {
+    "hd_hub": ["https://new10.hdhub4u.cl"],
+    "hi_anime": ["https://hianime.at"],
+    "zoko_anime": ["https://zokoanime.video"],
+    "movie_box": [
+      "https://api6.aoneroom.com",
+      "https://api5.aoneroom.com",
+      "https://api4.aoneroom.com",
+      "https://api4sg.aoneroom.com",
+      "https://api3.aoneroom.com",
+      "https://api6sg.aoneroom.com",
+      "https://api.inmoviebox.com"
+    ],
+    "four_k_hd_hub": ["https://4khdhub.one"],
+    "dramachi": ["https://api.nodeobjects.com"],
+    "anime_sama": ["https://anime-sama.pw"],
+    "french_stream": ["https://french-stream.net"],
+    "coflix": ["https://coflix.ac"],
+    "yts": ["https://movies-api.accel.li", "https://yts.lt"],
+    "eztv": ["https://eztvx.to", "https://eztv.re"],
+    "nyaa": ["https://nyaa.si"]
+  },
+  "hdhub": {
+    "force_mirror": null,
+    "host_cdn": "https://h4.suncdn.org/host/",
+    "search_url": "https://search.pingora.fyi",
+    "search_collection": "post",
+    "rails": [
+      ["hdhub_latest", "Latest on HDHub", ""],
+      ["hdhub_bollywood", "Bollywood", "bollywood-movies"],
+      ["hdhub_south", "South Hindi Dubbed", "south-hindi-movies"]
+    ]
+  },
+  "host_aliases": {},
+  "disabled": []
+}
