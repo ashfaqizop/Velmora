@@ -222,18 +222,59 @@ fn hblinks_parse(html: &str, parent: &HostedLink, aliases: &std::collections::BT
     out
 }
 
-/// GreenMotors: AES-encrypted id + 10 s ad timer. Needs a JS runtime, so it
-/// goes through the host-provided [`super::WebSolver`] (hidden WebView).
+/// GreenMotors gate (`greenmotors.*/?id=...`). The "AES + 10 s timer" page is
+/// a front: the first response stores the target in localStorage as
+/// `base64(base64(rot13(base64(json))))`, and the JSON's `o` field is the
+/// base64 of the real HubCloud/HubDrive/HBLinks URL. The timer (`w`) is
+/// client-side only, so plain HTTP is enough. The WebView solver remains a
+/// fallback in case the scheme changes.
 pub async fn greenmotors(ctx: &ResolveCtx<'_>, link: &HostedLink) -> Result<Vec<HostedLink>> {
-    let web = ctx
-        .web
-        .ok_or_else(|| Error::Unsupported("GreenMotors needs a WebView solver (provided by the Velmora app)".into()))?;
+    let html = ctx.http.get_text(&link.url, &[("Referer", &origin_of(&link.url))]).await;
+    if let Some(target) = html.as_deref().ok().and_then(greenmotors_decode) {
+        return Ok(vec![child_link(link, &target, ctx.aliases)]);
+    }
+    let web = ctx.web.ok_or_else(|| Error::parse("greenmotors", "gate page has no decodable target"))?;
     let target = web
         .click_through(&link.url, "#verify_btn", Duration::from_secs(13), "hblinks")
         .await?
         .ok_or_else(|| Error::parse("greenmotors", "timer page did not open an hblinks tab"))?;
     let html = ctx.http.get_text(&target, &[]).await?;
     Ok(hblinks_parse(&html, link, ctx.aliases))
+}
+
+/// Decode the target URL from a GreenMotors gate page.
+pub fn greenmotors_decode(html: &str) -> Option<String> {
+    static STORED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#"\bs\(\s*['"]o['"]\s*,\s*['"]([A-Za-z0-9+/=_-]+)['"]"#).expect("regex"));
+    let blob = STORED.captures(html)?.get(1)?.as_str().to_string();
+    let layer2 = b64_decode_str(&b64_decode_str(&blob)?)?;
+    let json_text = b64_decode_str(&rot13(&layer2))?;
+    let v: serde_json::Value = serde_json::from_str(&json_text).ok()?;
+    let target = b64_decode_str(v.get("o")?.as_str()?)?;
+    target.starts_with("http").then_some(target)
+}
+
+fn rot13(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            'a'..='z' => (((c as u8 - b'a' + 13) % 26) + b'a') as char,
+            'A'..='Z' => (((c as u8 - b'A' + 13) % 26) + b'A') as char,
+            _ => c,
+        })
+        .collect()
+}
+
+fn child_link(parent: &HostedLink, url: &str, aliases: &std::collections::BTreeMap<String, String>) -> HostedLink {
+    HostedLink {
+        label: parent.label.clone(),
+        url: url.to_string(),
+        host: HostKind::detect_with(url, aliases).map(|k| k.label().to_string()).unwrap_or_else(|| host_of(url)),
+        tags: parent.tags.clone(),
+        episode: parent.episode,
+        season: parent.season,
+        is_pack: parent.is_pack,
+        is_stream_page: false,
+    }
 }
 
 /// `hbplay.pages.dev/?u=<b64 url>` — the "Watch Online" button just wraps the
@@ -293,6 +334,15 @@ mod tests {
             hbplay_decode(&format!("https://hbplay.pages.dev/?u={u}")).as_deref(),
             Some("https://abc.r2.cloudflarestorage.com/hub/f.mkv")
         );
+    }
+
+    #[test]
+    fn greenmotors_gate_decodes_without_browser() {
+        // Real gate page captured 2026-10-30 (4KHDHub "Dune" link).
+        let html = r#"<script>function s(e,t,i){}s('o','Y214WE0xWjNZbXRhVUdwMmIxQldObFo2ZFRCeFZVOXRRbmxxYVV0UU9XRndla2w1YjNveGFYRlVPV3h3YkRWM1RERnFhVzVVT1dkTlNtdDFiM3BGZVhCNWFtbFdkbXAyYjJ4V05sWjZVMVpJZDA5M1JsSXdNa2RWZURWdk1rVkxSbnBqZGtWdGVHdEtlRm94Y0ZSYWJVaExUVzVHVW1OcVRWUXhTWEY1WW14Q1ZXTkJTVkpKTTBkTFkzZGFVMk5XY0ZRNVFVVXlhMmxXWVRBOQ==',180*1000);</script>"#;
+        assert_eq!(greenmotors_decode(html).as_deref(), Some("https://hubcloud.ist/drive/go3110374dzh0ih"));
+        assert_eq!(greenmotors_decode("<html>no blob</html>"), None);
+        assert_eq!(rot13("Uryyb"), "Hello");
     }
 
     #[test]

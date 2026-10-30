@@ -211,7 +211,6 @@ impl Provider for HdHub {
     }
 
     async fn sources(&self, detail: &TitleDetail, target: Target, _mode: AudioMode) -> Result<Vec<Source>> {
-        let have_web = self.ctx.web.is_some();
         let reg = self.ctx.registry();
         let aliases = &reg.host_aliases;
         let wanted: Vec<&HostedLink> = detail
@@ -224,7 +223,6 @@ impl Provider for HdHub {
             })
             .filter(|l| match HostKind::detect_with(&l.url, aliases) {
                 Some(HostKind::HubStream) => false,
-                Some(HostKind::GreenMotors) => have_web,
                 Some(_) => true,
                 None => false,
             })

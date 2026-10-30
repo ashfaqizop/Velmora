@@ -818,7 +818,7 @@ impl Provider for MovieBox {
         let mut wanted_dubs: Vec<(String, String)> = Vec::new();
         if let Ok(subject) = self.subject(&id).await {
             for (dub_id, code) in dubs(&subject) {
-                if dub_id != id && prefs.audio_languages.iter().any(|l| *l == code) && wanted_dubs.len() < 2 {
+                if dub_id != id && prefs.audio_languages.contains(&code) && wanted_dubs.len() < 2 {
                     wanted_dubs.push((dub_id, code));
                 }
             }

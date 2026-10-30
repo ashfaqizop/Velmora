@@ -147,6 +147,45 @@ pub async fn run(engine: &Engine) -> SmokeReport {
     })
     .await;
 
+    // ── 4KHDHub + GreenMotors (no browser) ─────────────────────────────
+    let fk = engine.provider(ProviderId::FourKHdHub).unwrap();
+    let mut fk_movie: Option<TitleSummary> = None;
+    check(&mut r, "4khdhub: search + detail links", true, async {
+        let hits = fk.search("dune").await?;
+        let m = hits.iter().find(|h| h.kind == MediaKind::Movie).ok_or_else(|| anyhow::anyhow!("no movie hit"))?;
+        let d = fk.detail(&m.origin.id).await?;
+        ensure(!d.links.is_empty(), "no download links parsed")?;
+        fk_movie = Some(m.clone());
+        anyhow::Ok(format!("{} ({:?}) — {} links", d.summary.name, d.summary.year, d.links.len()))
+    })
+    .await;
+
+    if let Some(m) = fk_movie.clone() {
+        check(&mut r, "greenmotors: gate decoded over HTTP", true, async {
+            let d = fk.detail(&m.origin.id).await?;
+            let gate = d
+                .links
+                .iter()
+                .find(|l| l.host == "GreenMotors")
+                .ok_or_else(|| anyhow::anyhow!("no GreenMotors link on page"))?;
+            let html = engine.ctx().http.get_text(&gate.url, &[]).await?;
+            let target = universeapi::resolvers::greenmotors_decode(&html).ok_or_else(|| anyhow::anyhow!("gate not decodable"))?;
+            anyhow::Ok(target)
+        })
+        .await;
+
+        check(&mut r, "4khdhub: movie sources verified", false, async {
+            let d = fk.detail(&m.origin.id).await?;
+            let mut src = fk.sources(&d, Target::Movie, AudioMode::Sub).await?;
+            engine.verify(&mut src).await;
+            let ok = src.iter().filter(|s| s.verified == Some(true)).count();
+            ensure(ok > 0, format!("0 verified of {}", src.len()))?;
+            let hosts: Vec<_> = src.iter().filter(|s| s.verified == Some(true)).map(|s| s.host.as_str()).collect();
+            anyhow::Ok(format!("{ok} verified; {hosts:?}"))
+        })
+        .await;
+    }
+
     // ── Anime ──────────────────────────────────────────────────────────
     check(&mut r, "zokoanime: MAL fast path (Frieren ep1)", true, async {
         let ids = ExternalIds { mal: Some(52991), ..Default::default() };

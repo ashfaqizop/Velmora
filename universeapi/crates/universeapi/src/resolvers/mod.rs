@@ -9,6 +9,8 @@ mod hub;
 mod players;
 pub mod zoko;
 
+pub use hub::greenmotors_decode;
+
 use std::collections::BTreeMap;
 use std::time::Duration;
 

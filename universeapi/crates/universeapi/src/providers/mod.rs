@@ -1,5 +1,6 @@
 //! Content providers. Each maps a site/API into the unified model.
 
+pub mod fourkhdhub;
 pub mod hdhub;
 pub mod hianime;
 pub mod moviebox;
