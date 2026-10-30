@@ -17,8 +17,11 @@
 
 pub mod cache;
 pub mod config;
+pub mod download;
 pub mod engine;
 pub mod error;
+#[cfg(feature = "impersonate")]
+pub mod impersonate;
 pub mod metadata;
 pub mod model;
 pub mod net;

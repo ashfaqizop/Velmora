@@ -26,7 +26,11 @@ scraper = "0.20"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "process"] }
+# Chrome-fingerprint fallback (BoringSSL)
+wreq = "0.16"
+wreq-util = { version = "0.2", features = ["emulation"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
 # torrent engine; rustls build so Android needs no OpenSSL
 librqbit = { version = "9", default-features = false, features = ["rust-tls"] }
 tracing = "0.1"

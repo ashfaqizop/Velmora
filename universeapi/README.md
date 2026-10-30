@@ -24,10 +24,11 @@ universeapi/
 | Resolvers | HubCDN · HubDrive · HubCloud (junk-filtered) · HBLinks · HBPlay · GreenMotors (gate decoded over plain HTTP, WebView fallback) · HDStream4U (P.A.C.K.E.R → HLS) · PixelDrain · French player embeds (uqload, fsvid, vidzy, ansembed/vidmoly, VOE mirrors, sibnet, sendvid, filemoon family) · ZokoAnime (XOR blob → HLS + subs) |
 | Engine | merged search (progressive stream), home rails, cross-provider source gathering, **1 KB range-probe verification** (drops ad/decoy pages), preference-driven ranking |
 | Torrents | librqbit session (feature `torrent`, on by default): picks the episode inside season packs, streams while downloading with a seekable reader, pauses when done unless seeding is turned on |
-| Infra | retry + jittered backoff, Cloudflare detection + pluggable fallback transport, two-level TTL cache (memory + disk), release-name parser |
+| Downloads | queue sized by `max_concurrent_downloads` (changeable live), pause/resume/cancel, HTTP resume from `.part` files, HLS/DASH remuxed to MKV by the ffmpeg sidecar with every track, torrents through the shared session, season zips extracted, subtitles saved beside the video |
+| Infra | retry + jittered backoff, Cloudflare detection, Chrome-fingerprint fallback (`impersonate` feature, `wreq` on BoringSSL) used only after the normal client is refused, two-level TTL cache (memory + disk), release-name parser |
 
-Planned in the next drops: the `wreq` Chrome-fingerprint fallback, the
-download manager (ffmpeg sidecar) and the media proxy.
+Planned in the next drop: the media proxy (header injection and HLS/DASH
+rewriting for the in-app player).
 
 ## Usage
 

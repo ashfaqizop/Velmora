@@ -319,6 +319,46 @@ pub async fn run(engine: &Engine) -> SmokeReport {
     })
     .await;
 
+    // ── Download manager ───────────────────────────────────────────────
+    check(&mut r, "downloads: direct file, then HLS remux + cancel", false, async {
+        use universeapi::download::{DownloadRequest, DownloadState};
+        use universeapi::model::Source;
+        let dm = engine.downloads().clone();
+        let wait = |id: u64, done: fn(&universeapi::download::DownloadStatus) -> bool, secs: u64| {
+            let dm = dm.clone();
+            async move {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+                loop {
+                    let st = dm.list().await.into_iter().find(|s| s.id == id).ok_or_else(|| anyhow::anyhow!("job vanished"))?;
+                    if done(&st) {
+                        return anyhow::Ok(st);
+                    }
+                    if let DownloadState::Failed { error } = &st.state {
+                        anyhow::bail!("job failed: {error}");
+                    }
+                    ensure(std::time::Instant::now() < deadline, format!("timed out in state {:?}", st.state))?;
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                }
+            }
+        };
+
+        let mut file = Source::new(ProviderId::HdHub, "test", "SHA256SUMS", "https://releases.ubuntu.com/24.04/SHA256SUMS");
+        file.filename = Some("SHA256SUMS.txt".into());
+        let id = dm.enqueue(DownloadRequest { source: file, title: "ubuntu-sums".into(), dest_dir: None, episode: None }).await;
+        let st = wait(id, |s| matches!(s.state, DownloadState::Completed { .. }), 60).await?;
+        let DownloadState::Completed { path } = &st.state else { unreachable!() };
+        let bytes = std::fs::metadata(path)?.len();
+        ensure(bytes > 0, "empty file")?;
+
+        let hls = Source::new(ProviderId::HdHub, "test", "HLS test", "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8");
+        let id2 = dm.enqueue(DownloadRequest { source: hls, title: "hls-test".into(), dest_dir: None, episode: None }).await;
+        let st2 = wait(id2, |s| s.downloaded > 2_000_000, 90).await?;
+        dm.cancel(id2).await;
+        wait(id2, |s| s.state == DownloadState::Cancelled, 30).await?;
+        anyhow::Ok(format!("direct {bytes} B ok; ffmpeg remuxed {} KB before cancel", st2.downloaded / 1000))
+    })
+    .await;
+
     // ── Anime ──────────────────────────────────────────────────────────
     check(&mut r, "zokoanime: MAL fast path (Frieren ep1)", true, async {
         let ids = ExternalIds { mal: Some(52991), ..Default::default() };

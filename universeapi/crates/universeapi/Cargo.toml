@@ -27,11 +27,16 @@ tokio.workspace = true
 tracing.workspace = true
 url.workspace = true
 librqbit = { workspace = true, optional = true }
+wreq = { workspace = true, optional = true }
+wreq-util = { workspace = true, optional = true }
+zip.workspace = true
 
 [features]
 default = ["torrent"]
 # BitTorrent download + stream-while-downloading (librqbit)
 torrent = ["dep:librqbit"]
+# Chrome-fingerprint fallback for sites that block the normal client (BoringSSL)
+impersonate = ["dep:wreq", "dep:wreq-util"]
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }

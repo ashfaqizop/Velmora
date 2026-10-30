@@ -29,6 +29,9 @@ pub enum Error {
     #[error("configuration error: {0}")]
     Config(String),
 
+    #[error("transport: {0}")]
+    Transport(String),
+
     #[error("torrent: {0}")]
     Torrent(String),
 
@@ -48,7 +51,7 @@ impl Error {
     /// Whether retrying the same request later could plausibly succeed.
     pub fn is_transient(&self) -> bool {
         match self {
-            Self::Network { .. } => true,
+            Self::Network { .. } | Self::Transport(_) => true,
             Self::Http { status, .. } => matches!(status, 408 | 425 | 429 | 500..=599),
             _ => false,
         }

@@ -129,6 +129,11 @@ impl Http {
                 Ok(text)
             }
             Err(Error::Blocked { .. }) => self.blocked(url, headers).await,
+            // Plain 403/429/503 without challenge markers is often a datacenter-IP
+            // or fingerprint block too; the browser-like fallback may get through.
+            Err(e @ Error::Http { status: 403 | 429 | 503, .. }) if self.fallback.is_some() => {
+                self.blocked(url, headers).await.map_err(|_| e)
+            }
             Err(e) => Err(e),
         }
     }

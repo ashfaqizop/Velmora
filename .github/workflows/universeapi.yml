@@ -38,6 +38,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: universeapi
+      - name: NASM for BoringSSL (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
       - name: Build
         run: cargo build --workspace --all-targets
       - name: Unit tests
@@ -88,6 +91,28 @@ jobs:
         run: |
           export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           cargo ndk -t arm64-v8a check -p universeapi
+
+  android-impersonate:
+    name: Android check (impersonate, informational)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: universeapi
+          key: android-impersonate
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - name: cargo ndk check --features impersonate
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          cargo ndk -t arm64-v8a check -p universeapi --features impersonate
 
   smoke:
     name: Live smoke test

@@ -14,7 +14,7 @@ name = "universeapi"
 path = "src/main.rs"
 
 [dependencies]
-universeapi.workspace = true
+universeapi = { workspace = true, features = ["impersonate"] }
 anyhow.workspace = true
 clap.workspace = true
 futures.workspace = true

@@ -66,8 +66,9 @@ pub struct Engine {
     /// Content providers (produce sources).
     content: Vec<Arc<dyn Provider>>,
     download_dir: PathBuf,
+    downloads: Arc<crate::download::DownloadManager>,
     #[cfg(feature = "torrent")]
-    torrents: tokio::sync::OnceCell<crate::torrent::TorrentEngine>,
+    torrents: crate::download::TorrentSlot,
 }
 
 impl Engine {
@@ -75,13 +76,28 @@ impl Engine {
         let mut http = Http::new(&opts.registry.user_agent)?;
         if let Some(fb) = opts.blocked_fallback {
             http = http.with_fallback(fb);
+        } else {
+            #[cfg(feature = "impersonate")]
+            {
+                http = http.with_fallback(Arc::new(crate::impersonate::ChromeFallback::new()?));
+            }
         }
         let cache = match opts.cache_dir {
             Some(dir) => Cache::with_dir(dir),
             None => Cache::memory(),
         };
         let download_dir = opts.download_dir.unwrap_or_else(|| std::env::temp_dir().join("velmora-downloads"));
+        let max_downloads = opts.preferences.max_concurrent_downloads;
         let ctx = Arc::new(Ctx::new(http, cache, opts.registry, opts.preferences, opts.web_solver));
+        #[cfg(feature = "torrent")]
+        let torrents: crate::download::TorrentSlot = Arc::new(tokio::sync::OnceCell::new());
+        let downloads = Arc::new(crate::download::DownloadManager::new(
+            ctx.clone(),
+            download_dir.clone(),
+            max_downloads,
+            #[cfg(feature = "torrent")]
+            torrents.clone(),
+        ));
         let content: Vec<Arc<dyn Provider>> = vec![
             Arc::new(MovieBox::new(ctx.clone())),
             Arc::new(HdHub::new(ctx.clone())),
@@ -102,10 +118,16 @@ impl Engine {
             anilist: Arc::new(Anilist::new(ctx.clone())),
             content,
             download_dir,
+            downloads,
             #[cfg(feature = "torrent")]
-            torrents: tokio::sync::OnceCell::new(),
+            torrents,
             ctx,
         })
+    }
+
+    /// Download queue (direct files, HLS/DASH via ffmpeg, torrents).
+    pub fn downloads(&self) -> &Arc<crate::download::DownloadManager> {
+        &self.downloads
     }
 
     pub fn download_dir(&self) -> &std::path::Path {
@@ -127,6 +149,7 @@ impl Engine {
     }
 
     pub fn set_preferences(&self, prefs: Preferences) {
+        self.downloads.set_max_concurrent(prefs.max_concurrent_downloads);
         self.ctx.set_prefs(prefs);
     }
 
