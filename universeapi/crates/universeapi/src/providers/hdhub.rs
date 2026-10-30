@@ -239,8 +239,10 @@ impl Provider for HdHub {
 
         let rctx = ResolveCtx { http: &self.ctx.http, provider: ProviderId::HdHub, web: self.ctx.web.as_deref(), aliases };
         let rctx = &rctx;
-        let results: Vec<Result<Vec<Source>>> =
-            stream::iter(wanted).map(|l| resolvers::resolve(rctx, l)).buffer_unordered(6).collect().await;
+        // Build the futures up front: a borrowing closure inside the stream trips
+        // rustc's higher-ranked lifetime check in Send futures (rust-lang#64552).
+        let futs: Vec<_> = wanted.into_iter().map(|l| resolvers::resolve(rctx, l)).collect();
+        let results: Vec<Result<Vec<Source>>> = stream::iter(futs).buffer_unordered(6).collect().await;
 
         let mut out = Vec::new();
         let mut last_err = None;

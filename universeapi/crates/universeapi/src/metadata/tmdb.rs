@@ -5,7 +5,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::future::BoxFuture;
 use futures::stream::{self, StreamExt};
+use futures::FutureExt;
 use serde::Deserialize;
 
 use crate::cache::ttl;
@@ -218,11 +220,18 @@ impl Provider for Tmdb {
         let mut seasons = Vec::new();
         if kind == "tv" {
             let refs: Vec<&SeasonRef> = it.seasons.iter().filter(|s| s.season_number > 0).collect();
-            let fetched: Vec<(u32, Option<String>, Result<SeasonDetail>)> = stream::iter(refs)
-                .map(|r| async move { (r.season_number, r.name.clone(), self.get(&format!("/tv/{tid}/season/{}", r.season_number), &[]).await) })
-                .buffered(4)
-                .collect()
-                .await;
+            // Futures built up front (see rust-lang#64552) and boxed so the stream holds no closure.
+            let futs: Vec<BoxFuture<'_, (u32, Option<String>, Result<SeasonDetail>)>> = refs
+                .into_iter()
+                .map(|r| {
+                    async move {
+                        let path = format!("/tv/{tid}/season/{}", r.season_number);
+                        (r.season_number, r.name.clone(), self.get(&path, &[]).await)
+                    }
+                    .boxed()
+                })
+                .collect();
+            let fetched: Vec<(u32, Option<String>, Result<SeasonDetail>)> = stream::iter(futs).buffered(4).collect().await;
             for (number, name, res) in fetched {
                 let episodes = res
                     .map(|sd| {

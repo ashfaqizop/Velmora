@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::stream::{self, FuturesUnordered, Stream, StreamExt};
+use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 
 use crate::cache::Cache;
@@ -324,17 +325,25 @@ impl Engine {
     /// Probe each source; drop decoys (HTML ad pages), record sizes.
     pub async fn verify(&self, sources: &mut [Source]) {
         let http = &self.ctx.http;
-        let probes: Vec<_> = stream::iter(sources.iter().enumerate())
-            .map(|(i, s)| async move {
-                if s.is_torrent() {
-                    return (i, None);
-                }
+        // Futures are built up front (no borrowing closure inside the stream) so
+        // this stays `Send` for Tauri commands — see rust-lang#64552.
+        let futs: Vec<_> = sources
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let url = s.url.clone();
                 let headers: Vec<(String, String)> = s.headers.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-                (i, http.probe(&s.url, &headers).await.ok())
+                let skip = s.is_torrent();
+                async move {
+                    if skip {
+                        return (i, None);
+                    }
+                    (i, http.probe(&url, &headers).await.ok())
+                }
+                .boxed()
             })
-            .buffer_unordered(8)
-            .collect()
-            .await;
+            .collect();
+        let probes: Vec<(usize, Option<crate::net::Probe>)> = stream::iter(futs).buffer_unordered(8).collect().await;
         for (i, probe) in probes {
             let Some(p) = probe else { continue };
             let s = &mut sources[i];
@@ -410,6 +419,19 @@ mod tests {
         c.year = Some(1984);
         merge_into(&mut list, c);
         assert_eq!(list.len(), 2, "different year stays separate");
+    }
+
+    /// Tauri commands require `Send` futures; this fails to compile if any
+    /// public engine future stops being `Send`.
+    #[allow(dead_code)]
+    fn public_futures_are_send(e: &Engine, t: &TitleSummary, r: &ProviderRef, s: &mut Vec<Source>) {
+        fn assert_send<T: Send>(_: T) {}
+        assert_send(e.home());
+        assert_send(e.search("x"));
+        assert_send(e.detail(r));
+        assert_send(e.sources(t, Target::Movie, AudioMode::Sub));
+        assert_send(e.verify(s));
+        assert_send(e.refresh_registry("https://x"));
     }
 
     #[tokio::test]

@@ -40,7 +40,7 @@ let engine = Engine::new(EngineOptions {
     cache_dir: Some(app_cache_dir),
     ..Default::default()
 })?;
-engine.refresh_registry("https://raw.githubusercontent.com/siliconcode-dev/Velmora/config/registry.json").await?;
+engine.refresh_registry("https://raw.githubusercontent.com/ashfaqizop/Velmora/config/registry.json").await?;
 
 let rails = engine.home().await;
 let hits = engine.search("frieren").await;
