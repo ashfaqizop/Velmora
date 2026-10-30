@@ -380,8 +380,8 @@ impl MovieBox {
         let res_path = format!(
             "{API}/subject-api/resource/v2?subjectId={id}&page=1&perPage=20&all=0&startPosition=1&endPosition=1&pagerMode=2&resolution=0&se={season}&epFrom={episode}&epTo={episode}&isVip=true"
         );
-        let (subject, play, resources) =
-            tokio::join!(self.get(&format!("{API}/subject-api/get?subjectId={id}")), self.get(&play_path), self.get(&res_path));
+        let subject_path = format!("{API}/subject-api/get?subjectId={id}");
+        let (subject, play, resources) = tokio::join!(self.get(&subject_path), self.get(&play_path), self.get(&res_path));
 
         let mut out: Vec<Source> = Vec::new();
         let mut first_resource: Option<String> = None;
