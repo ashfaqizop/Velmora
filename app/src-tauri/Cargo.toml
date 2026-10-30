@@ -1,0 +1,40 @@
+[package]
+name = "velmora"
+version = "0.1.0"
+description = "Velmora: movies, series and anime, one engine"
+edition = "2021"
+rust-version = "1.82"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/ashfaqizop/Velmora"
+publish = false
+
+[lib]
+name = "velmora_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+universeapi = { path = "../../universeapi/crates/universeapi" }
+
+# Desktop only: OTA updates, and the Chrome-fingerprint fallback (BoringSSL
+# doesn't build for Android yet).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "2"
+universeapi = { path = "../../universeapi/crates/universeapi", features = ["impersonate"] }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = 3
+strip = true
+panic = "abort"

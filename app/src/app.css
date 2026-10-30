@@ -1,0 +1,109 @@
+/* Brand fonts: an installed copy wins, then files in public/fonts, then Roboto Flex. */
+@font-face {
+  font-family: "Telegraf";
+  src: local("PP Telegraf"), local("PPTelegraf-Regular"), url("/fonts/PPTelegraf-Regular.woff2") format("woff2"),
+    url("/fonts/PPTelegraf-Regular.otf") format("opentype");
+  font-weight: 100 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Telegraf";
+  src: local("PP Telegraf UltraBold"), local("PPTelegraf-UltraBold"), url("/fonts/PPTelegraf-UltraBold.woff2") format("woff2"),
+    url("/fonts/PPTelegraf-UltraBold.otf") format("opentype");
+  font-weight: 700 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Agrandir";
+  src: local("PP Agrandir"), local("PPAgrandir-Regular"), url("/fonts/PPAgrandir-Regular.woff2") format("woff2"),
+    url("/fonts/PPAgrandir-Regular.otf") format("opentype");
+  font-weight: 100 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Agrandir";
+  src: local("PP Agrandir Text Bold"), local("PPAgrandir-TextBold"), url("/fonts/PPAgrandir-TextBold.woff2") format("woff2"),
+    url("/fonts/PPAgrandir-TextBold.otf") format("opentype");
+  font-weight: 600 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Agrandir";
+  src: local("PP Agrandir Grand Heavy"), local("PPAgrandir-GrandHeavy"), url("/fonts/PPAgrandir-GrandHeavy.woff2") format("woff2"),
+    url("/fonts/PPAgrandir-GrandHeavy.otf") format("opentype");
+  font-weight: 800 900;
+  font-display: swap;
+}
+
+:root {
+  --app-font: "Telegraf", "Roboto Flex Variable", "Segoe UI Variable Text", system-ui, sans-serif;
+  --app-display-font: "Agrandir", "Telegraf", "Roboto Flex Variable", system-ui, sans-serif;
+  --app-titlebar-height: 72px;
+  --app-sidebar-width: 256px;
+  --app-panel-width: 320px;
+  --app-gutter: 24px;
+  /* Brand accents from the Velmora mark. */
+  --brand-coral: #ff5a5a;
+  --brand-indigo: #7b6cff;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--app-font);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#theme,
+#app {
+  display: block;
+  height: 100%;
+}
+
+input,
+textarea {
+  font: inherit;
+  user-select: text;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+/* Display type (hero titles, splash status) uses Agrandir. */
+.display {
+  font-family: var(--app-display-font);
+  letter-spacing: -0.01em;
+}
+
+/* m3e-heading inherits the family; give display/headline variants the brand face. */
+m3e-heading[variant="display"],
+m3e-heading[variant="headline"] {
+  font-family: var(--app-display-font);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

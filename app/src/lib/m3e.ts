@@ -1,0 +1,24 @@
+// Every @m3e/web module the app uses, registered once at startup.
+import "@m3e/web/theme";
+import "@m3e/web/icon";
+import "@m3e/web/icon-button";
+import "@m3e/web/button";
+import "@m3e/web/card";
+import "@m3e/web/chips";
+import "@m3e/web/list";
+import "@m3e/web/avatar";
+import "@m3e/web/badge";
+import "@m3e/web/heading";
+import "@m3e/web/divider";
+import "@m3e/web/loading-indicator";
+import "@m3e/web/progress-indicator";
+import "@m3e/web/nav-menu";
+import "@m3e/web/search";
+import "@m3e/web/slide-group";
+import "@m3e/web/skeleton";
+import "@m3e/web/menu";
+import "@m3e/web/tooltip";
+import "@m3e/web/shape";
+import "@m3e/web/dialog";
+import "@m3e/web/tabs";
+import "@m3e/web/snackbar";

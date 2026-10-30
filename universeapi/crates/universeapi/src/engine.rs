@@ -183,7 +183,19 @@ impl Engine {
     /// Download `registry.json` (repo `config` branch) and apply it over defaults.
     pub async fn refresh_registry(&self, url: &str) -> Result<()> {
         let text = self.ctx.http.get_text(url, &[]).await?;
-        let reg = Registry::from_json_over_defaults(&text)?;
+        let mut reg = Registry::from_json_over_defaults(&text)?;
+        // The public file never holds secrets: keep the keys the app was built
+        // with (and a local mirror override) unless the remote sets its own.
+        let current = self.registry();
+        if reg.tmdb_read_token.is_none() {
+            reg.tmdb_read_token.clone_from(&current.tmdb_read_token);
+        }
+        if reg.tmdb_api_key.is_none() {
+            reg.tmdb_api_key.clone_from(&current.tmdb_api_key);
+        }
+        if reg.hdhub.force_mirror.is_none() {
+            reg.hdhub.force_mirror.clone_from(&current.hdhub.force_mirror);
+        }
         self.ctx.set_registry(reg);
         Ok(())
     }
@@ -519,6 +531,7 @@ mod tests {
         fn assert_send<T: Send>(_: T) {}
         assert_send(e.home());
         assert_send(e.search("x"));
+        assert_send(e.search_stream("x").collect::<Vec<_>>());
         assert_send(e.detail(r));
         assert_send(e.sources(t, Target::Movie, AudioMode::Sub));
         assert_send(e.verify(s));

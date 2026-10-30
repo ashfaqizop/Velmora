@@ -27,3 +27,12 @@ Thumbs.db
 .env
 .env.*
 *.key
+
+# Tauri generated schemas
+app/src-tauri/gen/
+
+# Licensed brand fonts (Pangram Pangram); never commit to the public repo
+app/public/fonts/*.woff2
+app/public/fonts/*.woff
+app/public/fonts/*.otf
+app/public/fonts/*.ttf
