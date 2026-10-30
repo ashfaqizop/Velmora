@@ -173,6 +173,13 @@ impl Engine {
         self.ctx.set_registry(registry);
     }
 
+    /// Fetch the published remote registry ([`crate::config::REGISTRY_URL`]).
+    /// Call this from the launch splash; on failure the engine keeps working
+    /// with its current registry.
+    pub async fn refresh_registry_default(&self) -> Result<()> {
+        self.refresh_registry(crate::config::REGISTRY_URL).await
+    }
+
     /// Download `registry.json` (repo `config` branch) and apply it over defaults.
     pub async fn refresh_registry(&self, url: &str) -> Result<()> {
         let text = self.ctx.http.get_text(url, &[]).await?;

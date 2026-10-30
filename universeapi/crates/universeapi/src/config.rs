@@ -114,6 +114,9 @@ pub struct Registry {
 
 pub const REGISTRY_VERSION: u32 = 1;
 
+/// Remote registry the app fetches on launch (the repo's `config` branch).
+pub const REGISTRY_URL: &str = "https://raw.githubusercontent.com/ashfaqizop/Velmora/config/registry.json";
+
 impl Default for Registry {
     fn default() -> Self {
         use ProviderId::*;

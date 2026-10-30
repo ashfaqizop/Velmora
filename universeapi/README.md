@@ -15,7 +15,7 @@ universeapi/
 > Builds, tests and releases run **only in GitHub Actions**
 > ([workflow](../.github/workflows/universeapi.yml)), never on a dev machine.
 
-## What's in it (v0.1)
+## What's in it (v1.0)
 
 | Layer | Contents |
 |---|---|
@@ -28,8 +28,8 @@ universeapi/
 | Player proxy | `engine.proxy()`: register a source, hand the returned path to the player; requests carry the source's Referer/Cookie/User-Agent, absolute URLs in HLS/DASH manifests are rewritten (relative ones resolve on their own), torrents stream from `/t/{token}` with byte ranges |
 | Infra | retry + jittered backoff, Cloudflare detection, Chrome-fingerprint fallback (`impersonate` feature, `wreq` on BoringSSL) used only after the normal client is refused, two-level TTL cache (memory + disk), release-name parser |
 
-Remaining before v1.0: publishing `registry.json` on the `config` branch and
-tagging the release.
+The app fetches the published registry with `engine.refresh_registry_default()`
+during its launch splash (see "Remote configuration" below).
 
 ## Usage
 
@@ -41,7 +41,7 @@ let engine = Engine::new(EngineOptions {
     cache_dir: Some(app_cache_dir),
     ..Default::default()
 })?;
-engine.refresh_registry("https://raw.githubusercontent.com/ashfaqizop/Velmora/config/registry.json").await?;
+engine.refresh_registry_default().await?; // config branch registry.json
 
 let rails = engine.home().await;
 let hits = engine.search("frieren").await;

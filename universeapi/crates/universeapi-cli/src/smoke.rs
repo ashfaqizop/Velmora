@@ -51,6 +51,16 @@ fn ensure(cond: bool, msg: impl Into<String>) -> anyhow::Result<()> {
 
 pub async fn run(engine: &Engine) -> SmokeReport {
     let mut r = SmokeReport::default();
+
+    // The published config branch must always parse with this engine build;
+    // a bad edit there fails the daily run before users launch the app.
+    check(&mut r, "registry: published config parses", true, async {
+        let text = engine.ctx().http.get_text(universeapi::config::REGISTRY_URL, &[]).await?;
+        let reg = universeapi::Registry::from_json_over_defaults(&text)?;
+        let hd = reg.mirror(ProviderId::HdHub).unwrap_or_default().to_string();
+        anyhow::Ok(format!("version {}, {} mirror lists, HDHub {hd}", reg.version, reg.mirrors.len()))
+    })
+    .await;
     let hd = HdHub::new(engine.ctx().clone());
 
     // ── HDHub (custom API) ─────────────────────────────────────────────

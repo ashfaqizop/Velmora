@@ -1,6 +1,7 @@
 # UniverseAPI Engine — Source Analysis & Unified Design
 
-Status: **Checkpoint 1** (analysis + design, no engine code yet) · 2026-10-30
+Status: **v1.0.0 built** · 2026-10-30. The engine lives in [`universeapi/`](../universeapi/README.md);
+this document keeps the original source analysis and design for reference.
 
 The UniverseAPI Engine is Velmora's single backend for catalog, metadata, streaming and
 downloading. It unifies four sources into one Rust crate that runs inside the Tauri core.
@@ -167,7 +168,32 @@ No cargo builds or packaging on the dev PC. The engine crate is written locally;
 
 ---
 
-## 3. Proposed next phases
+## 3. What was built (v1.0.0)
+
+| Step | Delivered |
+|---|---|
+| Core | unified model, release-name parser, ranking, HTTP layer with retries and a 1 KB link probe, two-level cache, remote registry |
+| HDHub | custom API port with the E2E bugs fixed, mirror failover, every domain remote-configurable |
+| Anime | hianime (ani-cli port), ZokoAnime by MAL id, Anime-Sama, Nyaa |
+| Movies and TV | MovieBox (signed API; series are members-only and handled), 4KHDHub, French-Stream, Coflix, YTS, EZTV |
+| Asian dramas | Dramachi with dub versions, TMDB K-Drama rail |
+| Resolvers | Hub family, GreenMotors decoded over plain HTTP (no browser), hdstream4u, French player embeds including VOE |
+| Metadata | TMDB (key from repo secrets), Cinemeta fallback, AniList trending and airing |
+| Torrents | librqbit session: episode picking inside packs, streaming while downloading, seeding off by default |
+| Network | Chrome-fingerprint fallback (`impersonate`, wreq on BoringSSL) after the normal client is refused |
+| Downloads | queue with live concurrency, resume, ffmpeg remux for HLS/DASH, torrent jobs, zip extraction, subtitles |
+| Player proxy | header injection, HLS/DASH manifest rewriting, torrent byte-range streaming |
+| Remote config | `registry.json` on the `config` branch, checked by the daily smoke test |
+
+Every push builds and tests on Windows, Linux and Android (arm64), and a
+daily scheduled run checks all providers against the live sites.
+
+Known limits at v1.0: MovieBox series need a paid membership; Coflix and
+some torrent APIs refuse datacenter IPs (fine from home connections);
+hubstream.art's player is still encrypted; the Android build of the
+Chrome fallback is not green yet.
+
+## 4. Original proposed phases
 
 1. **Engine core**: model, net, cache, registry, plus the HDHub provider and its 7 resolvers (with the bugs above fixed). Includes a CI workflow running `cargo check` and `cargo test`.
 2. **Providers**: hianime (ani-cli port), MovieBox + 4KHDHub (adapted from MovieBox-TUI), cross-provider merge.

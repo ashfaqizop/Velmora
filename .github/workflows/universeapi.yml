@@ -112,7 +112,7 @@ jobs:
       - name: cargo ndk check --features impersonate
         # BoringSSL's bindgen needs an API-levelled target triple for the NDK headers
         env:
-          BINDGEN_EXTRA_CLANG_ARGS_aarch64_linux_android: --target=aarch64-linux-android24
+          BINDGEN_EXTRA_CLANG_ARGS: --target=aarch64-linux-android24
         run: |
           export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           cargo ndk -t arm64-v8a -P 24 check -p universeapi --features impersonate
