@@ -1,0 +1,21 @@
+name: Feature or source request
+description: Suggest something new, or a site Velmora should search.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like
+      description: What you're trying to do and what's missing today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Optional. Sketches and screenshots of other apps are welcome.
+  - type: input
+    id: site
+    attributes:
+      label: Site (for source requests)
+      description: The site's address and what it carries (movies, anime, a language...). Sites that need a login or paid account can't be added.
