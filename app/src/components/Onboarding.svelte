@@ -4,8 +4,9 @@
   import Logo from "./Logo.svelte";
   import PoweredBy from "./PoweredBy.svelte";
   import DownloadFolder from "./DownloadFolder.svelte";
+  import AniKey from "./AniKey.svelte";
   import { LANGUAGES } from "../lib/options";
-  import { settings } from "../lib/state.svelte";
+  import { ani, settings } from "../lib/state.svelte";
 
   let { ondone }: { ondone: () => void } = $props();
 
@@ -16,6 +17,7 @@
   let torrents = $state(true);
   let french = $state(true);
   let adult = $state(false);
+  let aniOn = $state(true);
   let saving = $state(false);
 
   onMount(async () => {
@@ -48,6 +50,7 @@
       .catch((e) => console.warn("saving preferences failed", e));
     // Turning torrents on here counts as reading the VPN note.
     if (torrents) localStorage.setItem("velmora.torrentNoticeAccepted", "1");
+    ani.setEnabled(aniOn);
     localStorage.setItem("velmora.onboarded", "1");
     ondone();
   }
@@ -64,6 +67,7 @@
         <m3e-step for="ob-watch">How you watch</m3e-step>
         <m3e-step for="ob-sources">Sources</m3e-step>
         <m3e-step for="ob-downloads">Downloads</m3e-step>
+        <m3e-step for="ob-ani">Ani</m3e-step>
 
         <m3e-step-panel id="ob-welcome">
           <div class="step">
@@ -162,6 +166,36 @@
             <h2 class="display">Where should downloads go?</h2>
             <p>Downloaded movies and episodes play offline inside Velmora. Pick a drive with room to spare.</p>
             <DownloadFolder />
+          </div>
+          <div slot="actions" class="actions">
+            <m3e-button><m3e-stepper-previous>Back</m3e-stepper-previous></m3e-button>
+            <m3e-button variant="filled"><m3e-stepper-next>Next</m3e-stepper-next></m3e-button>
+          </div>
+        </m3e-step-panel>
+
+        <m3e-step-panel id="ob-ani">
+          <div class="step">
+            <div class="ani-head">
+              <span class="on-shape ani-mark" aria-hidden="true">
+                <m3e-shape name="very-sunny"></m3e-shape>
+                <m3e-icon name="auto_awesome" filled></m3e-icon>
+              </span>
+              <h2 class="display">Meet Ani</h2>
+            </div>
+            <p>
+              Ani is Velmora's assistant. Ask for "more like Saiyaara" or "a short anime for tonight" and it searches for you,
+              learns what you like from what you watch, and answers with titles you can open.
+            </p>
+            <label class="switch-row">
+              <div>
+                <strong>Use Ani</strong>
+                <span>Adds Ani to the menu. It runs on your own Gemini key, so nothing is sent anywhere without one.</span>
+              </div>
+              <m3e-switch checked={aniOn} onchange={(e: Event) => (aniOn = checked(e))}></m3e-switch>
+            </label>
+            {#if aniOn}
+              <div transition:fade={{ duration: 200 }}><AniKey /></div>
+            {/if}
             <p class="small">You can change all of this later in Settings.</p>
           </div>
           <div slot="actions" class="actions">
@@ -264,6 +298,18 @@
   .switch-row span {
     font-size: 13px;
     color: var(--md-sys-color-on-surface-variant);
+  }
+  .ani-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .ani-mark {
+    --m3e-shape-size: 52px;
+    --m3e-shape-container-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    --m3e-icon-size: 26px;
+    flex: none;
   }
   .actions {
     display: flex;

@@ -3,7 +3,7 @@
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import PoweredBy from "./PoweredBy.svelte";
-  import { downloads, library, nav, type Route } from "../lib/state.svelte";
+  import { ani, downloads, library, nav, type Route } from "../lib/state.svelte";
 
   const main: { label: string; icon: string; route: Route }[] = [
     { label: "Home", icon: "home", route: { name: "home" } },
@@ -14,6 +14,10 @@
     { label: "Downloads", icon: "download", route: { name: "downloads" } },
     { label: "Settings", icon: "settings", route: { name: "settings" } },
   ];
+
+  // Ani sits after the browse pages, and only when the user turned it on.
+  const ANI = { label: "Ani", icon: "auto_awesome", route: { name: "ani" } as Route };
+  const items = $derived(ani.enabled ? [...main.slice(0, 4), ANI, ...main.slice(4)] : main);
 
   function isActive(r: Route) {
     const cur = nav.route;
@@ -52,7 +56,7 @@
 
 <aside class="sidebar">
   <m3e-nav-menu class="menu">
-    {#each main as item (item.label)}
+    {#each items as item (item.label)}
       <m3e-nav-menu-item selected={isActive(item.route)} onclick={() => nav.go(item.route)}>
         <m3e-icon slot="icon" name={item.icon}></m3e-icon>
         <m3e-icon slot="selected-icon" name={item.icon} filled></m3e-icon>

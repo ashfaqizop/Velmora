@@ -237,6 +237,27 @@ impl Anilist {
         Ok(d.page.media.into_iter().map(to_summary).collect())
     }
 
+    /// Anime matching any mix of `search`, `genres`, `sort`, `year`, `season`,
+    /// `status` and `format` (AniList enum values). Unknown keys are dropped;
+    /// AniList ignores the ones left null.
+    pub async fn find(&self, filters: serde_json::Value) -> Result<Vec<TitleSummary>> {
+        let vars = find_vars(filters);
+        self.page(
+            "$search:String,$genres:[String],$sort:[MediaSort],$year:Int,$season:MediaSeason,$status:MediaStatus,$format:MediaFormat",
+            "search: $search, genre_in: $genres, sort: $sort, seasonYear: $year, season: $season, status: $status, format: $format",
+            vars,
+        )
+        .await
+    }
+
+    /// Any read-only AniList query, as raw JSON `data`. Mutations are refused.
+    pub async fn raw(&self, query: &str, vars: serde_json::Value) -> Result<serde_json::Value> {
+        if query.to_ascii_lowercase().contains("mutation") {
+            return Err(Error::Config("AniList: only queries are allowed".into()));
+        }
+        self.query(query, vars).await
+    }
+
     pub async fn trending(&self) -> Result<Vec<TitleSummary>> {
         self.page("$p:Int", "sort: TRENDING_DESC, popularity_greater: $p", json!({ "p": 1000 })).await
     }
@@ -260,6 +281,31 @@ impl Anilist {
         }
         Ok(out)
     }
+}
+
+/// Keep the filters `find` declares. `sort` may come as one value or a list;
+/// without one, search results sort by match and browsing by popularity.
+fn find_vars(filters: serde_json::Value) -> serde_json::Value {
+    const KEYS: &[&str] = &["search", "genres", "sort", "year", "season", "status", "format"];
+    let mut out = serde_json::Map::new();
+    if let serde_json::Value::Object(map) = filters {
+        for (k, v) in map {
+            if KEYS.contains(&k.as_str()) && !v.is_null() {
+                out.insert(k, v);
+            }
+        }
+    }
+    let sort = match out.remove("sort") {
+        Some(serde_json::Value::String(s)) => json!([s]),
+        Some(list @ serde_json::Value::Array(_)) => list,
+        _ if out.contains_key("search") => json!(["SEARCH_MATCH"]),
+        _ => json!(["POPULARITY_DESC"]),
+    };
+    out.insert("sort".into(), sort);
+    if let Some(serde_json::Value::String(g)) = out.get("genres").cloned() {
+        out.insert("genres".into(), json!([g]));
+    }
+    serde_json::Value::Object(out)
 }
 
 fn title_case(s: &str) -> String {
@@ -463,6 +509,15 @@ impl Provider for Anilist {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn find_filters() {
+        let v = find_vars(json!({ "search": "frieren", "admin": true, "year": null }));
+        assert_eq!(v, json!({ "search": "frieren", "sort": ["SEARCH_MATCH"] }));
+        let v = find_vars(json!({ "genres": "Romance", "sort": "SCORE_DESC" }));
+        assert_eq!(v, json!({ "genres": ["Romance"], "sort": ["SCORE_DESC"] }));
+        assert_eq!(find_vars(json!(null)), json!({ "sort": ["POPULARITY_DESC"] }));
+    }
 
     #[test]
     fn media_mapping() {

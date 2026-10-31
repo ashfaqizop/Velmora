@@ -2,6 +2,7 @@
 // (My List and watch history live in localStorage until sync lands).
 import * as api from "./api";
 import type {
+  AniKeyStatus,
   AudioMode,
   DownloadStatus,
   HistoryEntry,
@@ -24,6 +25,7 @@ export type Route =
   | { name: "search"; query: string }
   | { name: "title"; title: TitleSummary }
   | { name: "settings" }
+  | { name: "ani" }
   | {
       name: "player";
       title: TitleSummary;
@@ -337,3 +339,46 @@ class Network {
 }
 
 export const network = new Network();
+
+export const ANI_CHAT_MODEL = "gemini-3.5-flash";
+export const ANI_TOOL_MODEL = "gemini-3.1-flash-lite";
+
+/** Ani's switch, models and key status. The key itself stays in the Rust side. */
+class AniSettings {
+  enabled = $state(localStorage.getItem("velmora.ani.enabled") === "1");
+  chatModel = $state(localStorage.getItem("velmora.ani.chatModel") ?? ANI_CHAT_MODEL);
+  toolModel = $state(localStorage.getItem("velmora.ani.toolModel") ?? ANI_TOOL_MODEL);
+  key = $state<AniKeyStatus | null>(null);
+
+  get ready() {
+    return this.enabled && !!this.key?.set;
+  }
+
+  async loadKey() {
+    if (!this.key) this.key = await api.aniKeyStatus();
+    return this.key;
+  }
+
+  /** Throws Gemini's reason when the key is refused. */
+  async saveKey(key: string | null) {
+    this.key = await api.aniSetKey(key);
+  }
+
+  setEnabled(on: boolean) {
+    this.enabled = on;
+    localStorage.setItem("velmora.ani.enabled", on ? "1" : "0");
+    if (!on && nav.route.name === "ani") nav.go({ name: "home" });
+  }
+
+  setChatModel(id: string) {
+    this.chatModel = id;
+    localStorage.setItem("velmora.ani.chatModel", id);
+  }
+
+  setToolModel(id: string) {
+    this.toolModel = id;
+    localStorage.setItem("velmora.ani.toolModel", id);
+  }
+}
+
+export const ani = new AniSettings();

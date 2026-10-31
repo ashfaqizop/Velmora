@@ -161,6 +161,16 @@ impl Engine {
         self.torrents.get_or_try_init(|| crate::torrent::TorrentEngine::new(self.download_dir().join("torrents"))).await
     }
 
+    /// TMDB, for read-only lookups beyond search and detail (discover, people, collections).
+    pub fn tmdb(&self) -> &Arc<Tmdb> {
+        &self.tmdb
+    }
+
+    /// AniList, for anime lookups beyond search and detail (filters, schedules).
+    pub fn anilist(&self) -> &Arc<Anilist> {
+        &self.anilist
+    }
+
     pub fn ctx(&self) -> &Arc<Ctx> {
         &self.ctx
     }

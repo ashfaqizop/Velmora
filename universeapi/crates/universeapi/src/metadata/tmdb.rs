@@ -250,6 +250,41 @@ impl Tmdb {
         }
         self.ctx.http.get_json_query(&format!("{API}{path}"), &q, &headers).await
     }
+
+    /// Raw JSON from a read-only TMDB path, for callers that shape the answer
+    /// themselves (the app's assistant). Only GET paths listed in `READABLE`.
+    pub async fn raw(&self, path: &str, query: &[(String, String)]) -> Result<serde_json::Value> {
+        if !readable(path) {
+            return Err(Error::Config(format!("TMDB path not allowed: {path}")));
+        }
+        let q: Vec<(&str, &str)> = query
+            .iter()
+            .filter(|(k, _)| !matches!(k.as_str(), "api_key" | "language" | "region"))
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        self.get(path, &q).await
+    }
+
+    /// Titles from a TMDB list (search, discover, trending, credits, collection
+    /// parts). `field` names the array: `results`, `parts`, `cast` or `crew`.
+    pub async fn list(&self, path: &str, query: &[(String, String)], field: &str, fallback_type: &str) -> Result<Vec<TitleSummary>> {
+        let mut v = self.raw(path, query).await?;
+        let items: Vec<Item> = serde_json::from_value(v[field].take()).unwrap_or_default();
+        Ok(items
+            .iter()
+            .filter(|i| matches!(i.media_type.as_deref(), None | Some("movie" | "tv")))
+            .map(|i| to_summary(i, fallback_type))
+            .collect())
+    }
+}
+
+/// TMDB endpoints the assistant may read. All are GETs; none write.
+const READABLE: &[&str] = &["/search/", "/discover/", "/trending/", "/movie/", "/tv/", "/person/", "/collection/", "/genre/"];
+
+fn readable(path: &str) -> bool {
+    READABLE.iter().any(|p| path.starts_with(p))
+        && !path.contains("..")
+        && path.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '-'))
 }
 
 fn img(path: &Option<String>, size: &str) -> Option<String> {
@@ -533,6 +568,17 @@ mod tests {
         assert_eq!(x.keywords, ["heist"]);
         assert_eq!(x.recommendations[0].origin.id, "movie/8");
         assert_eq!(x.rating_source.as_deref(), Some("TMDB"));
+    }
+
+    #[test]
+    fn readable_paths() {
+        assert!(readable("/discover/movie"));
+        assert!(readable("/person/287/combined_credits"));
+        assert!(readable("/tv/1399/season/1"));
+        assert!(!readable("/account/1/favorite"));
+        assert!(!readable("/movie/1/rating?x=1"));
+        assert!(!readable("/movie/../account"));
+        assert!(!readable("https://evil.example/movie/1"));
     }
 
     #[test]

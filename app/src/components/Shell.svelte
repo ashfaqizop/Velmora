@@ -11,6 +11,7 @@
   import Title from "../pages/Title.svelte";
   import Downloads from "../pages/Downloads.svelte";
   import Settings from "../pages/Settings.svelte";
+  import Ani from "../pages/Ani.svelte";
   import { feed, library, nav, network } from "../lib/state.svelte";
 
   let { revealed = false }: { revealed?: boolean } = $props();
@@ -75,6 +76,8 @@
           <Downloads />
         {:else if nav.route.name === "settings"}
           <Settings />
+        {:else if nav.route.name === "ani"}
+          <Ani />
         {:else if nav.route.name === "search"}
           <Search query={nav.route.query} />
         {:else if nav.route.name === "title"}

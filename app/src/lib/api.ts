@@ -1,6 +1,8 @@
 // Thin typed wrappers over the Tauri commands in src-tauri/src/commands.rs.
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
+  AniKeyStatus,
+  AniModel,
   AppInfo,
   AudioMode,
   ConfigStatus,
@@ -113,3 +115,25 @@ export const syncWatched = (title: TitleSummary, target: Target) => invoke<strin
 
 /** Open an https link (IMDb, TMDB, a title's homepage...) in the default browser. */
 export const openExternal = (url: string) => invoke<void>("open_external", { url });
+
+// ── Ani ──
+
+export const aniKeyStatus = () => invoke<AniKeyStatus>("ani_key_status");
+/** Checks the key with Gemini before saving it; `null` removes the saved key. */
+export const aniSetKey = (key: string | null) => invoke<AniKeyStatus>("ani_set_key", { key });
+export const aniModels = () => invoke<AniModel[]>("ani_models");
+
+/** Stream one Gemini call; `onEvent` gets each raw response chunk. */
+export function aniGenerate(id: string, model: string, body: unknown, onEvent: (chunk: unknown) => void): Promise<void> {
+  const channel = new Channel<unknown>();
+  channel.onmessage = onEvent;
+  return invoke("ani_generate", { id, model, body, onEvent: channel });
+}
+export const aniStop = (id: string) => invoke<void>("ani_stop", { id });
+
+export const tmdbRaw = (path: string, query: Record<string, string> = {}) => invoke<unknown>("tmdb_raw", { path, query });
+export const tmdbList = (path: string, query: Record<string, string> = {}, field?: string, kind?: "movie" | "tv") =>
+  invoke<TitleSummary[]>("tmdb_list", { path, query, field, kind });
+export const anilistFind = (filters: Record<string, unknown>) => invoke<TitleSummary[]>("anilist_find", { filters });
+export const anilistRaw = (query: string, variables: Record<string, unknown> = {}) =>
+  invoke<unknown>("anilist_raw", { query, variables });

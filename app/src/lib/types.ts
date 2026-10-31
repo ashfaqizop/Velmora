@@ -243,3 +243,14 @@ export interface RuntimeProgress {
   received: number;
   total: number;
 }
+
+/** Whether a Gemini key is saved for Ani; `hint` is its last four characters. */
+export interface AniKeyStatus {
+  set: boolean;
+  hint: string | null;
+}
+
+export interface AniModel {
+  id: string;
+  displayName: string;
+}

@@ -1,6 +1,7 @@
 //! Velmora desktop/mobile shell: owns the UniverseAPI engine and exposes it
 //! to the web UI as Tauri commands.
 
+mod ani;
 mod commands;
 mod prefs;
 mod runtime;
@@ -83,6 +84,7 @@ pub fn run() {
             // Downloads don't survive a restart, so any .part left in the folder is dead weight.
             let downloads = engine.downloads().clone();
             tauri::async_runtime::spawn(async move { downloads.remove_orphaned_parts().await });
+            app.manage(ani::AniStore::load(&paths.app_local_data_dir()?));
             app.manage(AppState {
                 engine,
                 stream_port,
@@ -140,6 +142,15 @@ pub fn run() {
             commands::trakt_login,
             commands::sync_watched,
             commands::open_external,
+            ani::ani_key_status,
+            ani::ani_set_key,
+            ani::ani_models,
+            ani::ani_generate,
+            ani::ani_stop,
+            ani::tmdb_raw,
+            ani::tmdb_list,
+            ani::anilist_find,
+            ani::anilist_raw,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");

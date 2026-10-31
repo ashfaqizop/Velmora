@@ -4,11 +4,12 @@
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import PoweredBy from "../components/PoweredBy.svelte";
   import DownloadFolder from "../components/DownloadFolder.svelte";
+  import AniKey from "../components/AniKey.svelte";
   import * as api from "../lib/api";
   import { LANGUAGES, PROVIDER_GROUPS, providerLabel } from "../lib/options";
-  import { settings } from "../lib/state.svelte";
+  import { ani, ANI_CHAT_MODEL, ANI_TOOL_MODEL, settings } from "../lib/state.svelte";
   import { slider } from "../lib/slider";
-  import type { AppInfo, MediaKind, Preferences, ProviderId } from "../lib/types";
+  import type { AniModel, AppInfo, MediaKind, Preferences, ProviderId } from "../lib/types";
 
   let info = $state<AppInfo | null>(null);
   const p = $derived(settings.prefs);
@@ -22,11 +23,34 @@
     settings.load();
     api.appInfo().then((i) => (info = i));
     refreshSync();
+    ani.loadKey().catch((e) => console.warn("ani key status", e));
     listen("sync-changed", refreshSync).then((u) => unlisten.push(u));
     listen<string>("sync-error", (e) => M3eSnackbar.open(e.payload, true)).then((u) => unlisten.push(u));
   });
 
   onDestroy(() => unlisten.forEach((u) => u()));
+
+  // Models the saved key can use; fetched again whenever the key changes.
+  let models = $state<AniModel[]>([]);
+  $effect(() => {
+    if (!ani.key?.set) {
+      models = [];
+      return;
+    }
+    api
+      .aniModels()
+      .then((m) => (models = m))
+      .catch((e) => console.warn("ani models", e));
+  });
+
+  /** The picker's choices, always including the current pick and the default. */
+  function modelChoices(current: string, fallback: string): AniModel[] {
+    const list = models.length ? [...models] : [];
+    for (const id of [fallback, current]) {
+      if (!list.some((m) => m.id === id)) list.unshift({ id, displayName: id });
+    }
+    return list;
+  }
 
   const ACCENTS: [string, string][] = [
     ["#6015EA", "Velmora violet"],
@@ -251,6 +275,51 @@
     </section>
 
     <section>
+      <m3e-heading variant="title" size="large" level={2}>Ani</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content" class="rows">
+          <label class="row">
+            <div class="text">
+              <strong>Use Ani</strong>
+              <span>Velmora's assistant, in the menu on the left. It runs on your own Gemini key.</span>
+            </div>
+            <m3e-switch checked={ani.enabled} onchange={(e: Event) => ani.setEnabled(checked(e))}></m3e-switch>
+          </label>
+          {#if ani.enabled}
+            <m3e-divider></m3e-divider>
+            <div class="row key-row">
+              <AniKey />
+            </div>
+            {#if ani.key?.set}
+              <m3e-divider></m3e-divider>
+              <div class="row">
+                <div class="text"><strong>Chat model</strong><span>Writes Ani's answers.</span></div>
+                <m3e-form-field class="field">
+                  <m3e-select aria-label="Chat model" value={ani.chatModel} onchange={(e: Event) => ani.setChatModel(selectValue(e))}>
+                    {#each modelChoices(ani.chatModel, ANI_CHAT_MODEL) as m (m.id)}
+                      <m3e-option value={m.id} selected={ani.chatModel === m.id}>{m.displayName}</m3e-option>
+                    {/each}
+                  </m3e-select>
+                </m3e-form-field>
+              </div>
+              <m3e-divider></m3e-divider>
+              <div class="row">
+                <div class="text"><strong>Research model</strong><span>Looks things up before Ani answers. A small, fast model works best.</span></div>
+                <m3e-form-field class="field">
+                  <m3e-select aria-label="Research model" value={ani.toolModel} onchange={(e: Event) => ani.setToolModel(selectValue(e))}>
+                    {#each modelChoices(ani.toolModel, ANI_TOOL_MODEL) as m (m.id)}
+                      <m3e-option value={m.id} selected={ani.toolModel === m.id}>{m.displayName}</m3e-option>
+                    {/each}
+                  </m3e-select>
+                </m3e-form-field>
+              </div>
+            {/if}
+          {/if}
+        </div>
+      </m3e-card>
+    </section>
+
+    <section>
       <m3e-heading variant="title" size="large" level={2}>Accounts</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
@@ -385,6 +454,9 @@
   }
   .text strong {
     font-weight: 700;
+  }
+  .key-row {
+    display: block;
   }
   .text span,
   .group-head span {
