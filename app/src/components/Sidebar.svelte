@@ -1,6 +1,6 @@
 <script lang="ts">
   import PoweredBy from "./PoweredBy.svelte";
-  import { feed, library, nav, type Route } from "../lib/state.svelte";
+  import { downloads, feed, library, nav, type Route } from "../lib/state.svelte";
 
   const main: { label: string; icon: string; route: Route }[] = [
     { label: "Home", icon: "home", route: { name: "home" } },
@@ -9,6 +9,7 @@
     { label: "Anime", icon: "animation", route: { name: "browse", kind: "anime" } },
     { label: "My List", icon: "bookmarks", route: { name: "mylist" } },
     { label: "Downloads", icon: "download", route: { name: "downloads" } },
+    { label: "Settings", icon: "settings", route: { name: "settings" } },
   ];
 
   // Collections are the engine's home rails; dot colours echo the reference's genre list.
@@ -32,6 +33,8 @@
         <span slot="label">{item.label}</span>
         {#if item.route.name === "mylist" && library.watchlist.length}
           <span slot="badge">{library.watchlist.length}</span>
+        {:else if item.route.name === "downloads" && downloads.active}
+          <span slot="badge">{downloads.active}</span>
         {/if}
       </m3e-nav-menu-item>
     {/each}
@@ -141,7 +144,7 @@
     gap: 6px;
   }
   .copy strong {
-    font-size: 19px;
+    font-size: 22px;
     line-height: 1.2;
   }
   .copy span {

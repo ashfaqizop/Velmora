@@ -3,6 +3,7 @@
   import * as api from "../lib/api";
   import type { TitleSummary } from "../lib/types";
   import { keyOf } from "../lib/state.svelte";
+  import { providerLabel } from "../lib/options";
 
   let { query }: { query: string } = $props();
 
@@ -32,7 +33,7 @@
       });
   });
 
-  const label = (id: string) => id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const label = providerLabel;
 </script>
 
 <div class="page">

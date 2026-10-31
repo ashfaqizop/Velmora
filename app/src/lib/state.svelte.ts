@@ -1,7 +1,17 @@
 // App-wide state: navigation, the home feed, and the local library
 // (My List and watch history live in localStorage until sync lands).
 import * as api from "./api";
-import type { AudioMode, HistoryEntry, MediaKind, Rail, Target, TitleDetail, TitleSummary } from "./types";
+import type {
+  AudioMode,
+  DownloadStatus,
+  HistoryEntry,
+  MediaKind,
+  Preferences,
+  Rail,
+  Target,
+  TitleDetail,
+  TitleSummary,
+} from "./types";
 
 export type Browse = "movie" | "series" | "anime";
 
@@ -13,7 +23,16 @@ export type Route =
   | { name: "downloads" }
   | { name: "search"; query: string }
   | { name: "title"; title: TitleSummary }
-  | { name: "player"; title: TitleSummary; target: Target; mode: AudioMode; detail?: TitleDetail };
+  | { name: "settings" }
+  | {
+      name: "player";
+      title: TitleSummary;
+      target: Target;
+      mode: AudioMode;
+      detail?: TitleDetail;
+      /** A finished download to play offline instead of looking up sources. */
+      file?: string;
+    };
 
 class Nav {
   route = $state<Route>({ name: "home" });
@@ -218,3 +237,86 @@ export function formatTime(seconds: number | null | undefined) {
   const sec = String(s % 60).padStart(2, "0");
   return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 }
+
+const ACTIVE = new Set(["queued", "running", "extracting"]);
+
+/** Download queue, polled from the engine while anything is moving. */
+class Downloads {
+  items = $state<DownloadStatus[]>([]);
+  private timer: ReturnType<typeof setInterval> | undefined;
+  private watchers = 0;
+
+  get active() {
+    return this.items.filter((d) => ACTIVE.has(d.state.state)).length;
+  }
+
+  async refresh() {
+    try {
+      this.items = await api.downloadsList();
+    } catch (e) {
+      console.warn("downloads list failed", e);
+    }
+    if (!this.active && !this.watchers) this.stop();
+  }
+
+  /** Keep polling while the caller is interested (the Downloads page). */
+  watch(): () => void {
+    this.watchers++;
+    this.start();
+    return () => {
+      this.watchers--;
+    };
+  }
+
+  /** Poll until the queue settles (after starting a download). */
+  start() {
+    if (!this.timer) this.timer = setInterval(() => this.refresh(), 1000);
+    this.refresh();
+  }
+
+  private stop() {
+    clearInterval(this.timer);
+    this.timer = undefined;
+  }
+}
+
+export const downloads = new Downloads();
+
+/** Engine preferences plus a few UI-only choices kept in localStorage. */
+class Settings {
+  prefs = $state<Preferences | null>(null);
+  audioMode = $state<AudioMode>((localStorage.getItem("velmora.audioMode") as AudioMode | null) ?? "sub");
+  accent = $state(localStorage.getItem("velmora.accent") ?? DEFAULT_ACCENT);
+
+  async load() {
+    if (!this.prefs) this.prefs = await api.getPreferences();
+    return this.prefs;
+  }
+
+  /** Apply a change and save it; the engine uses it from the next request on. */
+  async update(patch: Partial<Preferences>) {
+    const current = await this.load();
+    const next = { ...$state.snapshot(current), ...patch } as Preferences;
+    this.prefs = next;
+    await api.setPreferences(next);
+  }
+
+  setAudioMode(m: AudioMode) {
+    this.audioMode = m;
+    localStorage.setItem("velmora.audioMode", m);
+  }
+
+  setAccent(color: string) {
+    this.accent = color;
+    localStorage.setItem("velmora.accent", color);
+    applyAccent(color);
+  }
+}
+
+export const DEFAULT_ACCENT = "#6015EA";
+
+export function applyAccent(color: string) {
+  document.getElementById("theme")?.setAttribute("color", color);
+}
+
+export const settings = new Settings();

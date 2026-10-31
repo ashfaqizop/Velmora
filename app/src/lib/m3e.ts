@@ -24,3 +24,8 @@ import "@m3e/web/tabs";
 import "@m3e/web/snackbar";
 import "@m3e/web/slider";
 import "@m3e/web/segmented-button";
+import "@m3e/web/switch";
+import "@m3e/web/select";
+import "@m3e/web/option";
+import "@m3e/web/form-field";
+import "@m3e/web/stepper";

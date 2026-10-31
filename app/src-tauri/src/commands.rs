@@ -8,10 +8,11 @@ use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
 use universeapi::model::{AudioMode, ProviderRef, Rail, Source, Target, TitleDetail, TitleSummary};
+use universeapi::download::{DownloadRequest, DownloadStatus};
 use universeapi::torrent::TorrentProgress;
-use universeapi::{SearchBatch, SourcesReport};
+use universeapi::{Preferences, SearchBatch, SourcesReport};
 
-use crate::{AppState, StreamSession};
+use crate::{prefs, runtime, AppState, StreamSession};
 
 const CONFIG_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -175,4 +176,99 @@ pub async fn torrent_status(state: State<'_, AppState>, id: String) -> Result<Op
     let engine = state.engine.clone();
     let te = engine.torrents().await.map_err(|e| e.to_string())?;
     Ok(Some(te.progress(&job)))
+}
+
+// ── First-launch components ────────────────────────────────────────────
+
+#[tauri::command]
+pub fn runtime_ready(state: State<'_, AppState>) -> bool {
+    runtime::is_ready(&state.runtime_dir)
+}
+
+#[tauri::command]
+pub async fn install_runtime(state: State<'_, AppState>, on_progress: Channel<runtime::Progress>) -> Result<(), String> {
+    let engine = state.engine.clone();
+    let dir = state.runtime_dir.clone();
+    runtime::install(&engine, &dir, &on_progress).await
+}
+
+// ── Preferences ────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_preferences(state: State<'_, AppState>) -> Preferences {
+    (*state.engine.preferences()).clone()
+}
+
+#[tauri::command]
+pub fn set_preferences(state: State<'_, AppState>, preferences: Preferences) -> Result<(), String> {
+    prefs::save(&state.prefs_file, &preferences)?;
+    state.engine.set_preferences(preferences);
+    Ok(())
+}
+
+// ── Downloads ──────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn download_start(
+    state: State<'_, AppState>,
+    source: Source,
+    title: String,
+    episode: Option<(u32, u32)>,
+) -> Result<u64, String> {
+    let downloads = state.engine.downloads().clone();
+    Ok(downloads.enqueue(DownloadRequest { source, title, dest_dir: None, episode }).await)
+}
+
+#[tauri::command]
+pub async fn downloads_list(state: State<'_, AppState>) -> Result<Vec<DownloadStatus>, String> {
+    let downloads = state.engine.downloads().clone();
+    Ok(downloads.list().await)
+}
+
+#[tauri::command]
+pub async fn download_pause(state: State<'_, AppState>, id: u64) -> Result<(), String> {
+    let downloads = state.engine.downloads().clone();
+    downloads.pause(id).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn download_resume(state: State<'_, AppState>, id: u64) -> Result<(), String> {
+    let downloads = state.engine.downloads().clone();
+    downloads.resume(id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn download_cancel(state: State<'_, AppState>, id: u64) -> Result<(), String> {
+    let downloads = state.engine.downloads().clone();
+    downloads.cancel(id).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn downloads_clear(state: State<'_, AppState>) -> Result<(), String> {
+    let downloads = state.engine.downloads().clone();
+    downloads.clear_finished().await;
+    Ok(())
+}
+
+/// Show a finished download in the file manager. Only paths inside the
+/// download folder are accepted.
+#[tauri::command]
+pub fn reveal_file(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    let file = std::path::Path::new(&path).canonicalize().map_err(|e| e.to_string())?;
+    let root = state.engine.download_dir().canonicalize().map_err(|e| e.to_string())?;
+    if !file.starts_with(&root) {
+        return Err("not a Velmora download".into());
+    }
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer").arg(format!("/select,{}", file.display())).spawn().map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(windows))]
+    {
+        let folder = file.parent().unwrap_or(&root);
+        std::process::Command::new("xdg-open").arg(folder).spawn().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }

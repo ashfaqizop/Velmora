@@ -155,3 +155,45 @@ export interface TorrentProgress {
   uploaded: number;
   finished: boolean;
 }
+
+/** Engine preferences (universeapi::config::Preferences). */
+export interface Preferences {
+  preferred_resolution: number;
+  max_auto_resolution: number;
+  preferred_codec: "h264" | "h265" | "av1" | "vp9";
+  audio_languages: string[];
+  subtitle_languages: string[];
+  show_adult: boolean;
+  include_torrents: boolean;
+  include_french: boolean;
+  provider_order: Partial<Record<MediaKind, ProviderId[]>>;
+  disabled_providers: ProviderId[];
+  verify_sources: boolean;
+  max_concurrent_downloads: number;
+  seed_after_download: boolean;
+  region: string | null;
+}
+
+export type DownloadState =
+  | { state: "queued" }
+  | { state: "running" }
+  | { state: "paused" }
+  | { state: "extracting" }
+  | { state: "completed"; path: string }
+  | { state: "failed"; error: string }
+  | { state: "cancelled" };
+
+export interface DownloadStatus {
+  id: number;
+  title: string;
+  state: DownloadState;
+  downloaded: number;
+  total: number | null;
+  bytes_per_sec: number;
+}
+
+export interface RuntimeProgress {
+  label: string;
+  received: number;
+  total: number;
+}

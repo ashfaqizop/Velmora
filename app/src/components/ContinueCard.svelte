@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { HistoryEntry } from "../lib/types";
-  import { formatLeft, nav } from "../lib/state.svelte";
+  import { formatLeft, nav, settings } from "../lib/state.svelte";
   import type { Target } from "../lib/types";
 
   let { entry }: { entry: HistoryEntry } = $props();
@@ -11,7 +11,6 @@
   const target = $derived<Target>(
     entry.episode !== undefined ? { type: "episode", season: entry.season ?? 1, episode: entry.episode } : { type: "movie" },
   );
-  const mode = (localStorage.getItem("velmora.audioMode") as "sub" | "dub" | null) ?? "sub";
   const sub = $derived(
     [entry.episode ? `S${entry.season ?? 1} E${entry.episode}` : null, formatLeft(entry.duration - entry.position)]
       .filter(Boolean)
@@ -19,7 +18,7 @@
   );
 </script>
 
-<m3e-card actionable variant="filled" class="cw" onclick={() => nav.go({ name: "player", title: t, target, mode })}>
+<m3e-card actionable variant="filled" class="cw" onclick={() => nav.go({ name: "player", title: t, target, mode: settings.audioMode })}>
   <div class="art" style:background-image={art ? `url("${art}")` : undefined}>
     <span class="play"><m3e-icon name="play_arrow" filled></m3e-icon></span>
     <m3e-linear-progress-indicator value={percent}></m3e-linear-progress-indicator>

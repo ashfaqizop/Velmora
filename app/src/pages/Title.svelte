@@ -1,15 +1,15 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
   import * as api from "../lib/api";
-  import type { AudioMode, Target, TitleDetail, TitleSummary } from "../lib/types";
-  import { formatLeft, kindLabel, library, nav, nextEpisode, targetLabel } from "../lib/state.svelte";
+  import { openDownload } from "../lib/overlays";
+  import type { Target, TitleDetail, TitleSummary } from "../lib/types";
+  import { formatLeft, kindLabel, library, nav, nextEpisode, settings, targetLabel } from "../lib/state.svelte";
 
   let { title }: { title: TitleSummary } = $props();
 
   let detail = $state<TitleDetail | null>(null);
   let error = $state<string | null>(null);
   let season = $state(1);
-  let mode = $state<AudioMode>((localStorage.getItem("velmora.audioMode") as AudioMode) ?? "sub");
 
   $effect(() => {
     const t = title;
@@ -54,12 +54,7 @@
 
   function play(target: Target | null) {
     if (!target) return;
-    nav.go({ name: "player", title, target, mode, detail: detail ?? undefined });
-  }
-
-  function setMode(m: AudioMode) {
-    mode = m;
-    localStorage.setItem("velmora.audioMode", m);
+    nav.go({ name: "player", title, target, mode: settings.audioMode, detail: detail ?? undefined });
   }
 
   /** Progress through an episode, for the bar under its row. */
@@ -105,10 +100,16 @@
           <m3e-icon slot="selected-icon" name="check"></m3e-icon>
           My List
         </m3e-button>
+        {#if !episodic}
+          <m3e-icon-button id="btn-download" variant="tonal" size="medium" aria-label="Download" onclick={() => openDownload(title, { type: "movie" })}>
+            <m3e-icon name="download"></m3e-icon>
+          </m3e-icon-button>
+          <m3e-tooltip for="btn-download">Download</m3e-tooltip>
+        {/if}
         {#if s.kind === "anime"}
           <m3e-segmented-button aria-label="Audio">
-            <m3e-button-segment checked={mode === "sub"} onclick={() => setMode("sub")}>Sub</m3e-button-segment>
-            <m3e-button-segment checked={mode === "dub"} onclick={() => setMode("dub")}>Dub</m3e-button-segment>
+            <m3e-button-segment checked={settings.audioMode === "sub"} onclick={() => settings.setAudioMode("sub")}>Sub</m3e-button-segment>
+            <m3e-button-segment checked={settings.audioMode === "dub"} onclick={() => settings.setAudioMode("dub")}>Dub</m3e-button-segment>
           </m3e-segmented-button>
         {/if}
       </div>
@@ -161,7 +162,16 @@
                 {#if ep.overview || ep.air_date}
                   <span slot="supporting-text">{ep.overview ?? ep.air_date}</span>
                 {/if}
-                <m3e-icon slot="trailing" name="play_circle"></m3e-icon>
+                <m3e-icon-button
+                  slot="trailing"
+                  aria-label="Download episode {ep.number}"
+                  onclick={(e: Event) => {
+                    e.stopPropagation();
+                    openDownload(title, { type: "episode", season, episode: ep.number }, detail ?? undefined);
+                  }}
+                >
+                  <m3e-icon name="download"></m3e-icon>
+                </m3e-icon-button>
               </m3e-list-action>
             {/each}
           </m3e-list>
@@ -212,9 +222,9 @@
   }
   h1 {
     margin: 0;
-    font-size: clamp(30px, 3.4vw, 46px);
-    line-height: 1.05;
-    font-weight: 800;
+    font-size: clamp(36px, 4vw, 54px);
+    line-height: 1.02;
+    font-weight: 400;
   }
   .meta {
     display: flex;

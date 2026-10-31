@@ -87,6 +87,9 @@
       <m3e-menu-item onclick={() => nav.go({ name: "downloads" })}>
         <m3e-icon slot="icon" name="download"></m3e-icon>Downloads
       </m3e-menu-item>
+      <m3e-menu-item onclick={() => nav.go({ name: "settings" })}>
+        <m3e-icon slot="icon" name="settings"></m3e-icon>Settings
+      </m3e-menu-item>
       <m3e-divider></m3e-divider>
       <m3e-menu-item onclick={onabout}>
         <m3e-icon slot="icon" name="info"></m3e-icon>About Velmora

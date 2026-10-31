@@ -10,6 +10,7 @@
   import Search from "../pages/Search.svelte";
   import Title from "../pages/Title.svelte";
   import Downloads from "../pages/Downloads.svelte";
+  import Settings from "../pages/Settings.svelte";
   import { feed, library, nav } from "../lib/state.svelte";
 
   let { revealed = false }: { revealed?: boolean } = $props();
@@ -62,6 +63,8 @@
           </Grid>
         {:else if nav.route.name === "downloads"}
           <Downloads />
+        {:else if nav.route.name === "settings"}
+          <Settings />
         {:else if nav.route.name === "search"}
           <Search query={nav.route.query} />
         {:else if nav.route.name === "title"}

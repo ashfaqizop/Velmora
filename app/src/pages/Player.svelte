@@ -14,11 +14,18 @@
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { startMpv, stopMpv } from "../lib/mpv";
+  import { isTorrent, providerName, sourceChips } from "../lib/sources";
+  import { torrentConsent } from "../lib/overlays";
   import type { AudioMode, OpenedStream, Source, SourcesReport, Target, TitleDetail, TitleSummary } from "../lib/types";
   import { formatTime, library, nav, nextEpisode, targetLabel } from "../lib/state.svelte";
 
-  let { title, target, mode, detail }: { title: TitleSummary; target: Target; mode: AudioMode; detail?: TitleDetail } =
-    $props();
+  let {
+    title,
+    target,
+    mode,
+    detail,
+    file,
+  }: { title: TitleSummary; target: Target; mode: AudioMode; detail?: TitleDetail; file?: string } = $props();
 
   const OBSERVED = [
     ["pause", "flag"],
@@ -140,6 +147,15 @@
       return;
     }
 
+    if (file) {
+      // Offline: a finished download plays straight from disk.
+      phase = "opening";
+      status = "Opening download";
+      await setProperty("start", String(library.resumeAt(title, target) || "none"));
+      await command("loadfile", [file]).catch(() => fail("This file couldn't be opened."));
+      return;
+    }
+
     try {
       report = await api.sources(title, target, mode);
     } catch (e) {
@@ -195,7 +211,11 @@
     phase = "opening";
     ended = false;
     upNext = null;
-    status = src.torrent || src.format === "torrent" ? "Connecting to peers" : `Opening ${providerName(src)}`;
+    if (isTorrent(src) && !(await torrentConsent())) {
+      onSourceFailed();
+      return;
+    }
+    status = isTorrent(src) ? "Connecting to peers" : `Opening ${providerName(src)}`;
 
     const previous = stream;
     stream = null;
@@ -230,7 +250,11 @@
   }
 
   function onSourceFailed() {
-    if (!report || !alive) return;
+    if (!alive) return;
+    if (!report) {
+      fail(file ? "This file couldn't be played." : "The source couldn't be played.");
+      return;
+    }
     if (!failed.includes(current)) failed = [...failed, current];
     const nextIndex = report.sources.findIndex((_, i) => !failed.includes(i));
     if (nextIndex < 0) {
@@ -370,24 +394,6 @@
   }
 
   // ── Labels ─────────────────────────────────────────────────────────
-
-  function providerName(s: Source) {
-    return s.provider.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-
-  function sourceChips(s: Source) {
-    const t = s.tags;
-    const size = s.size_bytes ?? t.size_bytes;
-    return [
-      t.resolution ? (t.resolution >= 2160 ? "4K" : `${t.resolution}p`) : null,
-      t.codec === "h265" ? "HEVC" : t.codec?.toUpperCase(),
-      t.hdr && t.hdr !== "sdr" ? (t.hdr === "dolby_vision" ? "Dolby Vision" : "HDR") : null,
-      t.french ?? null,
-      t.multi_audio ? "Multi audio" : null,
-      size ? `${(size / 1_073_741_824).toFixed(1)} GB` : null,
-      s.torrent?.seeders != null ? `${s.torrent.seeders} seeds` : null,
-    ].filter(Boolean) as string[];
-  }
 
   const trackName = (t: MpvTrack) => t.title || (t.lang ? t.lang.toUpperCase() : `Track ${t.id}`);
 </script>
@@ -630,8 +636,8 @@
     flex-direction: column;
   }
   .name {
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 24px;
+    font-weight: 400;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -31,11 +31,9 @@ Thumbs.db
 # Tauri generated schemas
 app/src-tauri/gen/
 
-# Licensed brand fonts (Pangram Pangram); never commit to the public repo
-app/public/fonts/*.woff2
-app/public/fonts/*.woff
-app/public/fonts/*.otf
-app/public/fonts/*.ttf
-
-# mpv DLLs, fetched in CI by tauri-plugin-libmpv-api setup-lib
+# mpv DLLs fetched locally for packaging the runtime release
 app/src-tauri/lib/
+
+# Runtime binaries dropped locally for packaging (shipped via the runtime release)
+/ffmpeg.exe
+/ffprobe.exe

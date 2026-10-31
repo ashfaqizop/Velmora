@@ -16,6 +16,7 @@
     | { kind: "downloading"; version: string; connecting: boolean; percent: number }
     | { kind: "installing"; version: string }
     | { kind: "config" }
+    | { kind: "components"; label: string; connecting: boolean; percent: number; received: number; total: number }
     | { kind: "ready"; note: string };
 
   let shown = $state(false);
@@ -28,6 +29,7 @@
   let shapeA = $derived(SHAPES[morph % SHAPES.length]);
   let shapeB = $derived(SHAPES[(morph + 3) % SHAPES.length]);
 
+  const mb = (n: number) => `${Math.round(n / 1_048_576)} MB`;
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   /** Keep each status on screen long enough to be read. */
   async function atLeast<T>(ms: number, work: Promise<T>): Promise<T> {
@@ -48,6 +50,13 @@
         return { title: "Installing update", detail: "Velmora restarts by itself when it's done" };
       case "config":
         return { title: "Updating config", detail: "Fetching the latest sources and mirrors" };
+      case "components":
+        return {
+          title: "Setting up Velmora",
+          detail: step.connecting
+            ? "Connecting to GitHub"
+            : `${step.label} · ${mb(step.received)} of ${mb(step.total)}`,
+        };
       case "ready":
         return { title: "All set", detail: step.note };
       default:
@@ -87,6 +96,26 @@
     }
   }
 
+  /** First launch only: fetch the player and download tools. Returns a note on failure. */
+  async function installComponents(): Promise<string | null> {
+    if (await api.runtimeReady().catch(() => false)) return null;
+    step = { kind: "components", label: "", connecting: true, percent: 0, received: 0, total: 0 };
+    try {
+      await api.installRuntime((p) => {
+        if (step?.kind !== "components") return;
+        step.label = p.label;
+        step.received = p.received;
+        step.total = p.total;
+        step.percent = p.total ? Math.min(100, (p.received / p.total) * 100) : 0;
+        if (p.received > 0) step.connecting = false;
+      });
+      return null;
+    } catch (e) {
+      console.warn("component setup failed", e);
+      return "Couldn't download the player yet, Velmora will retry next launch";
+    }
+  }
+
   async function run() {
     await sleep(60);
     shown = true;
@@ -101,7 +130,10 @@
     step = { kind: "config" };
     const status = await atLeast(900, api.refreshConfig().catch(() => ({ updated: false, message: "offline" })));
     markConfigReady();
-    step = { kind: "ready", note: status.updated ? "Config is up to date" : "Couldn't reach GitHub, using saved config" };
+
+    const setup = await installComponents();
+    const configNote = status.updated ? "Config is up to date" : "Couldn't reach GitHub, using saved config";
+    step = { kind: "ready", note: setup ?? configNote };
 
     await sleep(650);
     leaving = true;
@@ -142,7 +174,7 @@
       </div>
 
       <div class="indicator">
-        {#if step.kind === "downloading"}
+        {#if step.kind === "downloading" || step.kind === "components"}
           <div class="ring" class:visible={step.connecting}>
             <m3e-circular-progress-indicator variant="wavy" indeterminate></m3e-circular-progress-indicator>
           </div>

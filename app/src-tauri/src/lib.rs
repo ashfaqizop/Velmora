@@ -2,6 +2,8 @@
 //! to the web UI as Tauri commands.
 
 mod commands;
+mod prefs;
+mod runtime;
 mod stream;
 
 use std::collections::HashMap;
@@ -10,7 +12,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::{App, Manager};
 use universeapi::config::Registry;
-use universeapi::{Engine, EngineOptions};
+use universeapi::{Engine, EngineOptions, Preferences};
 
 /// TMDB credentials, injected from repo secrets by the release workflow.
 /// Local and CI check builds have none and use Cinemeta instead.
@@ -23,6 +25,10 @@ pub struct AppState {
     pub stream_port: u16,
     /// Streams currently handed to the player, by id.
     pub sessions: Mutex<HashMap<String, StreamSession>>,
+    /// Folder holding the first-launch components (see `runtime.rs`).
+    pub runtime_dir: PathBuf,
+    /// Where preferences are saved.
+    pub prefs_file: PathBuf,
 }
 
 pub struct StreamSession {
@@ -50,16 +56,32 @@ pub fn run() {
 
     builder
         .setup(|app| {
-            let engine = Arc::new(build_engine(app)?);
+            let paths = app.path();
+            let prefs_file = prefs::path(&paths.app_config_dir()?);
+            let runtime_dir = runtime::dir(&paths.app_local_data_dir()?);
+
+            let engine = Arc::new(build_engine(app, prefs::load(&prefs_file))?);
+            if runtime::is_ready(&runtime_dir) {
+                runtime::activate(&runtime_dir, &engine);
+            }
             let stream_port = tauri::async_runtime::block_on(stream::start(engine.clone()))?;
-            app.manage(AppState { engine, stream_port, sessions: Mutex::new(HashMap::new()) });
+            app.manage(AppState {
+                engine,
+                stream_port,
+                sessions: Mutex::new(HashMap::new()),
+                runtime_dir,
+                prefs_file,
+            });
 
             // The window starts hidden so the transparent frame never flashes;
             // the UI shows it on first paint. Fallback if the UI fails to load.
             if let Some(window) = app.get_webview_window("main") {
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                    let _ = window.show();
+                    if !window.is_visible().unwrap_or(true) {
+                        let _ = window.maximize();
+                        let _ = window.show();
+                    }
                 });
             }
             Ok(())
@@ -74,12 +96,23 @@ pub fn run() {
             commands::open_stream,
             commands::close_stream,
             commands::torrent_status,
+            commands::runtime_ready,
+            commands::install_runtime,
+            commands::get_preferences,
+            commands::set_preferences,
+            commands::download_start,
+            commands::downloads_list,
+            commands::download_pause,
+            commands::download_resume,
+            commands::download_cancel,
+            commands::downloads_clear,
+            commands::reveal_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");
 }
 
-fn build_engine(app: &App) -> Result<Engine, Box<dyn std::error::Error>> {
+fn build_engine(app: &App, preferences: Preferences) -> Result<Engine, Box<dyn std::error::Error>> {
     let mut registry = Registry::default();
     registry.tmdb_read_token = TMDB_READ_TOKEN.filter(|s| !s.is_empty()).map(str::to_string);
     registry.tmdb_api_key = TMDB_API_KEY.filter(|s| !s.is_empty()).map(str::to_string);
@@ -94,7 +127,7 @@ fn build_engine(app: &App) -> Result<Engine, Box<dyn std::error::Error>> {
         .or_else(|_| paths.app_data_dir().map(|d| d.join("downloads")))
         .ok();
 
-    let opts = EngineOptions { registry, cache_dir, download_dir, ..Default::default() };
+    let opts = EngineOptions { preferences, registry, cache_dir, download_dir, ..Default::default() };
     // The engine's download manager spawns tasks, so build it inside the runtime.
     let engine = tauri::async_runtime::block_on(async move { Engine::new(opts) })?;
     Ok(engine)

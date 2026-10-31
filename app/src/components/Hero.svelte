@@ -147,9 +147,9 @@
   }
   .title {
     margin: 0;
-    font-size: clamp(34px, 4vw, 56px);
-    line-height: 1.02;
-    font-weight: 800;
+    font-size: clamp(40px, 4.6vw, 64px);
+    line-height: 1;
+    font-weight: 400;
     text-wrap: balance;
   }
   .meta {

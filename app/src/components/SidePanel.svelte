@@ -137,7 +137,7 @@
     --m3e-icon-size: 16px;
   }
   .pick strong {
-    font-size: 22px;
+    font-size: 26px;
     line-height: 1.15;
   }
   .pick .meta {
