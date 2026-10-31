@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Logo from "./Logo.svelte";
-  import { inTauri } from "../lib/api";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { nav } from "../lib/state.svelte";
 
   let { onabout }: { onabout: () => void } = $props();
@@ -25,17 +25,13 @@
     else timer = setTimeout(go, 380);
   }
 
-  async function win() {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    return getCurrentWindow();
-  }
-  const minimize = async () => (await win()).minimize();
+  const win = getCurrentWindow();
+  const minimize = () => win.minimize();
   const toggleMax = async () => {
-    const w = await win();
-    await w.toggleMaximize();
-    maximized = await w.isMaximized();
+    await win.toggleMaximize();
+    maximized = await win.isMaximized();
   };
-  const close = async () => (await win()).close();
+  const close = () => win.close();
 
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -46,7 +42,7 @@
       }
     };
     window.addEventListener("keydown", onKey);
-    if (inTauri) win().then(async (w) => (maximized = await w.isMaximized()));
+    win.isMaximized().then((m) => (maximized = m));
     return () => window.removeEventListener("keydown", onKey);
   });
 </script>
@@ -98,19 +94,17 @@
     </m3e-menu>
   </div>
 
-  {#if inTauri}
-    <div class="window" role="group" aria-label="Window controls">
-      <m3e-icon-button size="extra-small" aria-label="Minimize" onclick={minimize}>
-        <m3e-icon name="remove"></m3e-icon>
-      </m3e-icon-button>
-      <m3e-icon-button size="extra-small" aria-label={maximized ? "Restore" : "Maximize"} onclick={toggleMax}>
-        <m3e-icon name={maximized ? "filter_none" : "crop_square"}></m3e-icon>
-      </m3e-icon-button>
-      <m3e-icon-button size="extra-small" class="close" aria-label="Close" onclick={close}>
-        <m3e-icon name="close"></m3e-icon>
-      </m3e-icon-button>
-    </div>
-  {/if}
+  <div class="window" role="group" aria-label="Window controls">
+    <m3e-icon-button size="extra-small" aria-label="Minimize" onclick={minimize}>
+      <m3e-icon name="remove"></m3e-icon>
+    </m3e-icon-button>
+    <m3e-icon-button size="extra-small" aria-label={maximized ? "Restore" : "Maximize"} onclick={toggleMax}>
+      <m3e-icon name={maximized ? "filter_none" : "crop_square"}></m3e-icon>
+    </m3e-icon-button>
+    <m3e-icon-button size="extra-small" class="close" aria-label="Close" onclick={close}>
+      <m3e-icon name="close"></m3e-icon>
+    </m3e-icon-button>
+  </div>
 </header>
 
 <style>

@@ -2,9 +2,11 @@
 //! to the web UI as Tauri commands.
 
 mod commands;
+mod stream;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tauri::{App, Manager};
 use universeapi::config::Registry;
@@ -17,6 +19,16 @@ const TMDB_API_KEY: Option<&str> = option_env!("VELMORA_TMDB_API_KEY");
 
 pub struct AppState {
     pub engine: Arc<Engine>,
+    /// Port of the loopback server mpv reads from (see `stream.rs`).
+    pub stream_port: u16,
+    /// Streams currently handed to the player, by id.
+    pub sessions: Mutex<HashMap<String, StreamSession>>,
+}
+
+pub struct StreamSession {
+    /// Proxy path registered for this stream.
+    pub path: String,
+    pub torrent: Option<Arc<universeapi::torrent::TorrentJob>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -31,13 +43,25 @@ pub fn run() {
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_process::init());
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+        builder = builder
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_libmpv::init());
     }
 
     builder
         .setup(|app| {
-            let engine = build_engine(app)?;
-            app.manage(AppState { engine: Arc::new(engine) });
+            let engine = Arc::new(build_engine(app)?);
+            let stream_port = tauri::async_runtime::block_on(stream::start(engine.clone()))?;
+            app.manage(AppState { engine, stream_port, sessions: Mutex::new(HashMap::new()) });
+
+            // The window starts hidden so the transparent frame never flashes;
+            // the UI shows it on first paint. Fallback if the UI fails to load.
+            if let Some(window) = app.get_webview_window("main") {
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    let _ = window.show();
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -46,6 +70,10 @@ pub fn run() {
             commands::home,
             commands::search_stream,
             commands::detail,
+            commands::sources,
+            commands::open_stream,
+            commands::close_stream,
+            commands::torrent_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");

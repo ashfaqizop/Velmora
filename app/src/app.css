@@ -78,6 +78,18 @@ img {
   -webkit-user-drag: none;
 }
 
+/* While the player is open the page turns transparent so mpv, which draws
+   underneath the WebView, shows through; the shell is hidden behind it. */
+html.player-active,
+html.player-active body,
+html.player-active #theme,
+html.player-active #app {
+  background: transparent !important;
+}
+html.player-active .shell {
+  visibility: hidden;
+}
+
 /* Display type (hero titles, splash status) uses Agrandir. */
 .display {
   font-family: var(--app-display-font);

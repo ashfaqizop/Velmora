@@ -36,3 +36,6 @@ app/public/fonts/*.woff2
 app/public/fonts/*.woff
 app/public/fonts/*.otf
 app/public/fonts/*.ttf
+
+# mpv DLLs, fetched in CI by tauri-plugin-libmpv-api setup-lib
+app/src-tauri/lib/

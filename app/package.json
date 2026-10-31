@@ -16,7 +16,8 @@
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-updater": "^2.14.1",
-    "material-symbols": "^0.48.2"
+    "material-symbols": "^0.48.2",
+    "tauri-plugin-libmpv-api": "^0.3.2"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

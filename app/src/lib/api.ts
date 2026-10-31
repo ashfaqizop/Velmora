@@ -1,31 +1,43 @@
-// Thin wrappers over the Tauri commands. Outside Tauri (plain `npm run dev`
-// in a browser) they fall back to mock data so the UI can be worked on alone.
+// Thin typed wrappers over the Tauri commands in src-tauri/src/commands.rs.
 import { Channel, invoke } from "@tauri-apps/api/core";
-import * as mock from "./mock";
-import type { AppInfo, ConfigStatus, ProviderRef, Rail, SearchBatch, TitleDetail } from "./types";
+import type {
+  AppInfo,
+  AudioMode,
+  ConfigStatus,
+  OpenedStream,
+  ProviderRef,
+  Rail,
+  SearchBatch,
+  Source,
+  SourcesReport,
+  Target,
+  TitleDetail,
+  TitleSummary,
+  TorrentProgress,
+} from "./types";
 
-export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const appInfo = () => invoke<AppInfo>("app_info");
 
-export function appInfo(): Promise<AppInfo> {
-  return inTauri ? invoke<AppInfo>("app_info") : mock.appInfo();
-}
+export const refreshConfig = () => invoke<ConfigStatus>("refresh_config");
 
-export function refreshConfig(): Promise<ConfigStatus> {
-  return inTauri ? invoke<ConfigStatus>("refresh_config") : mock.refreshConfig();
-}
+export const home = () => invoke<Rail[]>("home");
 
-export function home(): Promise<Rail[]> {
-  return inTauri ? invoke<Rail[]>("home") : mock.home();
-}
-
-export function detail(origin: ProviderRef): Promise<TitleDetail> {
-  return inTauri ? invoke<TitleDetail>("detail", { origin }) : mock.detail(origin);
-}
+export const detail = (origin: ProviderRef) => invoke<TitleDetail>("detail", { origin });
 
 /** Calls `onBatch` once per provider as results arrive; resolves when all are in. */
 export function searchStream(query: string, onBatch: (b: SearchBatch) => void): Promise<void> {
-  if (!inTauri) return mock.searchStream(query, onBatch);
   const channel = new Channel<SearchBatch>();
   channel.onmessage = onBatch;
   return invoke("search_stream", { query, onBatch: channel });
 }
+
+export const sources = (title: TitleSummary, target: Target, mode: AudioMode) =>
+  invoke<SourcesReport>("sources", { title, target, mode });
+
+/** Hand a source to the loopback stream server; returns the URL for mpv. */
+export const openStream = (source: Source, episode: [number, number] | null) =>
+  invoke<OpenedStream>("open_stream", { source, episode });
+
+export const closeStream = (id: string) => invoke<void>("close_stream", { id });
+
+export const torrentStatus = (id: string) => invoke<TorrentProgress | null>("torrent_status", { id });

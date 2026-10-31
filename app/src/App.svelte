@@ -1,7 +1,8 @@
 <script lang="ts">
   import Splash from "./components/Splash.svelte";
   import Shell from "./components/Shell.svelte";
-  import { feed } from "./lib/state.svelte";
+  import Player from "./pages/Player.svelte";
+  import { feed, nav } from "./lib/state.svelte";
 
   let splash = $state(true);
 
@@ -11,6 +12,13 @@
 </script>
 
 <Shell revealed={!splash} />
+
+{#if nav.route.name === "player"}
+  {@const r = nav.route}
+  {#key r}
+    <Player title={r.title} target={r.target} mode={r.mode} detail={r.detail} />
+  {/key}
+{/if}
 
 {#if splash}
   <Splash

@@ -22,7 +22,8 @@
         "decorations": false,
         "shadow": true,
         "resizable": true,
-        "backgroundColor": "#100d18",
+        "transparent": true,
+        "visible": false,
         "dragDropEnabled": false
       }
     ],
@@ -33,7 +34,7 @@
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self' data:",
         "script-src": "'self'",
-        "connect-src": "'self' ipc: http://ipc.localhost"
+        "connect-src": "'self' ipc: http://ipc.localhost http://127.0.0.1:*"
       }
     }
   },

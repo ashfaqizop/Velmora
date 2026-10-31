@@ -88,3 +88,70 @@ export interface HistoryEntry {
   duration: number;
   updatedAt: number;
 }
+
+export type Target =
+  | { type: "movie" }
+  | { type: "episode"; season: number; episode: number }
+  | { type: "season"; season: number };
+
+export type AudioMode = "sub" | "dub";
+
+export interface ReleaseTags {
+  resolution?: number;
+  codec?: "h264" | "h265" | "av1" | "vp9";
+  bit_depth?: number;
+  hdr?: "sdr" | "hdr10" | "hdr_plus" | "dolby_vision";
+  source?: string;
+  audio?: string[];
+  languages?: string[];
+  multi_audio: boolean;
+  has_subs: boolean;
+  french?: "VF" | "VOSTFR" | "VFQ";
+  size_bytes?: number;
+  is_pack: boolean;
+}
+
+export interface Track {
+  lang?: string;
+  label: string;
+  url?: string;
+  default: boolean;
+}
+
+export interface Source {
+  provider: ProviderId;
+  host: string;
+  label: string;
+  url: string;
+  format: string;
+  headers?: Record<string, string>;
+  tags: ReleaseTags;
+  filename?: string;
+  size_bytes?: number;
+  subtitles?: Track[];
+  audio?: Track[];
+  expires_at?: number;
+  torrent?: { magnet: string; info_hash?: string; seeders?: number; leechers?: number; file_index?: number };
+  is_pack: boolean;
+  verified?: boolean;
+  score: number;
+}
+
+export interface SourcesReport {
+  sources: Source[];
+  errors: { provider: ProviderId; message: string }[];
+}
+
+export interface OpenedStream {
+  id: string;
+  url: string;
+  torrent: boolean;
+  subtitles: { label: string; lang?: string | null; url: string }[];
+}
+
+export interface TorrentProgress {
+  downloaded: number;
+  total: number;
+  uploaded: number;
+  finished: boolean;
+}

@@ -22,3 +22,5 @@ import "@m3e/web/shape";
 import "@m3e/web/dialog";
 import "@m3e/web/tabs";
 import "@m3e/web/snackbar";
+import "@m3e/web/slider";
+import "@m3e/web/segmented-button";

@@ -4,6 +4,8 @@
   import { cubicOut } from "svelte/easing";
   import Logo from "./Logo.svelte";
   import PoweredBy from "./PoweredBy.svelte";
+  import { check } from "@tauri-apps/plugin-updater";
+  import { relaunch } from "@tauri-apps/plugin-process";
   import * as api from "../lib/api";
   import { markConfigReady } from "../lib/state.svelte";
 
@@ -54,13 +56,6 @@
   });
 
   async function checkForUpdate(): Promise<boolean> {
-    const demo = !api.inTauri && new URLSearchParams(location.search).has("demo-update");
-    if (!api.inTauri) {
-      await atLeast(1100, Promise.resolve());
-      if (demo) await fakeDownload();
-      return demo;
-    }
-    const { check } = await import("@tauri-apps/plugin-updater");
     const update = await atLeast(1100, check({ timeout: 8000 })).catch((e) => {
       console.warn("update check failed", e);
       return null;
@@ -84,27 +79,12 @@
         }
       });
       // Windows exits into the installer above; other platforms relaunch here.
-      const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
       return true;
     } catch (e) {
       console.warn("update failed", e);
       return false;
     }
-  }
-
-  /** Browser preview of the download states (`?demo-update`). */
-  async function fakeDownload() {
-    step = { kind: "downloading", version: "0.2.0", connecting: true, percent: 0 };
-    await sleep(1600);
-    for (let p = 0; p <= 100; p += 2) {
-      if (step.kind !== "downloading") break;
-      step.connecting = false;
-      step.percent = p;
-      await sleep(45);
-    }
-    step = { kind: "installing", version: "0.2.0" };
-    await sleep(1400);
   }
 
   async function run() {
@@ -116,7 +96,7 @@
 
     step = { kind: "checking" };
     const restarting = await checkForUpdate();
-    if (restarting && api.inTauri) return;
+    if (restarting) return;
 
     step = { kind: "config" };
     const status = await atLeast(900, api.refreshConfig().catch(() => ({ updated: false, message: "offline" })));

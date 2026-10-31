@@ -57,6 +57,9 @@ jobs:
       - name: Install frontend deps
         working-directory: app
         run: npm ci
+      - name: Fetch libmpv (LGPL build) and libmpv-wrapper
+        working-directory: app
+        run: npx tauri-plugin-libmpv-api setup-lib
 
       # Tags (app-vX.Y.Z) publish a signed release plus latest.json for the in-app updater.
       - name: Build and publish release

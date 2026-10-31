@@ -1,7 +1,7 @@
 // App-wide state: navigation, the home feed, and the local library
 // (My List and watch history live in localStorage until sync lands).
 import * as api from "./api";
-import type { HistoryEntry, MediaKind, Rail, TitleSummary } from "./types";
+import type { AudioMode, HistoryEntry, MediaKind, Rail, Target, TitleDetail, TitleSummary } from "./types";
 
 export type Browse = "movie" | "series" | "anime";
 
@@ -12,7 +12,8 @@ export type Route =
   | { name: "mylist" }
   | { name: "downloads" }
   | { name: "search"; query: string }
-  | { name: "title"; title: TitleSummary };
+  | { name: "title"; title: TitleSummary }
+  | { name: "player"; title: TitleSummary; target: Target; mode: AudioMode; detail?: TitleDetail };
 
 class Nav {
   route = $state<Route>({ name: "home" });
@@ -22,6 +23,11 @@ class Nav {
     if (JSON.stringify(route) === JSON.stringify(this.route)) return;
     // Typing in search refines the current search instead of stacking pages.
     if (!(route.name === "search" && this.route.name === "search")) this.stack.push(this.route);
+    this.route = route;
+  }
+
+  /** Swap the current page without adding a history step (next episode). */
+  replace(route: Route) {
     this.route = route;
   }
 
@@ -106,6 +112,9 @@ function save(key: string, value: unknown) {
   localStorage.setItem(`velmora.${key}`, JSON.stringify(value));
 }
 
+/** Past this share of the runtime a title counts as watched. */
+const FINISHED = 0.95;
+
 class Library {
   watchlist = $state<TitleSummary[]>(load("watchlist", []));
   history = $state<HistoryEntry[]>(load("history", []));
@@ -121,11 +130,48 @@ class Library {
     save("watchlist", this.watchlist);
   }
 
-  /** Unfinished titles, most recent first. */
+  /** Unfinished titles, most recent first (one entry per title). */
   get continueWatching(): HistoryEntry[] {
     return this.history
-      .filter((h) => h.duration > 0 && h.position / h.duration < 0.95)
+      .filter((h) => h.duration > 0 && h.position / h.duration < FINISHED)
       .sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  /** The last thing watched for a title (any episode). */
+  last(t: TitleSummary): HistoryEntry | undefined {
+    const k = keyOf(t);
+    return this.history.find((h) => keyOf(h.title) === k);
+  }
+
+  /** Where to resume `target`, in seconds; 0 when it should start over. */
+  resumeAt(t: TitleSummary, target: Target): number {
+    const h = this.last(t);
+    if (!h || h.duration <= 0) return 0;
+    const same = target.type === "episode" ? h.season === target.season && h.episode === target.episode : h.episode === undefined;
+    if (!same || h.position < 30 || h.position / h.duration >= FINISHED) return 0;
+    return Math.floor(h.position);
+  }
+
+  /** Record playback progress; keeps one entry per title, newest first. */
+  saveProgress(t: TitleSummary, target: Target, position: number, duration: number) {
+    if (!(duration > 0) || !(position >= 0)) return;
+    const k = keyOf(t);
+    const entry: HistoryEntry = {
+      title: $state.snapshot(t),
+      season: target.type === "episode" ? target.season : undefined,
+      episode: target.type === "episode" ? target.episode : undefined,
+      position,
+      duration,
+      updatedAt: Date.now(),
+    };
+    this.history = [entry, ...this.history.filter((h) => keyOf(h.title) !== k)].slice(0, 200);
+    save("history", this.history);
+  }
+
+  forget(t: TitleSummary) {
+    const k = keyOf(t);
+    this.history = this.history.filter((h) => keyOf(h.title) !== k);
+    save("history", this.history);
   }
 }
 
@@ -145,4 +191,30 @@ export function meta(t: TitleSummary) {
 export function formatLeft(seconds: number) {
   const m = Math.max(0, Math.round(seconds / 60));
   return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m left` : `${m}m left`;
+}
+
+/** The episode after `target`, using the title's season list. */
+export function nextEpisode(detail: TitleDetail | undefined, target: Target): Target | null {
+  if (!detail || target.type !== "episode") return null;
+  const seasons = [...detail.seasons].sort((a, b) => a.number - b.number);
+  const si = seasons.findIndex((s) => s.number === target.season);
+  if (si < 0) return null;
+  const eps = [...seasons[si].episodes].sort((a, b) => a.number - b.number);
+  const ei = eps.findIndex((e) => e.number === target.episode);
+  if (ei >= 0 && ei + 1 < eps.length) return { type: "episode", season: target.season, episode: eps[ei + 1].number };
+  const following = seasons[si + 1];
+  const first = following?.episodes.slice().sort((a, b) => a.number - b.number)[0];
+  return first ? { type: "episode", season: following.number, episode: first.number } : null;
+}
+
+export function targetLabel(target: Target) {
+  return target.type === "episode" ? `S${target.season} E${target.episode}` : "";
+}
+
+export function formatTime(seconds: number | null | undefined) {
+  const s = Math.max(0, Math.floor(seconds ?? 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 }

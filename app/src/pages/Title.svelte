@@ -1,14 +1,15 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
   import * as api from "../lib/api";
-  import type { TitleDetail, TitleSummary } from "../lib/types";
-  import { kindLabel, library } from "../lib/state.svelte";
+  import type { AudioMode, Target, TitleDetail, TitleSummary } from "../lib/types";
+  import { formatLeft, kindLabel, library, nav, nextEpisode, targetLabel } from "../lib/state.svelte";
 
   let { title }: { title: TitleSummary } = $props();
 
   let detail = $state<TitleDetail | null>(null);
   let error = $state<string | null>(null);
   let season = $state(1);
+  let mode = $state<AudioMode>((localStorage.getItem("velmora.audioMode") as AudioMode) ?? "sub");
 
   $effect(() => {
     const t = title;
@@ -19,7 +20,8 @@
       .then((d) => {
         if (t !== title) return;
         detail = d;
-        season = d.seasons[0]?.number ?? 1;
+        const last = library.last(t);
+        season = last?.season ?? d.seasons[0]?.number ?? 1;
       })
       .catch((e) => (error = String(e)));
   });
@@ -27,6 +29,45 @@
   const s = $derived(detail?.summary ?? title);
   const saved = $derived(library.has(title));
   const episodes = $derived(detail?.seasons.find((x) => x.number === season)?.episodes ?? []);
+  const episodic = $derived(s.kind !== "movie");
+  const last = $derived(library.last(title));
+
+  /** What Play starts: the resume point, the episode after a finished one, or the very first. */
+  const playTarget = $derived.by((): Target | null => {
+    if (!episodic) return { type: "movie" };
+    if (!detail) return null;
+    if (last?.episode !== undefined) {
+      const at: Target = { type: "episode", season: last.season ?? 1, episode: last.episode };
+      const done = last.duration > 0 && last.position / last.duration >= 0.95;
+      return done ? (nextEpisode(detail, at) ?? at) : at;
+    }
+    const first = [...detail.seasons].sort((a, b) => a.number - b.number)[0];
+    const ep = first?.episodes.slice().sort((a, b) => a.number - b.number)[0];
+    return first && ep ? { type: "episode", season: first.number, episode: ep.number } : null;
+  });
+  const resuming = $derived(playTarget ? library.resumeAt(title, playTarget) > 0 : false);
+  const playLabel = $derived.by(() => {
+    if (!playTarget) return "Play";
+    const ep = playTarget.type === "episode" ? ` ${targetLabel(playTarget)}` : "";
+    return `${resuming ? "Resume" : "Play"}${ep}`;
+  });
+
+  function play(target: Target | null) {
+    if (!target) return;
+    nav.go({ name: "player", title, target, mode, detail: detail ?? undefined });
+  }
+
+  function setMode(m: AudioMode) {
+    mode = m;
+    localStorage.setItem("velmora.audioMode", m);
+  }
+
+  /** Progress through an episode, for the bar under its row. */
+  function watched(n: number) {
+    if (!last || last.season !== season || last.episode !== n || !last.duration) return 0;
+    return (last.position / last.duration) * 100;
+  }
+
   const runtime = $derived.by(() => {
     const m = detail?.runtime_minutes;
     if (!m) return null;
@@ -55,17 +96,25 @@
         </m3e-chip-set>
       {/if}
       <div class="actions">
-        <m3e-button id="btn-play" variant="filled" size="medium" disabled-interactive>
+        <m3e-button variant="filled" size="medium" disabled={!playTarget} onclick={() => play(playTarget)}>
           <m3e-icon slot="icon" name="play_arrow" filled></m3e-icon>
-          Play
+          {playLabel}
         </m3e-button>
-        <m3e-tooltip for="btn-play">The player arrives in the next build</m3e-tooltip>
         <m3e-button variant="tonal" size="medium" toggle selected={saved} onclick={() => library.toggle(title)}>
           <m3e-icon slot="icon" name="add"></m3e-icon>
           <m3e-icon slot="selected-icon" name="check"></m3e-icon>
           My List
         </m3e-button>
+        {#if s.kind === "anime"}
+          <m3e-segmented-button aria-label="Audio">
+            <m3e-button-segment checked={mode === "sub"} onclick={() => setMode("sub")}>Sub</m3e-button-segment>
+            <m3e-button-segment checked={mode === "dub"} onclick={() => setMode("dub")}>Dub</m3e-button-segment>
+          </m3e-segmented-button>
+        {/if}
       </div>
+      {#if resuming && last}
+        <span class="resume-hint">{formatLeft(last.duration - last.position)}</span>
+      {/if}
     </div>
   </div>
 
@@ -101,16 +150,19 @@
           {/if}
           <m3e-list variant="segmented">
             {#each episodes as ep (ep.number)}
-              <m3e-list-item>
+              <m3e-list-action onclick={() => play({ type: "episode", season, episode: ep.number })}>
                 <div slot="leading" class="ep-thumb" style:background-image={ep.thumbnail ? `url("${ep.thumbnail}")` : undefined}>
                   <span>{ep.number}</span>
+                  {#if watched(ep.number) > 0}
+                    <m3e-linear-progress-indicator value={watched(ep.number)}></m3e-linear-progress-indicator>
+                  {/if}
                 </div>
                 {ep.title ?? `Episode ${ep.number}`}
                 {#if ep.overview || ep.air_date}
                   <span slot="supporting-text">{ep.overview ?? ep.air_date}</span>
                 {/if}
                 <m3e-icon slot="trailing" name="play_circle"></m3e-icon>
-              </m3e-list-item>
+              </m3e-list-action>
             {/each}
           </m3e-list>
         </section>
@@ -220,7 +272,13 @@
     flex-direction: column;
     gap: 12px;
   }
+  .resume-hint {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
   .ep-thumb {
+    position: relative;
+    overflow: hidden;
     width: 112px;
     aspect-ratio: 16 / 9;
     border-radius: 10px;
@@ -229,5 +287,12 @@
     place-items: center;
     font-weight: 700;
     color: var(--md-sys-color-on-surface-variant);
+  }
+  .ep-thumb m3e-linear-progress-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    --m3e-linear-progress-indicator-thickness: 3px;
   }
 </style>

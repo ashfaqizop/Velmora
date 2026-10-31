@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "lib/libmpv-wrapper.dll": "libmpv-wrapper.dll",
+      "lib/libmpv-2.dll": "libmpv-2.dll"
+    }
+  }
+}
