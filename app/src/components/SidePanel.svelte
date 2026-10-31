@@ -1,14 +1,9 @@
 <script lang="ts">
   import type { TitleSummary } from "../lib/types";
-  import { feed, keyOf, library, meta, nav } from "../lib/state.svelte";
+  import { feed, keyOf, library, meta, nav, tonightPick } from "../lib/state.svelte";
 
   // One pick per day, stable across launches.
-  const pick = $derived.by(() => {
-    const pool = feed.rails.flatMap((r) => r.items).filter((i) => i.backdrop && (i.rating ?? 0) >= 7);
-    if (!pool.length) return null;
-    const day = Math.floor(Date.now() / 86_400_000);
-    return pool[day % pool.length];
-  });
+  const pick = $derived(tonightPick());
 
   const fresh = $derived((feed.rail("hdhub_latest") ?? feed.rail("airing_today"))?.items.slice(0, 5) ?? []);
   const freshTitle = $derived(feed.rail("hdhub_latest") ? "Just added" : "Airing today");

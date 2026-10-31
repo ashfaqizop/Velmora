@@ -108,6 +108,14 @@ class Feed {
 
 export const feed = new Feed();
 
+/** Tonight's pick: one well-rated title with artwork, stable for the whole day. */
+export function tonightPick(): TitleSummary | null {
+  const pool = feed.rails.flatMap((r) => r.items).filter((i) => i.backdrop && (i.rating ?? 0) >= 7);
+  if (!pool.length) return null;
+  const day = Math.floor(Date.now() / 86_400_000);
+  return pool[day % pool.length];
+}
+
 export const keyOf = (t: TitleSummary) => `${t.origin.provider}:${t.origin.id}`;
 
 function dedupe(items: TitleSummary[]) {

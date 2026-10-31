@@ -1,10 +1,13 @@
-// Ani's tool registry. Research tools are filled in by the tool modules;
-// answer tools are the Personalize note tools plus the generative UI blocks.
+// Ani's tool registry: 37 research tools from the tool modules, and the
+// answer tools (the Personalize notes, plus the generative UI blocks).
 import { personalize } from "../personalize.svelte";
 import type { AnswerTool, ResearchTool } from "./types";
 import { str } from "./types";
+import { discoveryTools } from "./discovery";
+import { linkTools } from "./links";
+import { profileTools } from "./profile";
 
-export const researchTools: ResearchTool[] = [];
+export const researchTools: ResearchTool[] = [...discoveryTools, ...linkTools, ...profileTools];
 
 const profileNote: AnswerTool = {
   decl: {
