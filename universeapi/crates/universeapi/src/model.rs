@@ -257,6 +257,79 @@ pub struct TitleDetail {
     /// Provider-page links that still need a resolver pass (HDHub style pages).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<HostedLink>,
+    /// Everything else the metadata source knows (tagline, credits, release info...).
+    #[serde(default)]
+    pub extra: TitleExtra,
+}
+
+/// A person in the cast or crew.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Person {
+    pub name: String,
+    /// Character for cast members, job for crew ("Director", "Music").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub photo: Option<String>,
+}
+
+/// Extra metadata for the title page. Every field is optional; a provider
+/// fills in whatever it has.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TitleExtra {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tagline: Option<String>,
+    /// ISO date (`2024-03-01`) of the first release or first air date.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_date: Option<String>,
+    /// "Released", "Returning Series", "Ended", "Releasing"...
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    /// Age rating such as "PG-13" or "TV-MA".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certification: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_language: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub languages: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub countries: Vec<String>,
+    /// Production companies, networks or animation studios.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub studios: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vote_count: Option<u32>,
+    /// Where `summary.rating` comes from ("TMDB", "IMDb", "AniList").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rating_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub budget: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revenue: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub season_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub episode_count: Option<u32>,
+    /// Anime: "TV", "Movie", "OVA"...; source material ("Manga"); season ("Fall 2024").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_material: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub season_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub awards: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub homepage: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub cast: Vec<Person>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub crew: Vec<Person>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub keywords: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub recommendations: Vec<TitleSummary>,
 }
 
 impl TitleDetail {
@@ -271,6 +344,7 @@ impl TitleDetail {
             screenshots: Vec::new(),
             seasons: Vec::new(),
             links: Vec::new(),
+            extra: TitleExtra::default(),
         }
     }
 }

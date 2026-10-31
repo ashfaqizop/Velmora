@@ -77,6 +77,107 @@ struct Media {
     streaming_episodes: Vec<StreamingEp>,
     duration: Option<u32>,
     trailer: Option<TrailerRef>,
+    // extras for the title page (detail query only)
+    status: Option<String>,
+    season: Option<String>,
+    source: Option<String>,
+    country_of_origin: Option<String>,
+    start_date: Option<FuzzyDate>,
+    studios: Option<Studios>,
+    characters: Option<Characters>,
+    staff: Option<Staff>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    tags: Vec<Tag>,
+    recommendations: Option<Recommendations>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct FuzzyDate {
+    year: Option<u32>,
+    month: Option<u32>,
+    day: Option<u32>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct Studios {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    nodes: Vec<NamedNode>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct NamedNode {
+    name: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct PersonNode {
+    name: PersonName,
+    image: Option<PersonImage>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct PersonName {
+    full: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct PersonImage {
+    medium: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct Characters {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    edges: Vec<CharacterEdge>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct CharacterEdge {
+    node: PersonNode,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    voice_actors: Vec<PersonNode>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct Staff {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    edges: Vec<StaffEdge>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct StaffEdge {
+    role: Option<String>,
+    node: PersonNode,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct Tag {
+    name: String,
+    is_media_spoiler: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct Recommendations {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    nodes: Vec<RecommendationNode>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct RecommendationNode {
+    media_recommendation: Option<Box<Media>>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -161,6 +262,93 @@ impl Anilist {
     }
 }
 
+fn title_case(s: &str) -> String {
+    s.split('_')
+        .map(|w| {
+            let mut c = w.chars();
+            match c.next() {
+                Some(f) => f.to_uppercase().collect::<String>() + &c.as_str().to_lowercase(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn anilist_person(n: &PersonNode, role: Option<String>) -> Option<Person> {
+    Some(Person { name: n.name.full.clone()?, role, photo: n.image.as_ref().and_then(|i| i.medium.clone()) })
+}
+
+/// Title-page extras; takes the recommendation list out of `m`.
+fn extras(m: &mut Media) -> TitleExtra {
+    let release_date = m.start_date.as_ref().and_then(|d| match (d.year, d.month, d.day) {
+        (Some(y), Some(mo), Some(da)) => Some(format!("{y:04}-{mo:02}-{da:02}")),
+        (Some(y), Some(mo), None) => Some(format!("{y:04}-{mo:02}")),
+        (Some(y), None, _) => Some(format!("{y:04}")),
+        _ => None,
+    });
+    let season_label = match (m.season.as_deref(), m.season_year) {
+        (Some(s), Some(y)) => Some(format!("{} {y}", title_case(s))),
+        _ => None,
+    };
+    // Each character with their Japanese voice actor, e.g. "Frieren · Atsumi Tanezaki".
+    let cast = m
+        .characters
+        .as_ref()
+        .map(|c| {
+            c.edges
+                .iter()
+                .filter_map(|e| {
+                    let character = e.node.name.full.clone()?;
+                    match e.voice_actors.first() {
+                        Some(va) => anilist_person(va, Some(character)),
+                        None => anilist_person(&e.node, None),
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let crew = m
+        .staff
+        .as_ref()
+        .map(|s| s.edges.iter().filter_map(|e| anilist_person(&e.node, e.role.clone())).collect())
+        .unwrap_or_default();
+    let recommendations = m
+        .recommendations
+        .take()
+        .map(|r| {
+            r.nodes
+                .into_iter()
+                .filter_map(|n| n.media_recommendation)
+                .filter(|x| !x.is_adult)
+                .map(|x| to_summary(*x))
+                .collect()
+        })
+        .unwrap_or_default();
+    TitleExtra {
+        release_date,
+        status: m.status.as_deref().map(title_case),
+        original_language: match m.country_of_origin.as_deref() {
+            Some("JP") => Some("ja".into()),
+            Some("CN" | "TW") => Some("zh".into()),
+            Some("KR") => Some("ko".into()),
+            _ => None,
+        },
+        countries: m.country_of_origin.clone().into_iter().collect(),
+        studios: m.studios.as_ref().map(|s| s.nodes.iter().map(|n| n.name.clone()).collect()).unwrap_or_default(),
+        rating_source: m.average_score.map(|_| "AniList".into()),
+        episode_count: m.episodes,
+        format: m.format.as_deref().map(|f| if f == "TV" || f == "OVA" || f == "ONA" { f.to_string() } else { title_case(f) }),
+        source_material: m.source.as_deref().map(title_case),
+        season_label,
+        cast,
+        crew,
+        keywords: m.tags.iter().filter(|t| !t.is_media_spoiler).take(12).map(|t| t.name.clone()).collect(),
+        recommendations,
+        ..Default::default()
+    }
+}
+
 fn to_summary(m: Media) -> TitleSummary {
     let name = m.title.english.clone().or_else(|| m.title.romaji.clone()).unwrap_or_default();
     let mut s = TitleSummary::new(ProviderId::Anilist, m.id.to_string(), name, MediaKind::Anime);
@@ -198,16 +386,23 @@ impl Provider for Anilist {
     }
 
     async fn detail(&self, id: &str) -> Result<TitleDetail> {
-        let key = format!("anilist:detail:{id}");
+        let key = format!("anilist:detail2:{id}");
         if let Some(d) = self.ctx.cache.get::<TitleDetail>(&key).await {
             return Ok(d);
         }
         let aid: u64 = id.parse().map_err(|_| Error::NotFound(format!("bad anilist id {id}")))?;
         let q = format!(
-            "query($id:Int){{ Media(id: $id, type: ANIME) {{ {MEDIA_FIELDS} duration trailer {{ id site }} streamingEpisodes {{ title thumbnail }} }} }}"
+            "query($id:Int){{ Media(id: $id, type: ANIME) {{ {MEDIA_FIELDS} duration trailer {{ id site }} \
+             streamingEpisodes {{ title thumbnail }} season source countryOfOrigin \
+             startDate {{ year month day }} studios(isMain: true) {{ nodes {{ name }} }} \
+             characters(sort: [ROLE, RELEVANCE], perPage: 16) {{ edges {{ node {{ name {{ full }} image {{ medium }} }} \
+             voiceActors(language: JAPANESE) {{ name {{ full }} image {{ medium }} }} }} }} \
+             staff(perPage: 8) {{ edges {{ role node {{ name {{ full }} image {{ medium }} }} }} }} \
+             tags {{ name isMediaSpoiler }} \
+             recommendations(perPage: 12, sort: RATING_DESC) {{ nodes {{ mediaRecommendation {{ {MEDIA_FIELDS} }} }} }} }} }}"
         );
         let d: MediaData = self.query(&q, json!({ "id": aid })).await?;
-        let m = d.media;
+        let mut m = d.media;
 
         // Released episode count: known total, else (next airing − 1).
         let released = match (&m.next_airing_episode, m.episodes) {
@@ -230,7 +425,9 @@ impl Provider for Anilist {
             (Some("youtube"), Some(id)) => Some(format!("https://www.youtube.com/embed/{id}")),
             _ => None,
         });
+        let extra = extras(&mut m);
         let mut detail = TitleDetail::from_summary(to_summary(m));
+        detail.extra = extra;
         detail.genres = genres;
         detail.runtime_minutes = runtime;
         detail.trailer = trailer;

@@ -26,7 +26,17 @@
 
   onDestroy(() => unlisten.forEach((u) => u()));
 
-  const ACCENTS = ["#6015EA", "#FF5A5A", "#0B7FD9", "#00A67E", "#E8A317", "#D6336C", "#7B6CFF", "#4E5D6C"];
+  const ACCENTS: [string, string][] = [
+    ["#6015EA", "Velmora violet"],
+    ["#FF5A5A", "Coral"],
+    ["#0B7FD9", "Ocean"],
+    ["#00A67E", "Jade"],
+    ["#E8A317", "Amber"],
+    ["#D6336C", "Rose"],
+    ["#7B6CFF", "Iris"],
+    ["#4E5D6C", "Slate"],
+  ];
+  const isAccent = (c: string) => settings.accent.toLowerCase() === c.toLowerCase();
 
   const set = (patch: Partial<Preferences>) => settings.update(patch);
   const checked = (e: Event) => (e.currentTarget as HTMLElement & { checked: boolean }).checked;
@@ -167,14 +177,19 @@
         </div>
       </m3e-card>
 
-      {#each PROVIDER_GROUPS as group (group.kind)}
-        {@const order = p.provider_order[group.kind] ?? []}
-        <m3e-card variant="outlined" class="providers">
-          <div slot="content">
-            <div class="group-head">
-              <strong>{group.label}</strong>
-              <span>Tried from top to bottom. Turn one off to skip it.</span>
+      <!-- Provider order per content type; closed by default to keep the page short. -->
+      <m3e-accordion multi class="providers">
+        {#each PROVIDER_GROUPS as group (group.kind)}
+          {@const order = p.provider_order[group.kind] ?? []}
+          {@const on = order.filter((id) => !p.disabled_providers.includes(id))}
+          <m3e-expansion-panel>
+            <div slot="header" class="group-head">
+              <strong>{group.label} sources</strong>
+              <span>
+                {on.length ? `${providerLabel(on[0])} first` : "All off"} · {on.length} of {order.length} on
+              </span>
             </div>
+            <p class="group-hint">Tried from top to bottom. Turn one off to skip it.</p>
             <m3e-list>
               {#each order as id, i (id)}
                 <m3e-list-item>
@@ -201,9 +216,9 @@
                 </m3e-list-item>
               {/each}
             </m3e-list>
-          </div>
-        </m3e-card>
-      {/each}
+          </m3e-expansion-panel>
+        {/each}
+      </m3e-accordion>
     </section>
 
     <section>
@@ -278,19 +293,20 @@
           <div class="row">
             <div class="text"><strong>Accent colour</strong><span>The whole palette is generated from it.</span></div>
             <div class="swatches" role="radiogroup" aria-label="Accent colour">
-              {#each ACCENTS as color (color)}
+              {#each ACCENTS as [color, name] (color)}
                 <button
                   class="swatch"
-                  class:active={settings.accent.toLowerCase() === color.toLowerCase()}
                   role="radio"
-                  aria-checked={settings.accent.toLowerCase() === color.toLowerCase()}
-                  aria-label={color}
+                  aria-checked={isAccent(color)}
+                  aria-label={name}
+                  title={name}
                   onclick={() => settings.setAccent(color)}
                 >
-                  <m3e-theme-icon color={color} scheme="dark"></m3e-theme-icon>
-                  {#if settings.accent.toLowerCase() === color.toLowerCase()}
-                    <span class="tick"><m3e-icon name="check"></m3e-icon></span>
-                  {/if}
+                  <!-- Circle when idle; morphs to a cookie shape when chosen. -->
+                  <span class="on-shape" style:--m3e-shape-container-color={color}>
+                    <m3e-shape name={isAccent(color) ? "12-sided-cookie" : "circle"}></m3e-shape>
+                    {#if isAccent(color)}<m3e-icon name="check"></m3e-icon>{/if}
+                  </span>
                 </button>
               {/each}
             </div>
@@ -367,13 +383,23 @@
     width: 220px;
   }
   .providers {
-    --m3e-card-shape: var(--md-sys-shape-corner-large, 16px);
+    display: block;
+    --m3e-expansion-panel-container-color: var(--md-sys-color-surface-container);
+    --m3e-expansion-header-collapsed-height: 68px;
+    --m3e-expansion-header-expanded-height: 68px;
   }
   .group-head {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 4px 4px 8px;
+  }
+  .group-head strong {
+    font-weight: 700;
+  }
+  .group-hint {
+    margin: 0 0 4px;
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
   }
   .rank {
     display: grid;
@@ -397,48 +423,28 @@
   .swatches {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
     justify-content: flex-end;
   }
-  /* The ring follows the preview's rounded-square shape. */
   .swatch {
     all: unset;
-    position: relative;
     cursor: pointer;
     display: grid;
-    padding: 3px;
-    border-radius: 12px;
-    outline: 2px solid transparent;
-    outline-offset: 1px;
-    transition:
-      outline-color 150ms ease,
-      transform var(--md-sys-motion-spring-fast-spatial, 350ms ease);
+    border-radius: 50%;
+    transition: transform var(--md-sys-motion-spring-fast-spatial, 350ms ease);
   }
   .swatch:hover {
-    transform: translateY(-2px);
-  }
-  .swatch.active {
-    outline-color: var(--md-sys-color-primary);
+    transform: scale(1.1);
   }
   .swatch:focus-visible {
-    outline-color: var(--md-sys-color-on-surface);
+    outline: 2px solid var(--md-sys-color-on-surface);
+    outline-offset: 3px;
   }
-  m3e-theme-icon {
-    --m3e-theme-icon-size: 36px;
-    --m3e-theme-icon-shape: 9px;
-  }
-  .tick {
-    position: absolute;
-    right: -6px;
-    bottom: -6px;
-    display: grid;
-    place-items: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--md-sys-color-primary);
-    color: var(--md-sys-color-on-primary);
-    --m3e-icon-size: 14px;
+  .swatch .on-shape {
+    --m3e-shape-size: 40px;
+    --m3e-shape-transition: var(--md-sys-motion-spring-default-spatial, 500ms ease);
+    color: #fff;
+    --m3e-icon-size: 22px;
   }
   .ghost {
     height: 320px;

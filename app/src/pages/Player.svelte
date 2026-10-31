@@ -540,7 +540,7 @@
   {#if phase === "playing" && (controls || paused)}
     <footer class="bottom" transition:fade={{ duration: 200 }}>
       <div class="timeline">
-        <span class="time">{formatTime(seeking ?? time)}</span>
+        <span class="time">{formatTime(seeking ?? time, duration >= 3600)}</span>
         <m3e-slider
           class="seek"
           min="0"
@@ -551,7 +551,7 @@
         >
           <m3e-slider-thumb value={Math.floor(seeking ?? time)} oninput={onSeekInput} onchange={onSeekChange}></m3e-slider-thumb>
         </m3e-slider>
-        <span class="time">{formatTime(duration)}</span>
+        <span class="time">{formatTime(duration, duration >= 3600)}</span>
       </div>
 
       <div class="buttons">
@@ -755,10 +755,13 @@
   .seek {
     flex: 1;
   }
+  /* Fixed width: the slider measures itself when a drag starts, so the
+     labels beside it must never resize it while the time text changes. */
   .time {
+    flex: none;
+    width: 64px;
     font-size: 13px;
     font-variant-numeric: tabular-nums;
-    min-width: 56px;
     text-align: center;
   }
   .buttons {

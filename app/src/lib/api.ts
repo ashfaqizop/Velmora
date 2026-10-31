@@ -35,6 +35,16 @@ export async function detail(origin: ProviderRef): Promise<TitleDetail> {
     directors: d.directors ?? [],
     screenshots: d.screenshots ?? [],
     seasons: (d.seasons ?? []).map((s) => ({ ...s, episodes: s.episodes ?? [] })),
+    extra: {
+      ...d.extra,
+      languages: d.extra?.languages ?? [],
+      countries: d.extra?.countries ?? [],
+      studios: d.extra?.studios ?? [],
+      cast: d.extra?.cast ?? [],
+      crew: d.extra?.crew ?? [],
+      keywords: d.extra?.keywords ?? [],
+      recommendations: d.extra?.recommendations ?? [],
+    },
   };
 }
 
@@ -91,3 +101,6 @@ export const syncDisconnect = (service: "anilist" | "trakt") => invoke<void>("sy
 export const anilistLogin = () => invoke<void>("anilist_login");
 export const traktLogin = () => invoke<void>("trakt_login");
 export const syncWatched = (title: TitleSummary, target: Target) => invoke<string[]>("sync_watched", { title, target });
+
+/** Open an https link (IMDb, TMDB, a title's homepage...) in the default browser. */
+export const openExternal = (url: string) => invoke<void>("open_external", { url });

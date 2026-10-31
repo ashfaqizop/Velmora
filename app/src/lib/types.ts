@@ -45,6 +45,39 @@ export interface Season {
   episodes: Episode[];
 }
 
+export interface Person {
+  name: string;
+  /** Character for cast, job for crew. */
+  role?: string;
+  photo?: string;
+}
+
+export interface TitleExtra {
+  tagline?: string;
+  release_date?: string;
+  status?: string;
+  certification?: string;
+  original_language?: string;
+  languages: string[];
+  countries: string[];
+  studios: string[];
+  vote_count?: number;
+  rating_source?: string;
+  budget?: number;
+  revenue?: number;
+  season_count?: number;
+  episode_count?: number;
+  format?: string;
+  source_material?: string;
+  season_label?: string;
+  awards?: string;
+  homepage?: string;
+  cast: Person[];
+  crew: Person[];
+  keywords: string[];
+  recommendations: TitleSummary[];
+}
+
 export interface TitleDetail {
   summary: TitleSummary;
   genres: string[];
@@ -54,6 +87,7 @@ export interface TitleDetail {
   trailer?: string;
   screenshots: string[];
   seasons: Season[];
+  extra: TitleExtra;
 }
 
 export interface Rail {

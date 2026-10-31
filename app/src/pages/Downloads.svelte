@@ -115,7 +115,10 @@
     </div>
   {:else}
     <div class="empty">
-      <m3e-shape name="soft-burst" class="art"><m3e-icon name="download"></m3e-icon></m3e-shape>
+      <span class="on-shape art">
+        <m3e-shape name="soft-burst"></m3e-shape>
+        <m3e-icon name="download"></m3e-icon>
+      </span>
       <m3e-heading variant="title" size="large">Nothing downloaded yet</m3e-heading>
       <p>Use Download on any movie or episode to keep it for offline viewing.</p>
     </div>
@@ -217,8 +220,6 @@
     --m3e-shape-size: 120px;
     --m3e-shape-container-color: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
-    display: grid;
-    place-items: center;
     --m3e-icon-size: 48px;
     margin-bottom: 8px;
   }

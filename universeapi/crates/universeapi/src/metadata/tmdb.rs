@@ -61,6 +61,89 @@ struct Item {
     seasons: Vec<SeasonRef>,
     videos: Option<Videos>,
     credits: Option<Credits>,
+    // extras for the title page
+    tagline: Option<String>,
+    status: Option<String>,
+    homepage: Option<String>,
+    budget: Option<u64>,
+    revenue: Option<u64>,
+    vote_count: Option<u32>,
+    number_of_seasons: Option<u32>,
+    number_of_episodes: Option<u32>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    spoken_languages: Vec<Named>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    production_countries: Vec<Named>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    production_companies: Vec<Named>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    networks: Vec<Named>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    created_by: Vec<Credit>,
+    images: Option<Images>,
+    recommendations: Option<Box<Paged>>,
+    keywords: Option<Keywords>,
+    release_dates: Option<Ratings<CountryReleases>>,
+    content_ratings: Option<Ratings<CountryRating>>,
+}
+
+/// Anything TMDB lists by name (languages, countries, companies, keywords).
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct Named {
+    name: String,
+    english_name: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct Images {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    backdrops: Vec<ImagePath>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct ImagePath {
+    file_path: String,
+}
+
+/// Movies list keywords under `keywords`, series under `results`.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct Keywords {
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    keywords: Vec<Named>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    results: Vec<Named>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(bound(deserialize = "T: Deserialize<'de>"))]
+struct Ratings<T> {
+    #[serde(default = "Vec::new", deserialize_with = "crate::util::null_default")]
+    results: Vec<T>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct CountryReleases {
+    iso_3166_1: String,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    release_dates: Vec<ReleaseCert>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct ReleaseCert {
+    certification: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct CountryRating {
+    iso_3166_1: String,
+    rating: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -102,16 +185,18 @@ struct VideoRef {
 #[serde(default)]
 struct Credits {
     #[serde(default, deserialize_with = "crate::util::null_default")]
-    cast: Vec<Person>,
+    cast: Vec<Credit>,
     #[serde(default, deserialize_with = "crate::util::null_default")]
-    crew: Vec<Person>,
+    crew: Vec<Credit>,
 }
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(default)]
-struct Person {
+struct Credit {
     name: String,
     job: Option<String>,
+    character: Option<String>,
+    profile_path: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -171,6 +256,86 @@ fn img(path: &Option<String>, size: &str) -> Option<String> {
     path.as_ref().filter(|p| !p.is_empty()).map(|p| format!("{IMG}/{size}{p}"))
 }
 
+/// Crew worth showing on the title page, in this order.
+const KEY_JOBS: &[&str] = &["Director", "Screenplay", "Writer", "Novel", "Original Music Composer", "Director of Photography", "Producer"];
+
+fn person(c: &Credit, role: Option<String>) -> Person {
+    Person { name: c.name.clone(), role: role.filter(|r| !r.is_empty()), photo: img(&c.profile_path, "w185") }
+}
+
+/// US age rating first, then any country that has one.
+fn certification(it: &Item, kind: &str) -> Option<String> {
+    if kind == "tv" {
+        let r = it.content_ratings.as_ref()?;
+        let pick = |us: bool| r.results.iter().find(|x| (!us || x.iso_3166_1 == "US") && !x.rating.is_empty()).map(|x| x.rating.clone());
+        pick(true).or_else(|| pick(false))
+    } else {
+        let r = it.release_dates.as_ref()?;
+        let pick = |us: bool| {
+            r.results
+                .iter()
+                .filter(|x| !us || x.iso_3166_1 == "US")
+                .flat_map(|x| x.release_dates.iter())
+                .find(|d| !d.certification.is_empty())
+                .map(|d| d.certification.clone())
+        };
+        pick(true).or_else(|| pick(false))
+    }
+}
+
+fn names(v: &[Named]) -> Vec<String> {
+    v.iter().map(|n| n.name.clone()).filter(|n| !n.is_empty()).collect()
+}
+
+fn extras(it: &Item, kind: &str) -> TitleExtra {
+    let mut crew: Vec<Person> = it.created_by.iter().map(|c| person(c, Some("Creator".into()))).collect();
+    if let Some(c) = &it.credits {
+        for job in KEY_JOBS {
+            for p in c.crew.iter().filter(|p| p.job.as_deref() == Some(*job)) {
+                if !crew.iter().any(|x| x.name == p.name) {
+                    crew.push(person(p, p.job.clone()));
+                }
+            }
+        }
+    }
+    let keywords = it.keywords.as_ref().map(|k| if k.keywords.is_empty() { names(&k.results) } else { names(&k.keywords) }).unwrap_or_default();
+    TitleExtra {
+        tagline: it.tagline.clone().filter(|t| !t.is_empty()),
+        release_date: it.release_date.clone().or_else(|| it.first_air_date.clone()).filter(|d| !d.is_empty()),
+        status: it.status.clone().filter(|s| !s.is_empty()),
+        certification: certification(it, kind),
+        original_language: it.original_language.clone(),
+        languages: it
+            .spoken_languages
+            .iter()
+            .map(|l| l.english_name.clone().filter(|n| !n.is_empty()).unwrap_or_else(|| l.name.clone()))
+            .filter(|n| !n.is_empty())
+            .collect(),
+        countries: names(&it.production_countries),
+        studios: if it.networks.is_empty() { names(&it.production_companies) } else { names(&it.networks) },
+        vote_count: it.vote_count.filter(|v| *v > 0),
+        rating_source: it.vote_average.filter(|v| *v > 0.0).map(|_| "TMDB".into()),
+        budget: it.budget.filter(|b| *b > 0),
+        revenue: it.revenue.filter(|r| *r > 0),
+        season_count: it.number_of_seasons,
+        episode_count: it.number_of_episodes,
+        homepage: it.homepage.clone().filter(|h| !h.is_empty()),
+        cast: it
+            .credits
+            .as_ref()
+            .map(|c| c.cast.iter().take(20).map(|p| person(p, p.character.clone())).collect())
+            .unwrap_or_default(),
+        crew,
+        keywords: keywords.into_iter().take(12).collect(),
+        recommendations: it
+            .recommendations
+            .as_ref()
+            .map(|r| r.results.iter().filter(|i| !i.adult).take(18).map(|i| to_summary(i, kind)).collect())
+            .unwrap_or_default(),
+        ..Default::default()
+    }
+}
+
 fn to_summary(it: &Item, fallback_type: &str) -> TitleSummary {
     let media = it.media_type.as_deref().unwrap_or(fallback_type);
     let is_tv = media == "tv";
@@ -218,12 +383,20 @@ impl Provider for Tmdb {
     }
 
     async fn detail(&self, id: &str) -> Result<TitleDetail> {
-        let key = format!("tmdb:detail:{id}");
+        let key = format!("tmdb:detail2:{id}");
         if let Some(d) = self.ctx.cache.get::<TitleDetail>(&key).await {
             return Ok(d);
         }
         let (kind, tid) = id.split_once('/').ok_or_else(|| Error::NotFound(format!("bad tmdb id {id}")))?;
-        let it: Item = self.get(&format!("/{kind}/{tid}"), &[("append_to_response", "external_ids,videos,credits")]).await?;
+        let append = if kind == "tv" {
+            "external_ids,videos,credits,images,recommendations,keywords,content_ratings"
+        } else {
+            "external_ids,videos,credits,images,recommendations,keywords,release_dates"
+        };
+        // Backdrops in English or with no language (most have no text on them).
+        let it: Item = self
+            .get(&format!("/{kind}/{tid}"), &[("append_to_response", append), ("include_image_language", "en,null")])
+            .await?;
         let summary = to_summary(&it, kind);
 
         let mut seasons = Vec::new();
@@ -276,6 +449,12 @@ impl Provider for Tmdb {
                 .map(|x| format!("https://www.youtube.com/embed/{}", x.key))
         });
         d.seasons = seasons;
+        d.screenshots = it
+            .images
+            .as_ref()
+            .map(|i| i.backdrops.iter().take(16).filter_map(|b| img(&Some(b.file_path.clone()), "w1280")).collect())
+            .unwrap_or_default();
+        d.extra = extras(&it, kind);
         self.ctx.cache.put(&key, &d, ttl::DETAIL).await;
         Ok(d)
     }
@@ -322,6 +501,39 @@ impl Provider for Tmdb {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extras_from_detail() {
+        let json = r#"{
+            "id": 7, "title": "Example", "tagline": "Hold on.", "status": "Released",
+            "release_date": "2024-05-01", "vote_average": 7.4, "vote_count": 1200, "budget": 0, "revenue": 5000,
+            "spoken_languages": [{"english_name": "English", "name": "English"}],
+            "production_countries": [{"name": "United States of America"}],
+            "production_companies": [{"name": "Studio A"}],
+            "credits": {
+                "cast": [{"name": "Ada", "character": "Lead", "profile_path": "/a.jpg"}],
+                "crew": [{"name": "Rae", "job": "Producer"}, {"name": "Vale", "job": "Director"}]
+            },
+            "keywords": {"keywords": [{"name": "heist"}]},
+            "release_dates": {"results": [
+                {"iso_3166_1": "GB", "release_dates": [{"certification": "15"}]},
+                {"iso_3166_1": "US", "release_dates": [{"certification": ""}, {"certification": "R"}]}
+            ]},
+            "recommendations": {"results": [{"id": 8, "title": "Other", "media_type": "movie"}]}
+        }"#;
+        let it: Item = serde_json::from_str(json).unwrap();
+        let x = extras(&it, "movie");
+        assert_eq!(x.tagline.as_deref(), Some("Hold on."));
+        assert_eq!(x.certification.as_deref(), Some("R"), "US rating wins");
+        assert_eq!(x.budget, None, "zero budget is unknown");
+        assert_eq!(x.revenue, Some(5000));
+        assert_eq!(x.cast[0].role.as_deref(), Some("Lead"));
+        assert_eq!(x.cast[0].photo.as_deref(), Some("https://image.tmdb.org/t/p/w185/a.jpg"));
+        assert_eq!(x.crew.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["Vale", "Rae"], "director first");
+        assert_eq!(x.keywords, ["heist"]);
+        assert_eq!(x.recommendations[0].origin.id, "movie/8");
+        assert_eq!(x.rating_source.as_deref(), Some("TMDB"));
+    }
 
     #[test]
     fn kinds_from_origin() {

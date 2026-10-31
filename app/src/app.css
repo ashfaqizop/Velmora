@@ -54,6 +54,16 @@ html.player-active .shell {
   visibility: hidden;
 }
 
+/* An icon or text centred on an m3e-shape: both share one grid cell.
+   (Content slotted into the shape itself isn't centred.) */
+.on-shape {
+  display: inline-grid;
+  place-items: center;
+}
+.on-shape > * {
+  grid-area: 1 / 1;
+}
+
 /* Headings and titles use Instrument Serif, which only comes in one weight. */
 .display,
 m3e-heading:not([variant="label"]) {

@@ -301,3 +301,14 @@ pub fn trakt_login(app: AppHandle) -> Result<(), String> {
 pub async fn sync_watched(app: AppHandle, title: TitleSummary, target: Target) -> Result<Vec<String>, String> {
     Ok(sync::watched(&app, &title, target).await.into_iter().map(str::to_string).collect())
 }
+
+/// Open an https link in the default browser (title pages: IMDb, TMDB, homepage).
+#[tauri::command]
+pub fn open_external(app: AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let parsed = tauri::Url::parse(&url).map_err(|e| e.to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("only https links can be opened".into());
+    }
+    app.opener().open_url(parsed.as_str(), None::<&str>).map_err(|e| e.to_string())
+}

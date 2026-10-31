@@ -30,3 +30,4 @@ import "@m3e/web/option";
 import "@m3e/web/form-field";
 import "@m3e/web/stepper";
 import "@m3e/web/callout";
+import "@m3e/web/expansion-panel";

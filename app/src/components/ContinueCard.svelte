@@ -30,15 +30,19 @@
 </m3e-card>
 
 <style>
+  /* Rounded on the host too: it's the element that clips the artwork. */
   .cw {
     --m3e-card-padding: 0;
-    --m3e-card-shape: var(--md-sys-shape-corner-large, 16px);
+    --m3e-card-shape: var(--md-sys-shape-corner-extra-large, 28px);
     width: 280px;
     flex: none;
     overflow: hidden;
+    border-radius: var(--md-sys-shape-corner-extra-large, 28px);
   }
   .art {
     position: relative;
+    overflow: hidden;
+    border-radius: var(--md-sys-shape-corner-extra-large, 28px) var(--md-sys-shape-corner-extra-large, 28px) 0 0;
     aspect-ratio: 16 / 9;
     background: var(--md-sys-color-surface-container-highest) center / cover;
   }

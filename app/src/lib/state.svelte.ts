@@ -230,12 +230,13 @@ export function targetLabel(target: Target) {
   return target.type === "episode" ? `S${target.season} E${target.episode}` : "";
 }
 
-export function formatTime(seconds: number | null | undefined) {
+/** `withHours` keeps the hour field even at 0, so labels don't change length mid-video. */
+export function formatTime(seconds: number | null | undefined, withHours = false) {
   const s = Math.max(0, Math.floor(seconds ?? 0));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = String(s % 60).padStart(2, "0");
-  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+  return h || withHours ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 }
 
 const ACTIVE = new Set(["queued", "running", "extracting"]);

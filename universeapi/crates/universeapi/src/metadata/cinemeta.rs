@@ -49,6 +49,12 @@ struct Meta {
     cast: Vec<String>,
     #[serde(default, deserialize_with = "crate::util::null_default")]
     director: Vec<String>,
+    #[serde(default, deserialize_with = "crate::util::null_default")]
+    writer: Vec<String>,
+    country: Option<String>,
+    awards: Option<String>,
+    released: Option<String>,
+    status: Option<String>,
     runtime: Option<String>,
     #[serde(default, deserialize_with = "crate::util::null_default")]
     trailers: Vec<Trailer>,
@@ -140,7 +146,7 @@ impl Provider for Cinemeta {
     }
 
     async fn detail(&self, id: &str) -> Result<TitleDetail> {
-        let key = format!("cinemeta:detail:{id}");
+        let key = format!("cinemeta:detail2:{id}");
         if let Some(d) = self.ctx.cache.get::<TitleDetail>(&key).await {
             return Ok(d);
         }
@@ -179,7 +185,23 @@ impl Provider for Cinemeta {
             s.episodes.sort_by_key(|e| e.number);
         }
 
+        let extra = TitleExtra {
+            release_date: m.released.as_deref().map(|r| r.chars().take(10).collect()),
+            status: m.status.clone().filter(|s| !s.is_empty()),
+            countries: m.country.as_deref().map(|c| c.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect()).unwrap_or_default(),
+            awards: m.awards.clone().filter(|a| !a.is_empty() && a != "N/A"),
+            rating_source: m.imdb_rating.as_ref().map(|_| "IMDb".into()),
+            cast: m.cast.iter().map(|n| Person { name: n.clone(), role: None, photo: None }).collect(),
+            crew: m
+                .director
+                .iter()
+                .map(|n| Person { name: n.clone(), role: Some("Director".into()), photo: None })
+                .chain(m.writer.iter().map(|n| Person { name: n.clone(), role: Some("Writer".into()), photo: None }))
+                .collect(),
+            ..Default::default()
+        };
         let mut d = TitleDetail::from_summary(to_summary(m));
+        d.extra = extra;
         d.genres = genres;
         d.cast = cast;
         d.directors = directors;

@@ -24,7 +24,10 @@
       <img src={title.poster} alt="" loading="lazy" decoding="async" onerror={() => (failed = true)} />
     {:else}
       <div class="fallback">
-        <m3e-shape name="12-sided-cookie"><span>{initials}</span></m3e-shape>
+        <span class="on-shape initials">
+          <m3e-shape name="12-sided-cookie"></m3e-shape>
+          <span>{initials}</span>
+        </span>
       </div>
     {/if}
     {#if title.rating}
@@ -47,6 +50,7 @@
     flex: none;
     background: transparent;
     overflow: hidden;
+    border-radius: var(--md-sys-shape-corner-large, 16px);
   }
   .art {
     position: relative;
@@ -71,14 +75,12 @@
     place-items: center;
     background: linear-gradient(160deg, var(--md-sys-color-primary-container), var(--md-sys-color-surface-container-high));
   }
-  .fallback m3e-shape {
+  .initials {
     --m3e-shape-size: 72px;
     --m3e-shape-container-color: var(--md-sys-color-primary);
     color: var(--md-sys-color-on-primary);
     font-weight: 700;
     font-size: 20px;
-    display: grid;
-    place-items: center;
   }
   .rating {
     position: absolute;

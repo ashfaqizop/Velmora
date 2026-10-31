@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import { fade, fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import PoweredBy from "./PoweredBy.svelte";
   import { downloads, library, nav, type Route } from "../lib/state.svelte";
 
@@ -18,6 +21,33 @@
     if (cur.name === "browse" && r.name === "browse") return cur.kind === r.kind;
     return true;
   }
+
+  // Rotating tips for the card under the menu: a short heading and one useful line.
+  const TIPS: [string, string][] = [
+    ["Better movies. Brighter days.", "Every source, one search away."],
+    ["Ctrl K finds anything.", "Movies, series and anime from every source at once."],
+    ["Space pauses. F goes full screen.", "Arrow keys skip ten seconds either way."],
+    ["Stop anywhere.", "Continue Watching remembers the exact second."],
+    ["Downloads play offline.", "Grab an episode before the flight."],
+    ["When a link dies, Velmora moves on.", "The next source starts at the same spot."],
+    ["Sub or dub stays the way you set it.", "Change it on any anime page."],
+    ["Your AniList can update itself.", "Connect it in Settings, then just watch."],
+    ["Purple isn't mandatory.", "Eight accent colours are waiting in Settings."],
+    ["Torrents work best behind a VPN.", "Peers can see your IP while one runs."],
+    ["A new pick every night.", "Tonight's pick on Home changes daily."],
+    ["4K when you want it.", "Turn on auto 4K in Settings, or choose it per title."],
+  ];
+  const TIP_MS = 9000;
+
+  // The first launch always opens on the brand line; later ones start anywhere.
+  let tip = $state(localStorage.getItem("velmora.onboarded") === "1" ? Math.floor(Math.random() * TIPS.length) : 0);
+
+  onMount(() => {
+    const timer = setInterval(() => {
+      if (!document.hidden) tip = (tip + 1) % TIPS.length;
+    }, TIP_MS);
+    return () => clearInterval(timer);
+  });
 </script>
 
 <aside class="sidebar">
@@ -41,9 +71,13 @@
     <m3e-shape name="flower" class="s1"></m3e-shape>
     <m3e-shape name="soft-burst" class="s2"></m3e-shape>
     <m3e-shape name="circle" class="s3"></m3e-shape>
-    <div class="copy">
-      <strong class="display">Better movies.<br />Brighter days.</strong>
-      <span>Every source, one search away.</span>
+    <div class="copy" aria-live="off">
+      {#key tip}
+        <div class="tip" in:fly={{ y: 10, duration: 500, delay: 200, easing: cubicOut }} out:fade={{ duration: 200 }}>
+          <strong class="display">{TIPS[tip][0]}</strong>
+          <span>{TIPS[tip][1]}</span>
+        </div>
+      {/key}
     </div>
     <div class="credit"><PoweredBy height={10} /></div>
   </div>
@@ -144,16 +178,23 @@
       translate: 6px 8px;
     }
   }
+  /* Outgoing and incoming tips share one cell, so the card never jumps. */
   .copy {
     position: relative;
     z-index: 1;
+    display: grid;
+    align-items: end;
+  }
+  .tip {
+    grid-area: 1 / 1;
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
   .copy strong {
     font-size: 22px;
-    line-height: 1.2;
+    line-height: 1.15;
+    text-wrap: balance;
   }
   .copy span {
     font-size: 12px;
