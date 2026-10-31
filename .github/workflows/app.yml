@@ -70,7 +70,6 @@ jobs:
           VELMORA_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           VELMORA_ANILIST_CLIENT_ID: ${{ secrets.ANILIST_CLIENT_ID }}
           VELMORA_TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
-          VELMORA_TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
         with:
           projectPath: app
           tagName: app-v__VERSION__
@@ -91,7 +90,6 @@ jobs:
           VELMORA_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           VELMORA_ANILIST_CLIENT_ID: ${{ secrets.ANILIST_CLIENT_ID }}
           VELMORA_TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
-          VELMORA_TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
         run: npm run tauri build
       - name: Upload installer
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}

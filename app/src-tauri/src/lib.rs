@@ -49,9 +49,7 @@ pub fn run() {
         .try_init();
 
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_opener::init());
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_process::init());
     #[cfg(desktop)]
     {
         builder = builder
@@ -118,10 +116,8 @@ pub fn run() {
             commands::sync_status,
             commands::sync_disconnect,
             commands::anilist_login,
-            commands::trakt_start,
-            commands::trakt_poll,
+            commands::trakt_login,
             commands::sync_watched,
-            commands::open_sign_in_page,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");

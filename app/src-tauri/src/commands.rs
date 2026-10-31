@@ -292,29 +292,12 @@ pub fn anilist_login(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn trakt_start(state: State<'_, AppState>) -> Result<sync::DeviceCode, String> {
-    let engine = state.engine.clone();
-    sync::trakt_start(&engine).await
-}
-
-#[tauri::command]
-pub async fn trakt_poll(app: AppHandle, device_code: String) -> Result<bool, String> {
-    sync::trakt_poll(&app, &device_code).await
+pub fn trakt_login(app: AppHandle) -> Result<(), String> {
+    sync::trakt_login(&app)
 }
 
 /// Mark a title or episode watched on every connected service.
 #[tauri::command]
 pub async fn sync_watched(app: AppHandle, title: TitleSummary, target: Target) -> Result<Vec<String>, String> {
     Ok(sync::watched(&app, &title, target).await.into_iter().map(str::to_string).collect())
-}
-
-/// Open a Trakt or AniList page in the default browser (sign-in only).
-#[tauri::command]
-pub fn open_sign_in_page(app: AppHandle, url: String) -> Result<(), String> {
-    use tauri_plugin_opener::OpenerExt;
-    let allowed = ["https://trakt.tv/", "https://anilist.co/"];
-    if !allowed.iter().any(|p| url.starts_with(p)) {
-        return Err("only Trakt and AniList pages can be opened".into());
-    }
-    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }

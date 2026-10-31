@@ -75,18 +75,8 @@ export interface SyncStatus {
   traktUser: string | null;
 }
 
-export interface DeviceCode {
-  deviceCode: string;
-  userCode: string;
-  verificationUrl: string;
-  expiresIn: number;
-  interval: number;
-}
-
 export const syncStatus = () => invoke<SyncStatus>("sync_status");
 export const syncDisconnect = (service: "anilist" | "trakt") => invoke<void>("sync_disconnect", { service });
 export const anilistLogin = () => invoke<void>("anilist_login");
-export const traktStart = () => invoke<DeviceCode>("trakt_start");
-export const traktPoll = (deviceCode: string) => invoke<boolean>("trakt_poll", { deviceCode });
+export const traktLogin = () => invoke<void>("trakt_login");
 export const syncWatched = (title: TitleSummary, target: Target) => invoke<string[]>("sync_watched", { title, target });
-export const openSignInPage = (url: string) => invoke<void>("open_sign_in_page", { url });
