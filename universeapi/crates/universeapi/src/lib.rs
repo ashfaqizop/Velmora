@@ -33,6 +33,7 @@ pub mod resolvers;
 #[cfg(feature = "torrent")]
 pub mod torrent;
 pub mod util;
+pub mod vault;
 
 pub use config::{Preferences, Registry};
 pub use engine::{Engine, EngineOptions, ProviderFailure, SearchBatch, SourcesReport};

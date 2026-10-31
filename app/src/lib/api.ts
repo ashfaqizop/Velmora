@@ -5,6 +5,7 @@ import type {
   AudioMode,
   ConfigStatus,
   DownloadStatus,
+  LocalFile,
   OpenedStream,
   Preferences,
   ProviderRef,
@@ -88,6 +89,14 @@ export const downloadResume = (id: number) => invoke<void>("download_resume", { 
 export const downloadCancel = (id: number) => invoke<void>("download_cancel", { id });
 export const downloadsClear = () => invoke<void>("downloads_clear");
 export const revealFile = (path: string) => invoke<void>("reveal_file", { path });
+export const downloadsLibrary = () => invoke<LocalFile[]>("downloads_library");
+export const downloadExisting = (title: string) => invoke<string[]>("download_existing", { title });
+export const downloadFolder = () => invoke<string>("download_folder");
+export const openDownloadFolder = () => invoke<void>("open_download_folder");
+export const setDownloadDir = (path: string | null) => invoke<string>("set_download_dir", { path });
+export const defaultDownloadFolder = () => invoke<string>("default_download_folder");
+/** What the player loads for a downloaded file, plus subtitle files beside it. */
+export const openLocal = (path: string) => invoke<{ url: string; subtitles: string[] }>("open_local", { path });
 
 export interface SyncStatus {
   anilistAvailable: boolean;

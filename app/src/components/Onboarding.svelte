@@ -3,6 +3,7 @@
   import { fade } from "svelte/transition";
   import Logo from "./Logo.svelte";
   import PoweredBy from "./PoweredBy.svelte";
+  import DownloadFolder from "./DownloadFolder.svelte";
   import { LANGUAGES } from "../lib/options";
   import { settings } from "../lib/state.svelte";
 
@@ -62,13 +63,14 @@
         <m3e-step for="ob-welcome">Welcome</m3e-step>
         <m3e-step for="ob-watch">How you watch</m3e-step>
         <m3e-step for="ob-sources">Sources</m3e-step>
+        <m3e-step for="ob-downloads">Downloads</m3e-step>
 
         <m3e-step-panel id="ob-welcome">
           <div class="step">
             <Logo size={56} />
             <h1 class="display">Movies, series and anime, all in one place.</h1>
             <p>
-              Velmora searches many sources at once and plays the best link it finds. Two quick questions and you're in.
+              Velmora searches many sources at once and plays the best link it finds. A few quick choices and you're in.
             </p>
             <PoweredBy height={12} />
           </div>
@@ -148,6 +150,18 @@
               </div>
               <m3e-switch checked={adult} onchange={(e: Event) => (adult = checked(e))}></m3e-switch>
             </label>
+          </div>
+          <div slot="actions" class="actions">
+            <m3e-button><m3e-stepper-previous>Back</m3e-stepper-previous></m3e-button>
+            <m3e-button variant="filled"><m3e-stepper-next>Next</m3e-stepper-next></m3e-button>
+          </div>
+        </m3e-step-panel>
+
+        <m3e-step-panel id="ob-downloads">
+          <div class="step">
+            <h2 class="display">Where should downloads go?</h2>
+            <p>Downloaded movies and episodes play offline inside Velmora. Pick a drive with room to spare.</p>
+            <DownloadFolder />
             <p class="small">You can change all of this later in Settings.</p>
           </div>
           <div slot="actions" class="actions">

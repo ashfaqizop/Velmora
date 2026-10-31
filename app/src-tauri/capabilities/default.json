@@ -16,6 +16,7 @@
     "core:window:allow-is-fullscreen",
     "core:window:allow-close",
     "core:window:allow-start-dragging",
-    "process:default"
+    "process:default",
+    "dialog:allow-open"
   ]
 }

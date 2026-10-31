@@ -15,14 +15,22 @@
   let run = 0;
 
   const downloadable = $derived(report?.sources ?? []);
+  /** File names already saved for this title, from any session. */
+  let have = $state<string[]>([]);
+  const fileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
   export function open(t: TitleSummary, tg: Target) {
     title = t;
     target = tg;
     report = null;
     error = null;
+    have = [];
     const mine = ++run;
     dialog.show();
+    api
+      .downloadExisting(label(t, tg))
+      .then((files) => mine === run && (have = files))
+      .catch(() => {});
     api
       .sources(t, tg, settings.audioMode)
       .then((r) => mine === run && (report = r))
@@ -64,6 +72,21 @@
     Download {title?.name ?? ""}{target.type === "episode" ? ` · ${targetLabel(target)}` : ""}
   </span>
   <div class="body">
+    {#if have.length}
+      <m3e-callout class="have">
+        <m3e-icon slot="icon" name="download_done"></m3e-icon>
+        <span slot="label">Already downloaded</span>
+        {have.map(fileName).join(", ")} is in your Downloads. Another download saves a second copy beside it.
+        <m3e-button
+          variant="text"
+          size="small"
+          onclick={() => {
+            dialog.hide();
+            nav.go({ name: "downloads" });
+          }}>Open Downloads</m3e-button
+        >
+      </m3e-callout>
+    {/if}
     {#if error}
       <p class="error">{error}</p>
     {:else if !report}
@@ -97,6 +120,10 @@
   }
   .body {
     min-height: 120px;
+  }
+  .have {
+    display: block;
+    margin-bottom: 16px;
   }
   .loading {
     display: flex;

@@ -3,9 +3,11 @@
   import { listen } from "@tauri-apps/api/event";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import PoweredBy from "../components/PoweredBy.svelte";
+  import DownloadFolder from "../components/DownloadFolder.svelte";
   import * as api from "../lib/api";
   import { LANGUAGES, PROVIDER_GROUPS, providerLabel } from "../lib/options";
   import { settings } from "../lib/state.svelte";
+  import { slider } from "../lib/slider";
   import type { AppInfo, MediaKind, Preferences, ProviderId } from "../lib/types";
 
   let info = $state<AppInfo | null>(null);
@@ -225,9 +227,14 @@
       <m3e-heading variant="title" size="large" level={2}>Downloads</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
+          <div class="row folder-row">
+            <div class="text"><strong>Download folder</strong><span>Movies and episodes you download are saved here.</span></div>
+            <DownloadFolder />
+          </div>
+          <m3e-divider></m3e-divider>
           <div class="row">
             <div class="text"><strong>Downloads at once</strong><span>{p.max_concurrent_downloads} at a time; the rest wait in line.</span></div>
-            <m3e-slider class="slider" min="1" max="5" step="1" discrete labelled aria-label="Downloads at once">
+            <m3e-slider class="slider" min="1" max="5" step="1" discrete labelled aria-label="Downloads at once" use:slider>
               <m3e-slider-thumb
                 value={p.max_concurrent_downloads}
                 onchange={(e: Event) => set({ max_concurrent_downloads: Number((e.currentTarget as HTMLElement & { value: number }).value) })}
@@ -367,6 +374,14 @@
     flex-direction: column;
     gap: 2px;
     min-width: 0;
+  }
+  .folder-row .text {
+    flex: none;
+  }
+  /* The path takes the rest of the row and ellipsises. */
+  .folder-row > :global(.folder) {
+    flex: 1;
+    max-width: 560px;
   }
   .text strong {
     font-weight: 700;

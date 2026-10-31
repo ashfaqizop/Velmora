@@ -206,6 +206,8 @@ export interface Preferences {
   max_concurrent_downloads: number;
   seed_after_download: boolean;
   region: string | null;
+  /** Where downloads go; null = the default folder. */
+  download_dir: string | null;
 }
 
 export type DownloadState =
@@ -224,6 +226,16 @@ export interface DownloadStatus {
   downloaded: number;
   total: number | null;
   bytes_per_sec: number;
+}
+
+/** A finished video found in the download folder. */
+export interface LocalFile {
+  path: string;
+  /** File name without the extension: "Saiyaara (2025) 480p". */
+  title: string;
+  size: number;
+  /** Unix seconds. */
+  modified: number;
 }
 
 export interface RuntimeProgress {

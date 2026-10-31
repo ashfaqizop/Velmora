@@ -23,6 +23,7 @@ use tokio::sync::{watch, Mutex, Semaphore};
 
 use crate::error::{Error, Result};
 use crate::model::{Source, StreamFormat};
+use crate::vault::{Header, Vault};
 use crate::providers::Ctx;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +66,8 @@ struct Job {
     tx: watch::Sender<DownloadStatus>,
     stop: AtomicBool,
     pause: AtomicBool,
+    /// The final file this job writes, picked on its first run.
+    target: std::sync::Mutex<Option<PathBuf>>,
 }
 
 impl Job {
@@ -75,6 +78,72 @@ impl Job {
     fn interrupted(&self) -> bool {
         self.stop.load(Ordering::Relaxed) || self.pause.load(Ordering::Relaxed)
     }
+
+    fn target(&self) -> Option<PathBuf> {
+        self.target.lock().ok().and_then(|t| t.clone())
+    }
+}
+
+/// The in-progress files a download leaves next to its target.
+fn partials(target: &Path) -> [PathBuf; 2] {
+    [PathBuf::from(format!("{}.part", target.display())), target.with_extension("part.mkv")]
+}
+
+async fn discard_partials(target: &Path) {
+    for p in partials(target) {
+        let _ = tokio::fs::remove_file(p).await;
+    }
+}
+
+fn is_video(name: &str) -> bool {
+    Path::new(name)
+        .extension()
+        .and_then(|x| x.to_str())
+        .is_some_and(|x| matches!(x.to_ascii_lowercase().as_str(), "mkv" | "mp4" | "webm" | "avi" | "m4v" | "vlm"))
+}
+
+/// Seal every video under `dir` (an extracted season pack) into vault files.
+async fn seal_tree(vault: &Vault, dir: &Path) -> Result<()> {
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let mut entries = tokio::fs::read_dir(&d).await.map_err(io)?;
+        while let Some(e) = entries.next_entry().await.map_err(io)? {
+            let path = e.path();
+            if e.file_type().await.map_err(io)?.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            if is_video(name) && !crate::vault::is_vault(name) {
+                vault.seal(&path, &path.with_extension(crate::vault::EXT)).await?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// A finished video found in the download folder.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LocalFile {
+    pub path: PathBuf,
+    /// File name without the extension: "Saiyaara (2025) 480p".
+    pub title: String,
+    pub size: u64,
+    /// Unix seconds.
+    pub modified: u64,
+}
+
+fn is_partial(name: &str) -> bool {
+    name.ends_with(".part") || name.ends_with(".part.mkv")
+}
+
+/// "Dune (2021) 1080p.mkv" -> "Dune (2021) 1080p (2).mkv"
+fn numbered(target: &Path, n: u32) -> PathBuf {
+    let stem = target.file_stem().and_then(|s| s.to_str()).unwrap_or("download");
+    match target.extension().and_then(|e| e.to_str()) {
+        Some(ext) => target.with_file_name(format!("{stem} ({n}).{ext}")),
+        None => target.with_file_name(format!("{stem} ({n})")),
+    }
 }
 
 #[cfg(feature = "torrent")]
@@ -82,12 +151,14 @@ pub type TorrentSlot = Arc<tokio::sync::OnceCell<crate::torrent::TorrentEngine>>
 
 pub struct DownloadManager {
     ctx: Arc<Ctx>,
-    dir: PathBuf,
+    dir: std::sync::RwLock<PathBuf>,
     ffmpeg: std::sync::RwLock<PathBuf>,
     slots: Arc<Semaphore>,
     max: AtomicUsize,
     jobs: Mutex<HashMap<u64, Arc<Job>>>,
     next: AtomicU64,
+    /// When set, finished downloads are stored as vault files only Velmora can play.
+    vault: std::sync::RwLock<Option<Arc<Vault>>>,
     #[cfg(feature = "torrent")]
     torrents: TorrentSlot,
 }
@@ -138,14 +209,39 @@ impl DownloadManager {
         let max = max_concurrent.max(1);
         Self {
             ctx,
-            dir,
+            dir: std::sync::RwLock::new(dir),
             ffmpeg: std::sync::RwLock::new(PathBuf::from("ffmpeg")),
             slots: Arc::new(Semaphore::new(max)),
             max: AtomicUsize::new(max),
             jobs: Mutex::new(HashMap::new()),
             next: AtomicU64::new(1),
+            vault: std::sync::RwLock::new(None),
             #[cfg(feature = "torrent")]
             torrents,
+        }
+    }
+
+    /// Store new downloads as vault files with this key holder (`None` = plain files).
+    pub fn set_vault(&self, vault: Option<Arc<Vault>>) {
+        if let Ok(mut v) = self.vault.write() {
+            *v = vault;
+        }
+    }
+
+    fn vault(&self) -> Option<Arc<Vault>> {
+        self.vault.read().ok().and_then(|v| v.clone())
+    }
+
+    /// The folder new downloads go to.
+    pub fn dir(&self) -> PathBuf {
+        self.dir.read().map(|d| d.clone()).unwrap_or_default()
+    }
+
+    /// Change the folder for downloads started from now on. Running and
+    /// paused jobs keep the file they already claimed.
+    pub fn set_dir(&self, dir: PathBuf) {
+        if let Ok(mut d) = self.dir.write() {
+            *d = dir;
         }
     }
 
@@ -175,7 +271,7 @@ impl DownloadManager {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let status = DownloadStatus { id, title: req.title.clone(), state: DownloadState::Queued, downloaded: 0, total: None, bytes_per_sec: 0 };
         let (tx, _) = watch::channel(status);
-        let job = Arc::new(Job { req, tx, stop: AtomicBool::new(false), pause: AtomicBool::new(false) });
+        let job = Arc::new(Job { req, tx, stop: AtomicBool::new(false), pause: AtomicBool::new(false), target: std::sync::Mutex::new(None) });
         self.jobs.lock().await.insert(id, job.clone());
         self.spawn(job);
         id
@@ -193,7 +289,12 @@ impl DownloadManager {
             let result = me.run(&job).await;
             let state = match result {
                 Ok(path) => DownloadState::Completed { path },
-                Err(_) if job.stop.load(Ordering::Relaxed) => DownloadState::Cancelled,
+                Err(_) if job.stop.load(Ordering::Relaxed) => {
+                    if let Some(t) = job.target() {
+                        discard_partials(&t).await;
+                    }
+                    DownloadState::Cancelled
+                }
                 Err(_) if job.pause.load(Ordering::Relaxed) => DownloadState::Paused,
                 Err(e) => DownloadState::Failed { error: e.to_string() },
             };
@@ -236,48 +337,181 @@ impl DownloadManager {
     pub async fn cancel(&self, id: u64) {
         if let Some(j) = self.jobs.lock().await.get(&id) {
             j.stop.store(true, Ordering::Relaxed);
-            if matches!(j.tx.borrow().state, DownloadState::Paused | DownloadState::Failed { .. }) {
+            let idle = matches!(j.tx.borrow().state, DownloadState::Paused | DownloadState::Failed { .. });
+            if idle {
                 j.update(|s| s.state = DownloadState::Cancelled);
+                if let Some(t) = j.target() {
+                    discard_partials(&t).await;
+                }
             }
         }
     }
 
-    /// Forget finished/cancelled jobs.
+    /// Forget completed and cancelled jobs. Failed ones stay so they can be retried.
     pub async fn clear_finished(&self) {
-        self.jobs.lock().await.retain(|_, j| {
-            !matches!(j.tx.borrow().state, DownloadState::Completed { .. } | DownloadState::Cancelled | DownloadState::Failed { .. })
-        });
+        self.jobs.lock().await.retain(|_, j| !matches!(j.tx.borrow().state, DownloadState::Completed { .. } | DownloadState::Cancelled));
+    }
+
+    /// Delete partial files no job owns. Jobs don't survive a restart, so at
+    /// launch every `.part` in the download folder is left over from a past session.
+    pub async fn remove_orphaned_parts(&self) {
+        let owned: Vec<PathBuf> =
+            self.jobs.lock().await.values().filter_map(|j| j.target()).flat_map(|t| partials(&t)).collect();
+        let Ok(mut entries) = tokio::fs::read_dir(self.dir()).await else { return };
+        while let Ok(Some(e)) = entries.next_entry().await {
+            let path = e.path();
+            let partial = path.file_name().and_then(|n| n.to_str()).is_some_and(is_partial);
+            if partial && !owned.contains(&path) && e.file_type().await.is_ok_and(|t| t.is_file()) {
+                let _ = tokio::fs::remove_file(&path).await;
+            }
+        }
+    }
+
+    /// Finished videos in the download folder named after `title`
+    /// ("Dune (2021)" matches "Dune (2021) 1080p.mkv"), for "you already have this".
+    pub async fn existing(&self, title: &str) -> Vec<PathBuf> {
+        let base = sanitize(title);
+        let mut found = Vec::new();
+        let Ok(mut entries) = tokio::fs::read_dir(self.dir()).await else { return found };
+        while let Ok(Some(e)) = entries.next_entry().await {
+            let Some(name) = e.file_name().to_str().map(str::to_string) else { continue };
+            // The title must end at a space or dot, so "Dune" doesn't match "Dune Messiah".
+            let boundary = name.strip_prefix(&base).is_some_and(|r| r.starts_with(' ') || r.starts_with('.'));
+            if boundary && is_video(&name) && !is_partial(&name) {
+                found.push(e.path());
+            }
+        }
+        found.sort();
+        found
+    }
+
+    /// Every finished video in the download folder, newest first, so the
+    /// Downloads page can list files from earlier sessions too.
+    pub async fn library(&self) -> Vec<LocalFile> {
+        let mut files = Vec::new();
+        let Ok(mut entries) = tokio::fs::read_dir(self.dir()).await else { return files };
+        while let Ok(Some(e)) = entries.next_entry().await {
+            let Some(name) = e.file_name().to_str().map(str::to_string) else { continue };
+            if is_partial(&name) || !is_video(&name) {
+                continue;
+            }
+            let Ok(meta) = e.metadata().await else { continue };
+            if !meta.is_file() {
+                continue;
+            }
+            let modified = meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs());
+            let title = Path::new(&name).file_stem().and_then(|s| s.to_str()).unwrap_or(&name).to_string();
+            files.push(LocalFile { path: e.path(), title, size: meta.len(), modified });
+        }
+        files.sort_by(|a, b| b.modified.cmp(&a.modified));
+        files
+    }
+
+    /// Pick this job's file: the planned name, numbered if a finished file or
+    /// another job already has it. Resumes keep the name picked the first time.
+    async fn claim_target(&self, job: &Job, planned: PathBuf) -> PathBuf {
+        if let Some(t) = job.target() {
+            return t;
+        }
+        let jobs = self.jobs.lock().await;
+        let taken: Vec<PathBuf> = jobs
+            .values()
+            .filter(|j| !std::ptr::eq(j.as_ref(), job) && !matches!(j.tx.borrow().state, DownloadState::Cancelled))
+            .filter_map(|j| j.target())
+            .collect();
+        let free = |p: &PathBuf| !p.exists() && !taken.contains(p);
+        let mut target = planned.clone();
+        let mut n = 2;
+        while !free(&target) {
+            target = numbered(&planned, n);
+            n += 1;
+        }
+        if let Ok(mut t) = job.target.lock() {
+            *t = Some(target.clone());
+        }
+        target
     }
 
     async fn run(&self, job: &Job) -> Result<PathBuf> {
-        let dir = job.req.dest_dir.clone().unwrap_or_else(|| self.dir.clone());
+        let dir = job.req.dest_dir.clone().unwrap_or_else(|| self.dir());
         tokio::fs::create_dir_all(&dir).await.map_err(io)?;
         let src = &job.req.source;
-        let target = dir.join(file_name(&job.req.title, src));
+        let planned = dir.join(file_name(&job.req.title, src));
+        let vault = self.vault();
+        let zip = src.format == StreamFormat::Archive || extension(src) == "zip";
         let path = match src.format {
             #[cfg(feature = "torrent")]
-            StreamFormat::Torrent => return self.torrent(job, &dir).await,
+            StreamFormat::Torrent => {
+                let path = self.torrent(job, &dir).await?;
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_string();
+                return match vault {
+                    Some(v) if is_video(&name) && !crate::vault::is_vault(&name) => {
+                        let dst = self.claim_target(job, path.with_extension(crate::vault::EXT)).await;
+                        v.seal(&path, &dst).await
+                    }
+                    _ => Ok(path),
+                };
+            }
             #[cfg(not(feature = "torrent"))]
             StreamFormat::Torrent => return Err(Error::Unsupported("built without the torrent feature".into())),
-            StreamFormat::Hls | StreamFormat::Dash => self.remux(job, &target.with_extension("mkv")).await?,
-            _ => self.fetch(job, &target).await?,
+            StreamFormat::Hls | StreamFormat::Dash => match &vault {
+                // ffmpeg writes a plain MKV beside the vault file, which is sealed and removed.
+                Some(v) => {
+                    let target = self.claim_target(job, planned.with_extension(crate::vault::EXT)).await;
+                    let plain = self.remux(job, &target.with_extension("remux.mkv")).await?;
+                    v.seal(&plain, &target).await?
+                }
+                None => {
+                    let target = self.claim_target(job, planned.with_extension("mkv")).await;
+                    self.remux(job, &target).await?
+                }
+            },
+            _ => match &vault {
+                Some(v) if !zip => {
+                    let target = self.claim_target(job, planned.with_extension(crate::vault::EXT)).await;
+                    self.fetch(job, &target, Some((v.clone(), extension(src)))).await?
+                }
+                _ => {
+                    let target = self.claim_target(job, planned).await;
+                    self.fetch(job, &target, None).await?
+                }
+            },
         };
         self.save_subtitles(src, &path).await;
-        if src.format == StreamFormat::Archive || extension(src) == "zip" {
+        if zip {
             job.update(|s| s.state = DownloadState::Extracting);
             let out = path.with_extension("");
             extract_zip(&path, &out).await?;
             let _ = tokio::fs::remove_file(&path).await;
+            if let Some(v) = &vault {
+                seal_tree(v, &out).await?;
+            }
             return Ok(out);
         }
         Ok(path)
     }
 
-    /// Plain HTTP download with resume.
-    async fn fetch(&self, job: &Job, target: &Path) -> Result<PathBuf> {
+    /// HTTP download with resume. With `seal`, bytes are encrypted as they're
+    /// written (a vault file); the header in the `.part` lets a resume continue.
+    async fn fetch(&self, job: &Job, target: &Path, seal: Option<(Arc<Vault>, String)>) -> Result<PathBuf> {
         let src = &job.req.source;
         let part = PathBuf::from(format!("{}.part", target.display()));
-        let mut start = tokio::fs::metadata(&part).await.map(|m| m.len()).unwrap_or(0);
+        let on_disk = tokio::fs::metadata(&part).await.map(|m| m.len()).unwrap_or(0);
+        // Payload bytes already on disk, after the vault header if there is one.
+        let mut start = on_disk;
+        let header: Option<Header> = match &seal {
+            None => None,
+            Some((v, ext)) => match Vault::read_header(&part).await {
+                Ok(h) if on_disk >= h.len => {
+                    start = on_disk - h.len;
+                    Some(h)
+                }
+                _ => {
+                    start = 0;
+                    Some(v.header(ext))
+                }
+            },
+        };
 
         let mut rb = self.ctx.http.client().get(&src.url).timeout(Duration::from_secs(60 * 60 * 6));
         for (k, v) in &src.headers {
@@ -308,6 +542,9 @@ impl DownloadManager {
             .open(&part)
             .await
             .map_err(io)?;
+        if let (0, Some(h)) = (start, &header) {
+            file.write_all(&h.to_bytes()).await.map_err(io)?;
+        }
         let mut stream = resp.bytes_stream();
         let mut done = start;
         let mut window = (Instant::now(), done);
@@ -317,7 +554,14 @@ impl DownloadManager {
                 return Err(Error::Transport(INTERRUPTED.into()));
             }
             let chunk = chunk.map_err(|e| Error::Network { url: src.url.clone(), source: e })?;
-            file.write_all(&chunk).await.map_err(io)?;
+            match (&seal, &header) {
+                (Some((v, _)), Some(h)) => {
+                    let mut buf = chunk.to_vec();
+                    v.apply(&h.nonce, done, &mut buf);
+                    file.write_all(&buf).await.map_err(io)?;
+                }
+                _ => file.write_all(&chunk).await.map_err(io)?,
+            }
             done += chunk.len() as u64;
             let elapsed = window.0.elapsed();
             if elapsed >= Duration::from_millis(500) {
@@ -397,7 +641,7 @@ impl DownloadManager {
     async fn torrent(&self, job: &Job, dir: &Path) -> Result<PathBuf> {
         let src = &job.req.source;
         let magnet = src.torrent.as_ref().map(|t| t.magnet.clone()).unwrap_or_else(|| src.url.clone());
-        let te = self.torrents.get_or_try_init(|| crate::torrent::TorrentEngine::new(self.dir.join("torrents"))).await?;
+        let te = self.torrents.get_or_try_init(|| crate::torrent::TorrentEngine::new(self.dir().join("torrents"))).await?;
         let tjob = te.add(&magnet, job.req.episode).await?;
         let name = tjob.selected_file().map(|f| f.name.clone()).unwrap_or_default();
         let seed = self.ctx.prefs().seed_after_download;
@@ -508,6 +752,42 @@ mod tests {
         assert_eq!(file_name("Dune (2021)", &s), "Dune (2021) 1080p.mkv");
         let hls = Source::new(ProviderId::ZokoAnime, "Zoko", "Episode 1", "https://x/master.m3u8");
         assert_eq!(file_name("Frieren S01E01", &hls), "Frieren S01E01.mkv");
+    }
+
+    fn test_manager(dir: PathBuf) -> DownloadManager {
+        let http = crate::net::Http::new("test").unwrap();
+        let ctx = Arc::new(Ctx::new(http, crate::cache::Cache::memory(), Default::default(), Default::default(), None));
+        DownloadManager::new(
+            ctx,
+            dir,
+            1,
+            #[cfg(feature = "torrent")]
+            Arc::new(tokio::sync::OnceCell::new()),
+        )
+    }
+
+    #[test]
+    fn numbering() {
+        assert_eq!(numbered(Path::new("/d/Dune (2021) 1080p.mkv"), 2), Path::new("/d/Dune (2021) 1080p (2).mkv"));
+        assert_eq!(partials(Path::new("/d/A.mp4"))[0], Path::new("/d/A.mp4.part"));
+        assert!(is_partial("A.mp4.part") && is_partial("A.part.mkv") && !is_partial("A.mkv"));
+    }
+
+    #[tokio::test]
+    async fn existing_and_orphans() {
+        let dir = std::env::temp_dir().join(format!("uapi-dl-{}", fastrand::u64(..)));
+        std::fs::create_dir_all(&dir).unwrap();
+        for f in ["Dune (2021) 1080p.mkv", "Dune (2021) 1080p.en.srt", "Dune Messiah 1080p.mkv", "Dune (2021) 4K.mkv.part", "Old.part.mkv"] {
+            std::fs::write(dir.join(f), b"x").unwrap();
+        }
+        let m = test_manager(dir.clone());
+        assert_eq!(m.existing("Dune (2021)").await, vec![dir.join("Dune (2021) 1080p.mkv")]);
+        assert_eq!(m.library().await.len(), 2);
+        m.remove_orphaned_parts().await;
+        assert!(!dir.join("Dune (2021) 4K.mkv.part").exists());
+        assert!(!dir.join("Old.part.mkv").exists());
+        assert!(dir.join("Dune (2021) 1080p.mkv").exists());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[tokio::test]

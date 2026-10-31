@@ -16,6 +16,7 @@
   import { startMpv, stopMpv } from "../lib/mpv";
   import { isTorrent, providerName, sourceChips } from "../lib/sources";
   import { torrentConsent } from "../lib/overlays";
+  import { slider } from "../lib/slider";
   import type { AudioMode, OpenedStream, Source, SourcesReport, Target, TitleDetail, TitleSummary } from "../lib/types";
   import { formatTime, library, nav, nextEpisode, targetLabel } from "../lib/state.svelte";
 
@@ -61,6 +62,8 @@
   let torrentInfo = $state<string | null>(null);
 
   let seeking = $state<number | null>(null);
+  /** Subtitle files saved beside a download, added once it loads. */
+  let localSubs: string[] = [];
   let controls = $state(true);
   let sheet = $state(false);
   let fullscreen = $state(false);
@@ -149,11 +152,18 @@
     }
 
     if (file) {
-      // Offline: a finished download plays straight from disk.
+      // Offline: a finished download. Vault files come back as a loopback URL
+      // that decrypts on the fly; older plain files play from their path.
       phase = "opening";
       status = "Opening download";
-      await setProperty("start", String(library.resumeAt(title, target) || "none"));
-      await command("loadfile", [file]).catch(() => fail("This file couldn't be opened."));
+      try {
+        const local = await api.openLocal(file);
+        localSubs = local.subtitles;
+        await setProperty("start", String(library.resumeAt(title, target) || "none"));
+        await command("loadfile", [local.url]);
+      } catch (e) {
+        fail(typeof e === "string" ? e : "This file couldn't be opened.");
+      }
       return;
     }
 
@@ -247,6 +257,10 @@
     for (const sub of stream?.subtitles ?? []) {
       await command("sub-add", [sub.url, "auto", sub.label, sub.lang ?? ""]).catch(() => {});
     }
+    // Subtitles saved beside a download ("Movie.en.srt"); mpv can't find them next to a URL.
+    for (const path of localSubs) {
+      await command("sub-add", [path, "auto"]).catch(() => {});
+    }
     clearInterval(saveTimer);
     saveTimer = setInterval(saveProgress, 10_000);
     poke();
@@ -338,17 +352,14 @@
     if (!dragging) commitSeek(seeking); // keyboard on the slider
   }
 
-  function onSeekPointerDown() {
-    dragging = true;
-    window.addEventListener(
-      "pointerup",
-      () => {
-        dragging = false;
-        if (seeking !== null) commitSeek(seeking);
-      },
-      { once: true },
-    );
-  }
+  // The slider action reports drags; the seek is sent once, on release.
+  const seekDrag = {
+    onstart: () => (dragging = true),
+    onend: () => {
+      dragging = false;
+      if (seeking !== null) commitSeek(seeking);
+    },
+  };
 
   function commitSeek(to: number) {
     seekTarget = to;
@@ -371,8 +382,18 @@
     if (muted && v > 0) setProperty("mute", false);
   }
 
-  const setAudio = (id: number) => setProperty("aid", id);
-  const setSub = (id: number | "no") => setProperty("sid", id === "no" ? "no" : id);
+  // aid and sid are choice properties ("no", "auto" or a track id). mpv only takes
+  // them reliably as strings; a bare JSON number fails with "error accessing property".
+  async function setTrack(prop: "aid" | "sid", id: number | "no") {
+    try {
+      await setProperty(prop, String(id));
+    } catch (e) {
+      console.warn(`set ${prop} failed`, e);
+      M3eSnackbar.open(prop === "sid" ? "Couldn't switch subtitles" : "Couldn't switch the audio track");
+    }
+  }
+  const setAudio = (id: number) => setTrack("aid", id);
+  const setSub = (id: number | "no") => setTrack("sid", id);
 
   async function toggleFullscreen() {
     fullscreen = !(await win.isFullscreen());
@@ -547,7 +568,7 @@
           max={Math.max(1, Math.floor(duration))}
           step="1"
           aria-label="Seek"
-          onpointerdown={onSeekPointerDown}
+          use:slider={seekDrag}
         >
           <m3e-slider-thumb value={Math.floor(seeking ?? time)} oninput={onSeekInput} onchange={onSeekChange}></m3e-slider-thumb>
         </m3e-slider>
@@ -574,7 +595,7 @@
           <m3e-icon-button aria-label={muted ? "Unmute" : "Mute"} onclick={() => setProperty("mute", !muted)}>
             <m3e-icon name={muted || volume === 0 ? "volume_off" : volume < 50 ? "volume_down" : "volume_up"}></m3e-icon>
           </m3e-icon-button>
-          <m3e-slider min="0" max="130" step="1" aria-label="Volume">
+          <m3e-slider min="0" max="130" step="1" aria-label="Volume" use:slider>
             <m3e-slider-thumb
               value={Math.round(muted ? 0 : volume)}
               oninput={(e: Event) => setVolume((e.currentTarget as HTMLInputElement & { value: number }).value)}
@@ -776,7 +797,9 @@
     gap: 4px;
     margin-left: 8px;
   }
+  /* m3e-slider has a 200px minimum width unless told otherwise. */
   .volume m3e-slider {
+    --m3e-slider-min-width: 0;
     width: 120px;
   }
   .spacer {

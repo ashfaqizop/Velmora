@@ -16,6 +16,7 @@ async-trait = "0.1"
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 fastrand = "2"
+chacha20 = "0.9"
 hmac = "0.12"
 md-5 = "0.10"
 futures = "0.3"

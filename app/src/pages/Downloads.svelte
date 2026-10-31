@@ -4,9 +4,43 @@
   import * as api from "../lib/api";
   import { formatBytes } from "../lib/sources";
   import { downloads, nav } from "../lib/state.svelte";
-  import type { DownloadStatus } from "../lib/types";
+  import type { DownloadStatus, LocalFile } from "../lib/types";
 
   onMount(() => downloads.watch());
+
+  let folder = $state("");
+  let library = $state<LocalFile[]>([]);
+  api.downloadFolder().then((f) => (folder = f)).catch(() => {});
+
+  const loadLibrary = () =>
+    api
+      .downloadsLibrary()
+      .then((l) => (library = l))
+      .catch((e) => console.warn("downloads library failed", e));
+
+  // Re-read the folder whenever a download finishes, so it moves into "On this PC".
+  const completed = $derived(downloads.items.filter((d) => d.state.state === "completed").length);
+  $effect(() => {
+    void completed;
+    loadLibrary();
+  });
+
+  // Files finished this session already show in the list above.
+  const shown = $derived(new Set(downloads.items.map((d) => (d.state.state === "completed" ? d.state.path : ""))));
+  const onDisk = $derived(library.filter((f) => !shown.has(f.path)));
+
+  function playFile(path: string, name: string) {
+    nav.go({
+      name: "player",
+      title: { origin: { provider: "local", id: path }, name, kind: "movie", ids: {} },
+      target: { type: "movie" },
+      mode: "sub",
+      file: path,
+    });
+  }
+
+  const ago = (secs: number) =>
+    new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
   const STATE_LABEL: Record<string, string> = {
     queued: "Waiting",
@@ -37,25 +71,26 @@
   const act = (p: Promise<unknown>) => p.catch((e) => console.warn(e)).finally(() => downloads.refresh());
 
   function play(d: DownloadStatus) {
-    if (d.state.state !== "completed") return;
-    nav.go({
-      name: "player",
-      title: { origin: { provider: "local", id: d.state.path }, name: d.title, kind: "movie", ids: {} },
-      target: { type: "movie" },
-      mode: "sub",
-      file: d.state.path,
-    });
+    if (d.state.state === "completed") playFile(d.state.path, d.title);
   }
 </script>
 
 <div class="page">
   <header>
-    <m3e-heading variant="headline" size="large" level={1}>Downloads</m3e-heading>
-    {#if finished}
-      <m3e-button variant="text" onclick={() => act(api.downloadsClear())}>
-        <m3e-icon slot="icon" name="clear_all"></m3e-icon>Clear finished
+    <div class="title">
+      <m3e-heading variant="headline" size="large" level={1}>Downloads</m3e-heading>
+      {#if folder}<span class="folder" title={folder}>Saving to {folder}</span>{/if}
+    </div>
+    <div class="header-actions">
+      {#if finished}
+        <m3e-button variant="text" onclick={() => act(api.downloadsClear())}>
+          <m3e-icon slot="icon" name="clear_all"></m3e-icon>Clear finished
+        </m3e-button>
+      {/if}
+      <m3e-button variant="tonal" onclick={() => api.openDownloadFolder().catch((e) => console.warn(e))}>
+        <m3e-icon slot="icon" name="folder_open"></m3e-icon>Open folder
       </m3e-button>
-    {/if}
+    </div>
   </header>
 
   {#if downloads.items.length}
@@ -113,7 +148,36 @@
         </m3e-card>
       {/each}
     </div>
-  {:else}
+  {/if}
+
+  {#if onDisk.length}
+    <section class="disk">
+      <m3e-heading variant="title" size="large" level={2}>On this PC</m3e-heading>
+      <div class="list">
+        {#each onDisk as f (f.path)}
+          <m3e-card variant="filled" class="item">
+            <div slot="content" class="row">
+              <div class="icon done"><m3e-icon name="movie"></m3e-icon></div>
+              <div class="main">
+                <span class="name">{f.title}</span>
+                <span class="detail">{formatBytes(f.size)} · {ago(f.modified)}</span>
+              </div>
+              <div class="actions">
+                <m3e-icon-button variant="filled" aria-label="Play" onclick={() => playFile(f.path, f.title)}>
+                  <m3e-icon name="play_arrow" filled></m3e-icon>
+                </m3e-icon-button>
+                <m3e-icon-button aria-label="Show in folder" onclick={() => act(api.revealFile(f.path))}>
+                  <m3e-icon name="folder_open"></m3e-icon>
+                </m3e-icon-button>
+              </div>
+            </div>
+          </m3e-card>
+        {/each}
+      </div>
+    </section>
+  {/if}
+
+  {#if !downloads.items.length && !onDisk.length}
     <div class="empty">
       <span class="on-shape art">
         <m3e-shape name="soft-burst"></m3e-shape>
@@ -136,6 +200,30 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 16px;
+  }
+  .title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .folder {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-actions {
+    flex: none;
+    display: flex;
+    gap: 8px;
+  }
+  .disk {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
   .list {
     display: flex;
@@ -217,10 +305,18 @@
     margin: 0;
   }
   .art {
+    margin-bottom: 8px;
+  }
+  /* Set on the elements themselves: the shape paints its own colour, and the
+     icon has to sit above it in a contrasting one. */
+  .art m3e-shape {
     --m3e-shape-size: 120px;
     --m3e-shape-container-color: var(--md-sys-color-primary-container);
-    color: var(--md-sys-color-on-primary-container);
+  }
+  .art m3e-icon {
+    position: relative;
+    z-index: 1;
     --m3e-icon-size: 48px;
-    margin-bottom: 8px;
+    color: var(--md-sys-color-on-primary-container);
   }
 </style>

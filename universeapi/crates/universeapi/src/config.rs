@@ -37,6 +37,8 @@ pub struct Preferences {
     pub seed_after_download: bool,
     /// TMDB/Cinemeta region; `None` = global.
     pub region: Option<String>,
+    /// Where downloads go; `None` = the app's default folder.
+    pub download_dir: Option<std::path::PathBuf>,
 }
 
 impl Default for Preferences {
@@ -63,6 +65,7 @@ impl Default for Preferences {
             max_concurrent_downloads: 3,
             seed_after_download: false,
             region: None,
+            download_dir: None,
         }
     }
 }

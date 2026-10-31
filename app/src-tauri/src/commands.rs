@@ -8,7 +8,7 @@ use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
 use universeapi::model::{AudioMode, ProviderRef, Rail, Source, Target, TitleDetail, TitleSummary};
-use universeapi::download::{DownloadRequest, DownloadStatus};
+use universeapi::download::{DownloadRequest, DownloadStatus, LocalFile};
 use universeapi::torrent::TorrentProgress;
 use universeapi::{Preferences, SearchBatch, SourcesReport};
 
@@ -250,6 +250,112 @@ pub async fn downloads_clear(state: State<'_, AppState>) -> Result<(), String> {
     let downloads = state.engine.downloads().clone();
     downloads.clear_finished().await;
     Ok(())
+}
+
+/// Every finished video in the download folder, including earlier sessions'.
+#[tauri::command]
+pub async fn downloads_library(state: State<'_, AppState>) -> Result<Vec<LocalFile>, String> {
+    let downloads = state.engine.downloads().clone();
+    Ok(downloads.library().await)
+}
+
+/// Finished files already saved under this title ("Dune (2021)").
+#[tauri::command]
+pub async fn download_existing(state: State<'_, AppState>, title: String) -> Result<Vec<String>, String> {
+    let downloads = state.engine.downloads().clone();
+    Ok(downloads.existing(&title).await.into_iter().map(|p| p.display().to_string()).collect())
+}
+
+#[tauri::command]
+pub fn download_folder(state: State<'_, AppState>) -> String {
+    state.engine.download_dir().display().to_string()
+}
+
+/// Open the download folder in the file manager, creating it first if needed.
+#[tauri::command]
+pub fn open_download_folder(state: State<'_, AppState>) -> Result<(), String> {
+    let dir = state.engine.download_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    #[cfg(windows)]
+    let opener = "explorer";
+    #[cfg(not(windows))]
+    let opener = "xdg-open";
+    std::process::Command::new(opener).arg(&dir).spawn().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Use `path` for downloads from now on (`None` goes back to the default).
+/// The folder must exist or be creatable, and writable. Returns the folder in use.
+#[tauri::command]
+pub fn set_download_dir(state: State<'_, AppState>, path: Option<String>) -> Result<String, String> {
+    if let Some(p) = &path {
+        let dir = std::path::Path::new(p);
+        if !dir.is_absolute() {
+            return Err("Pick a full folder path".into());
+        }
+        std::fs::create_dir_all(dir).map_err(|e| format!("Can't use that folder: {e}"))?;
+        let probe = dir.join(".velmora-write-test");
+        std::fs::write(&probe, b"").map_err(|e| format!("Velmora can't write to that folder: {e}"))?;
+        let _ = std::fs::remove_file(probe);
+    }
+    let mut prefs = (*state.engine.preferences()).clone();
+    prefs.download_dir = path.map(std::path::PathBuf::from);
+    prefs::save(&state.prefs_file, &prefs)?;
+    state.engine.set_preferences(prefs);
+    Ok(state.engine.download_dir().display().to_string())
+}
+
+/// What the player loads for a downloaded file, plus subtitle files saved beside it.
+#[derive(Serialize)]
+pub struct LocalPlayback {
+    pub url: String,
+    pub subtitles: Vec<String>,
+}
+
+/// Open a downloaded file for the player. Vault files get a loopback URL that
+/// decrypts on the fly; plain files from older versions play from their path.
+#[tauri::command]
+pub fn open_local(state: State<'_, AppState>, path: String) -> Result<LocalPlayback, String> {
+    let file = std::path::PathBuf::from(&path);
+    if !file.is_file() {
+        return Err("This file is no longer on disk.".into());
+    }
+    let subtitles = sidecar_subtitles(&file);
+    let name = file.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+    let url = if universeapi::vault::is_vault(name) {
+        let token = state.sealed.register(file.clone())?;
+        format!("http://127.0.0.1:{}/v/{token}", state.stream_port)
+    } else {
+        path
+    };
+    Ok(LocalPlayback { url, subtitles })
+}
+
+/// "Movie 1080p.en.srt" next to "Movie 1080p.vlm".
+fn sidecar_subtitles(video: &std::path::Path) -> Vec<String> {
+    let (Some(dir), Some(stem)) = (video.parent(), video.file_stem().and_then(|s| s.to_str())) else {
+        return Vec::new();
+    };
+    let prefix = format!("{stem}.");
+    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
+    let mut subs: Vec<String> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            let ext = p.extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
+            name.starts_with(&prefix) && matches!(ext.as_str(), "srt" | "vtt" | "ass" | "ssa")
+        })
+        .map(|p| p.display().to_string())
+        .collect();
+    subs.sort();
+    subs
+}
+
+/// The folder Velmora uses when none is picked.
+#[tauri::command]
+pub fn default_download_folder(state: State<'_, AppState>) -> String {
+    state.engine.default_download_dir().display().to_string()
 }
 
 /// Show a finished download in the file manager. Only paths inside the

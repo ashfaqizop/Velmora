@@ -32,6 +32,8 @@ pub struct AppState {
     pub prefs_file: PathBuf,
     /// AniList / Trakt accounts.
     pub sync: sync::SyncStore,
+    /// Vault key holder and the vault files handed to the player.
+    pub sealed: Arc<stream::Sealed>,
 }
 
 pub struct StreamSession {
@@ -51,7 +53,8 @@ pub fn run() {
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_opener::init());
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init());
     #[cfg(desktop)]
     {
         builder = builder
@@ -71,7 +74,15 @@ pub fn run() {
             if runtime::is_ready(&runtime_dir) {
                 runtime::activate(&runtime_dir, &engine);
             }
-            let stream_port = tauri::async_runtime::block_on(stream::start(engine.clone()))?;
+            // Downloads are stored as vault files, playable only with this install's key.
+            let key = stream::load_key(&paths.app_local_data_dir()?.join("vault.key")).map_err(std::io::Error::other)?;
+            let vault = Arc::new(universeapi::vault::Vault::new(key));
+            engine.downloads().set_vault(Some(vault.clone()));
+            let sealed = Arc::new(stream::Sealed::new(vault));
+            let stream_port = tauri::async_runtime::block_on(stream::start(engine.clone(), sealed.clone()))?;
+            // Downloads don't survive a restart, so any .part left in the folder is dead weight.
+            let downloads = engine.downloads().clone();
+            tauri::async_runtime::spawn(async move { downloads.remove_orphaned_parts().await });
             app.manage(AppState {
                 engine,
                 stream_port,
@@ -79,6 +90,7 @@ pub fn run() {
                 runtime_dir,
                 prefs_file,
                 sync,
+                sealed,
             });
 
             // The window starts hidden so the transparent frame never flashes;
@@ -115,6 +127,13 @@ pub fn run() {
             commands::download_cancel,
             commands::downloads_clear,
             commands::reveal_file,
+            commands::downloads_library,
+            commands::download_existing,
+            commands::download_folder,
+            commands::open_download_folder,
+            commands::set_download_dir,
+            commands::open_local,
+            commands::default_download_folder,
             commands::sync_status,
             commands::sync_disconnect,
             commands::anilist_login,

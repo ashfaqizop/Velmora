@@ -65,7 +65,8 @@ pub struct Engine {
     anilist: Arc<Anilist>,
     /// Content providers (produce sources).
     content: Vec<Arc<dyn Provider>>,
-    download_dir: PathBuf,
+    /// The folder used when no `download_dir` preference is set.
+    default_download_dir: PathBuf,
     downloads: Arc<crate::download::DownloadManager>,
     proxy: Arc<crate::proxy::MediaProxy>,
     #[cfg(feature = "torrent")]
@@ -87,7 +88,9 @@ impl Engine {
             Some(dir) => Cache::with_dir(dir),
             None => Cache::memory(),
         };
-        let download_dir = opts.download_dir.unwrap_or_else(|| std::env::temp_dir().join("velmora-downloads"));
+        let default_download_dir =
+            opts.download_dir.unwrap_or_else(|| std::env::temp_dir().join("velmora-downloads"));
+        let download_dir = opts.preferences.download_dir.clone().unwrap_or_else(|| default_download_dir.clone());
         let max_downloads = opts.preferences.max_concurrent_downloads;
         let ctx = Arc::new(Ctx::new(http, cache, opts.registry, opts.preferences, opts.web_solver));
         #[cfg(feature = "torrent")]
@@ -99,7 +102,7 @@ impl Engine {
         ));
         let downloads = Arc::new(crate::download::DownloadManager::new(
             ctx.clone(),
-            download_dir.clone(),
+            download_dir,
             max_downloads,
             #[cfg(feature = "torrent")]
             torrents.clone(),
@@ -123,7 +126,7 @@ impl Engine {
             cinemeta: Arc::new(Cinemeta::new(ctx.clone())),
             anilist: Arc::new(Anilist::new(ctx.clone())),
             content,
-            download_dir,
+            default_download_dir,
             downloads,
             proxy,
             #[cfg(feature = "torrent")]
@@ -142,14 +145,20 @@ impl Engine {
         &self.downloads
     }
 
-    pub fn download_dir(&self) -> &std::path::Path {
-        &self.download_dir
+    /// The folder downloads currently go to.
+    pub fn download_dir(&self) -> PathBuf {
+        self.downloads.dir()
+    }
+
+    /// The folder used when the user hasn't picked one.
+    pub fn default_download_dir(&self) -> &std::path::Path {
+        &self.default_download_dir
     }
 
     /// The torrent session, started on first use.
     #[cfg(feature = "torrent")]
     pub async fn torrents(&self) -> Result<&crate::torrent::TorrentEngine> {
-        self.torrents.get_or_try_init(|| crate::torrent::TorrentEngine::new(self.download_dir.join("torrents"))).await
+        self.torrents.get_or_try_init(|| crate::torrent::TorrentEngine::new(self.download_dir().join("torrents"))).await
     }
 
     pub fn ctx(&self) -> &Arc<Ctx> {
@@ -162,6 +171,7 @@ impl Engine {
 
     pub fn set_preferences(&self, prefs: Preferences) {
         self.downloads.set_max_concurrent(prefs.max_concurrent_downloads);
+        self.downloads.set_dir(prefs.download_dir.clone().unwrap_or_else(|| self.default_download_dir.clone()));
         self.ctx.set_prefs(prefs);
     }
 

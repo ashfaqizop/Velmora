@@ -21,7 +21,7 @@ The part that finds and resolves links is a separate Rust library, the [Universe
 - Search every source at once. Results stream in as each site answers, and the same title from different sites shows up once.
 - Play inside the app with libmpv, so MKV, HEVC, AC3 and 4K files play without extra codecs. If a link fails, the next one starts at the same spot.
 - Pick up where you stopped. Continue Watching remembers the exact second, and the end of an episode offers the next one.
-- Download movies and episodes for offline viewing, with pause, resume and a queue.
+- Download movies and episodes for offline viewing, with pause, resume and a queue, to a folder you choose. Downloads are stored in Velmora's own format and play only inside the app.
 - Stream torrents while they download. Seeding is off unless you turn it on.
 - Browse full title pages: cast and crew with photos, trailer, gallery, age rating, release details, links to IMDb, TMDB, AniList and MyAnimeList, and similar titles.
 - Sync what you finish to AniList (anime) and Trakt (movies and series).
@@ -32,7 +32,7 @@ The UI uses [@m3e/web](https://github.com/matraic/m3e), a set of Material 3 Expr
 
 ## Install
 
-Velmora has no public release yet. When there is one, the installer will be on the [Releases](https://github.com/ashfaqizop/Velmora/releases) page, and every later update installs from inside the app.
+Download `Velmora_x.y.z_x64-setup.exe` from the [latest release](https://github.com/ashfaqizop/Velmora/releases/latest) and run it. It installs for your user only, so it doesn't need admin rights. After that, every update installs from inside the app when it starts.
 
 The installer is small on purpose. On first launch Velmora downloads the video player and download tools (about 80 MB) from the [`runtime-v1`](https://github.com/ashfaqizop/Velmora/releases/tag/runtime-v1) release and checks each file's SHA-256 before using it.
 

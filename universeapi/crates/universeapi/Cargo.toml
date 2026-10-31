@@ -11,6 +11,7 @@ authors.workspace = true
 [dependencies]
 async-trait.workspace = true
 base64.workspace = true
+chacha20.workspace = true
 chrono.workspace = true
 fastrand.workspace = true
 hmac.workspace = true
