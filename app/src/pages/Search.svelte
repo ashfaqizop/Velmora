@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import { fly, scale, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
@@ -46,7 +47,7 @@
     failed = 0;
     running = true;
     showStatus = true;
-    personalize.search(q);
+    untrack(() => personalize.search(q));
     api
       .searchStream(q, (batch) => {
         if (mine !== run) return; // a newer query took over

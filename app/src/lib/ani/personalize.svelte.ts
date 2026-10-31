@@ -1,6 +1,7 @@
 // Personalize: what the user searches, opens, streams, downloads and finishes,
 // plus the notes Ani keeps about their taste. Ani reads it before answering.
 // Everything stays in this device's localStorage.
+import { untrack } from "svelte";
 import type { MediaKind, Target, TitleDetail, TitleSummary } from "../types";
 
 export type ActivityKind = "search" | "view" | "stream" | "finish" | "download";
@@ -65,25 +66,28 @@ class Personalize {
 
   // ── Recording ──
 
+  // Recording reads and rewrites `events`. It runs untracked, so a caller
+  // inside an $effect (the search page) doesn't re-run itself forever.
+
   search(query: string) {
     const q = query.trim();
-    if (q) this.record({ kind: "search", at: Date.now(), query: q });
+    if (q) untrack(() => this.record({ kind: "search", at: Date.now(), query: q }));
   }
 
   view(detail: TitleDetail) {
-    this.record({ kind: "view", at: Date.now(), title: this.slim(detail.summary, detail.genres) });
+    untrack(() => this.record({ kind: "view", at: Date.now(), title: this.slim(detail.summary, detail.genres) }));
   }
 
   stream(t: TitleSummary, target: Target, source: string) {
-    this.record({ kind: "stream", at: Date.now(), title: this.slim(t), episode: episodeOf(target), source });
+    untrack(() => this.record({ kind: "stream", at: Date.now(), title: this.slim(t), episode: episodeOf(target), source }));
   }
 
   finish(t: TitleSummary, target: Target) {
-    this.record({ kind: "finish", at: Date.now(), title: this.slim(t), episode: episodeOf(target) });
+    untrack(() => this.record({ kind: "finish", at: Date.now(), title: this.slim(t), episode: episodeOf(target) }));
   }
 
   download(t: TitleSummary, target: Target) {
-    this.record({ kind: "download", at: Date.now(), title: this.slim(t), episode: episodeOf(target) });
+    untrack(() => this.record({ kind: "download", at: Date.now(), title: this.slim(t), episode: episodeOf(target) }));
   }
 
   private record(e: Activity) {
