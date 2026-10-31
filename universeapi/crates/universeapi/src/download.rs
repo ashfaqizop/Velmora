@@ -403,7 +403,7 @@ impl DownloadManager {
             let title = Path::new(&name).file_stem().and_then(|s| s.to_str()).unwrap_or(&name).to_string();
             files.push(LocalFile { path: e.path(), title, size: meta.len(), modified });
         }
-        files.sort_by(|a, b| b.modified.cmp(&a.modified));
+        files.sort_by_key(|f| std::cmp::Reverse(f.modified));
         files
     }
 
