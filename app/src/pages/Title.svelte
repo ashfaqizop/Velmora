@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { personalize } from "../lib/ani/personalize.svelte";
   import { fade } from "svelte/transition";
   import Poster from "../components/Poster.svelte";
   import Rail from "../components/Rail.svelte";
@@ -30,6 +31,7 @@
       .then((d) => {
         if (t !== title) return;
         detail = d;
+        personalize.view(d);
         const last = library.last(t);
         season = last?.season ?? d.seasons[0]?.number ?? 1;
       })

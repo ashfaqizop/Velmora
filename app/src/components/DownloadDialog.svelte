@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { personalize } from "../lib/ani/personalize.svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { torrentConsent } from "../lib/overlays";
@@ -54,6 +55,7 @@
     try {
       const episode: [number, number] | null = target.type === "episode" ? [target.season, target.episode] : null;
       await api.downloadStart(src, label(title, target), episode);
+      personalize.download(title, target);
       downloads.start();
       await dialog.hide();
       M3eSnackbar.open(`${title.name} added to Downloads`, "View", {

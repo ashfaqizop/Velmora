@@ -1,3 +1,5 @@
 * text=auto eol=lf
 *.png binary
 *.ico binary
+# Vendored skill, kept byte for byte as upstream ships it.
+app/src/lib/ani/skills/humanizer/** -text

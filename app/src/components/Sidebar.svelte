@@ -16,7 +16,7 @@
   ];
 
   // Ani sits after the browse pages, and only when the user turned it on.
-  const ANI = { label: "Ani", icon: "auto_awesome", route: { name: "ani" } as Route };
+  const ANI = { label: "Ani", icon: "wand_stars", route: { name: "ani" } as Route };
   const items = $derived(ani.enabled ? [...main.slice(0, 4), ANI, ...main.slice(4)] : main);
 
   function isActive(r: Route) {

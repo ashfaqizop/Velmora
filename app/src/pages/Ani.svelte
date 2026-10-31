@@ -9,7 +9,7 @@
   <header class="intro">
     <span class="on-shape mark" aria-hidden="true">
       <m3e-shape name="very-sunny"></m3e-shape>
-      <m3e-icon name="auto_awesome" filled></m3e-icon>
+      <m3e-icon name="wand_stars" filled></m3e-icon>
     </span>
     <h1 class="display">Ask Ani</h1>
     <p>Recommendations from what you watch, answers about any title, and links found by UniverseAPI.</p>

@@ -178,7 +178,7 @@
             <div class="ani-head">
               <span class="on-shape ani-mark" aria-hidden="true">
                 <m3e-shape name="very-sunny"></m3e-shape>
-                <m3e-icon name="auto_awesome" filled></m3e-icon>
+                <m3e-icon name="wand_stars" filled></m3e-icon>
               </span>
               <h2 class="display">Meet Ani</h2>
             </div>

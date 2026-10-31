@@ -5,6 +5,8 @@
   import PoweredBy from "../components/PoweredBy.svelte";
   import DownloadFolder from "../components/DownloadFolder.svelte";
   import AniKey from "../components/AniKey.svelte";
+  import PersonalizeDialog from "../components/PersonalizeDialog.svelte";
+  import { personalize } from "../lib/ani/personalize.svelte";
   import * as api from "../lib/api";
   import { LANGUAGES, PROVIDER_GROUPS, providerLabel } from "../lib/options";
   import { ani, ANI_CHAT_MODEL, ANI_TOOL_MODEL, settings } from "../lib/state.svelte";
@@ -32,6 +34,14 @@
 
   // Models the saved key can use; fetched again whenever the key changes.
   let models = $state<AniModel[]>([]);
+  let personalizeDialog: ReturnType<typeof PersonalizeDialog>;
+  const learned = $derived.by(() => {
+    const c = personalize.counts;
+    const titles = c.view + c.stream + c.finish + c.download;
+    const parts = [`${titles} title${titles === 1 ? "" : "s"}`, `${c.search} search${c.search === 1 ? "" : "es"}`];
+    if (personalize.notes.length) parts.push(`${personalize.notes.length} note${personalize.notes.length === 1 ? "" : "s"}`);
+    return parts.join(", ");
+  });
   $effect(() => {
     if (!ani.key?.set) {
       models = [];
@@ -290,6 +300,21 @@
             <div class="row key-row">
               <AniKey />
             </div>
+            <m3e-divider></m3e-divider>
+            <label class="row">
+              <div class="text">
+                <strong>Learn from what I watch</strong>
+                <span>Searches, titles you open, watch and download go into Personalize, so Ani's picks fit you.</span>
+              </div>
+              <m3e-switch checked={personalize.learning} onchange={(e: Event) => personalize.setLearning(checked(e))}></m3e-switch>
+            </label>
+            <m3e-divider></m3e-divider>
+            <div class="row">
+              <div class="text"><strong>Personalize</strong><span>{learned}. Stays on this PC.</span></div>
+              <m3e-button variant="tonal" onclick={() => personalizeDialog.open()}>
+                <m3e-icon slot="icon" name="person_heart"></m3e-icon>See what Ani knows
+              </m3e-button>
+            </div>
             {#if ani.key?.set}
               <m3e-divider></m3e-divider>
               <div class="row">
@@ -413,6 +438,8 @@
     </section>
   {/if}
 </div>
+
+<PersonalizeDialog bind:this={personalizeDialog} />
 
 <style>
   .page {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { personalize } from "../lib/ani/personalize.svelte";
   import { fly, scale, slide } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import Poster from "../components/Poster.svelte";
@@ -45,6 +46,7 @@
     failed = 0;
     running = true;
     showStatus = true;
+    personalize.search(q);
     api
       .searchStream(q, (batch) => {
         if (mine !== run) return; // a newer query took over

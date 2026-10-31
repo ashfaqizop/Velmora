@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { personalize } from "../lib/ani/personalize.svelte";
   import { onDestroy, onMount } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
@@ -263,6 +264,11 @@
     }
     clearInterval(saveTimer);
     saveTimer = setInterval(saveProgress, 10_000);
+    if (!streamed) {
+      streamed = true;
+      const src = report?.sources[current];
+      personalize.stream(title, target, file ? "download" : src ? providerName(src) : "unknown");
+    }
     poke();
   }
 
@@ -317,10 +323,16 @@
   // ── Playback ───────────────────────────────────────────────────────
 
   let synced = false;
+  let streamed = false;
+  let finished = false;
 
   function saveProgress() {
     if (phase !== "playing" || duration <= 0) return;
     library.saveProgress(title, target, time, duration);
+    if (!finished && time / duration >= 0.95) {
+      finished = true;
+      personalize.finish(title, target);
+    }
     // Mostly watched: tell AniList / Trakt once per playback.
     if (!synced && !file && time / duration >= 0.85) {
       synced = true;

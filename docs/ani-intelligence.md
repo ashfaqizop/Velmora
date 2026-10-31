@@ -69,8 +69,8 @@ Eight steps, two per commit and push. No tag or release without the user's say-s
 
 1. Rust: key storage, the streaming Gemini call, read-only TMDB and AniList lookups (`ani.rs`, `Tmdb::raw/list`, `Anilist::find/raw`). Done.
 2. Ani switch in onboarding and Settings, key entry, model pickers, sidebar entry, the `ani` route. Done.
-3. Personalize: recording, plus viewing and clearing it in Settings.
-4. Agent core: two-stage loop, bundled skills (humanizer, velmora-tools).
+3. Personalize: recording, plus viewing and clearing it in Settings. Done.
+4. Agent core: two-stage loop, bundled skills (humanizer, velmora-tools). Done.
 5. The 39 tools.
 6. Chat page: streaming, composer, history.
 7. Generative UI, titles and links.
