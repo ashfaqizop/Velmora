@@ -78,7 +78,7 @@ struct Pending {
     state: String,
 }
 
-pub struct Sync {
+pub struct SyncStore {
     file: PathBuf,
     accounts: Mutex<Accounts>,
     pending: Mutex<Option<Pending>>,
@@ -93,7 +93,7 @@ pub struct SyncStatus {
     trakt_user: Option<String>,
 }
 
-impl Sync {
+impl SyncStore {
     pub fn load(config_dir: &Path) -> Self {
         let file = config_dir.join("sync.json");
         let accounts = std::fs::read_to_string(&file).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default();

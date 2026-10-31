@@ -31,7 +31,7 @@ pub struct AppState {
     /// Where preferences are saved.
     pub prefs_file: PathBuf,
     /// AniList / Trakt accounts.
-    pub sync: sync::Sync,
+    pub sync: sync::SyncStore,
 }
 
 pub struct StreamSession {
@@ -62,7 +62,7 @@ pub fn run() {
             let paths = app.path();
             let config_dir = paths.app_config_dir()?;
             let prefs_file = prefs::path(&config_dir);
-            let sync = sync::Sync::load(&config_dir);
+            let sync = sync::SyncStore::load(&config_dir);
             let runtime_dir = runtime::dir(&paths.app_local_data_dir()?);
 
             let engine = Arc::new(build_engine(app, prefs::load(&prefs_file))?);
