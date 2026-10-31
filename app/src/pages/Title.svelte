@@ -11,8 +11,11 @@
   let error = $state<string | null>(null);
   let season = $state(1);
 
+  let attempt = $state(0);
+
   $effect(() => {
     const t = title;
+    void attempt;
     detail = null;
     error = null;
     api
@@ -123,7 +126,12 @@
     {#if s.overview}<p class="overview">{s.overview}</p>{/if}
 
     {#if error}
-      <p class="error">Couldn't load details: {error}</p>
+      <div class="error">
+        <p>Couldn't load the details: {error}</p>
+        <m3e-button variant="tonal" onclick={() => attempt++}>
+          <m3e-icon slot="icon" name="refresh"></m3e-icon>Try again
+        </m3e-button>
+      </div>
     {:else if !detail}
       <m3e-skeleton animation="wave" shape="rounded" class="ghost"></m3e-skeleton>
     {:else}
@@ -272,6 +280,13 @@
     color: var(--md-sys-color-on-surface-variant);
   }
   .error {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .error p {
+    margin: 0;
     color: var(--md-sys-color-error);
   }
   .ghost {

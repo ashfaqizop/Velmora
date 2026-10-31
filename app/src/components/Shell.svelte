@@ -11,7 +11,7 @@
   import Title from "../pages/Title.svelte";
   import Downloads from "../pages/Downloads.svelte";
   import Settings from "../pages/Settings.svelte";
-  import { feed, library, nav } from "../lib/state.svelte";
+  import { feed, library, nav, network } from "../lib/state.svelte";
 
   let { revealed = false }: { revealed?: boolean } = $props();
 
@@ -36,6 +36,16 @@
   <div class="side"><Sidebar /></div>
 
   <main class="content" class:wide={nav.route.name !== "home"} bind:this={scroller}>
+    {#if !network.online}
+      <m3e-callout variant="error" class="offline" transition:fade={{ duration: 200 }}>
+        <m3e-icon slot="icon" name="wifi_off"></m3e-icon>
+        <span slot="label">You're offline</span>
+        Search and streaming need a connection. Finished downloads still play.
+        {#if nav.route.name !== "downloads"}
+          <m3e-button variant="text" size="small" onclick={() => nav.go({ name: "downloads" })}>Open Downloads</m3e-button>
+        {/if}
+      </m3e-callout>
+    {/if}
     {#if nav.canGoBack}
       <div class="back" in:fade={{ duration: 200 }}>
         <m3e-button variant="text" size="small" onclick={() => nav.back()}>
@@ -118,6 +128,10 @@
     overflow-x: hidden;
     padding: 4px var(--app-gutter) 0 4px;
     scrollbar-gutter: stable;
+  }
+  .offline {
+    display: block;
+    margin-bottom: 16px;
   }
   .back {
     margin: -4px 0 8px -8px;

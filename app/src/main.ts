@@ -10,9 +10,17 @@ import "./app.css";
 import { mount } from "svelte";
 import App from "./App.svelte";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { M3eSnackbar } from "@m3e/web/snackbar";
 import { applyAccent, DEFAULT_ACCENT } from "./lib/state.svelte";
 
 applyAccent(localStorage.getItem("velmora.accent") ?? DEFAULT_ACCENT);
+
+// Anything that fails without its own handling still tells the user.
+window.addEventListener("unhandledrejection", (e) => {
+  console.error(e.reason);
+  const message = String(e.reason?.message ?? e.reason ?? "Something went wrong");
+  M3eSnackbar.open(message.length > 120 ? `${message.slice(0, 117)}...` : message, true);
+});
 
 mount(App, { target: document.getElementById("app")! });
 

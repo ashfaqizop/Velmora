@@ -5,6 +5,7 @@ mod commands;
 mod prefs;
 mod runtime;
 mod stream;
+mod sync;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -29,6 +30,8 @@ pub struct AppState {
     pub runtime_dir: PathBuf,
     /// Where preferences are saved.
     pub prefs_file: PathBuf,
+    /// AniList / Trakt accounts.
+    pub sync: sync::Sync,
 }
 
 pub struct StreamSession {
@@ -46,7 +49,9 @@ pub fn run() {
         .try_init();
 
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default().plugin(tauri_plugin_process::init());
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init());
     #[cfg(desktop)]
     {
         builder = builder
@@ -57,7 +62,9 @@ pub fn run() {
     builder
         .setup(|app| {
             let paths = app.path();
-            let prefs_file = prefs::path(&paths.app_config_dir()?);
+            let config_dir = paths.app_config_dir()?;
+            let prefs_file = prefs::path(&config_dir);
+            let sync = sync::Sync::load(&config_dir);
             let runtime_dir = runtime::dir(&paths.app_local_data_dir()?);
 
             let engine = Arc::new(build_engine(app, prefs::load(&prefs_file))?);
@@ -71,6 +78,7 @@ pub fn run() {
                 sessions: Mutex::new(HashMap::new()),
                 runtime_dir,
                 prefs_file,
+                sync,
             });
 
             // The window starts hidden so the transparent frame never flashes;
@@ -107,6 +115,13 @@ pub fn run() {
             commands::download_cancel,
             commands::downloads_clear,
             commands::reveal_file,
+            commands::sync_status,
+            commands::sync_disconnect,
+            commands::anilist_login,
+            commands::trakt_start,
+            commands::trakt_poll,
+            commands::sync_watched,
+            commands::open_sign_in_page,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");

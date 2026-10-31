@@ -320,3 +320,19 @@ export function applyAccent(color: string) {
 }
 
 export const settings = new Settings();
+
+/** Connectivity, from the WebView's online/offline events. */
+class Network {
+  online = $state(navigator.onLine);
+
+  constructor() {
+    window.addEventListener("offline", () => (this.online = false));
+    window.addEventListener("online", () => {
+      this.online = true;
+      // Pick up where a failed launch left off.
+      if (feed.error || !feed.rails.length) feed.load();
+    });
+  }
+}
+
+export const network = new Network();

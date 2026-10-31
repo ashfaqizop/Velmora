@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
+  import { M3eSnackbar } from "@m3e/web/snackbar";
   import PoweredBy from "../components/PoweredBy.svelte";
   import * as api from "../lib/api";
   import { LANGUAGES, PROVIDER_GROUPS, providerLabel } from "../lib/options";
@@ -9,10 +11,66 @@
   let info = $state<AppInfo | null>(null);
   const p = $derived(settings.prefs);
 
+  let sync = $state<api.SyncStatus | null>(null);
+  let traktDialog: HTMLElement & { show(): Promise<void>; hide(v?: string): Promise<void> };
+  let device = $state<api.DeviceCode | null>(null);
+  let traktError = $state<string | null>(null);
+  let pollTimer: ReturnType<typeof setTimeout> | undefined;
+  const unlisten: (() => void)[] = [];
+
+  const refreshSync = () => api.syncStatus().then((s) => (sync = s));
+
   onMount(() => {
     settings.load();
     api.appInfo().then((i) => (info = i));
+    refreshSync();
+    listen("sync-changed", refreshSync).then((u) => unlisten.push(u));
+    listen<string>("sync-error", (e) => M3eSnackbar.open(e.payload, true)).then((u) => unlisten.push(u));
   });
+
+  onDestroy(() => {
+    clearTimeout(pollTimer);
+    unlisten.forEach((u) => u());
+  });
+
+  async function connectTrakt() {
+    traktError = null;
+    device = null;
+    traktDialog.show();
+    try {
+      device = await api.traktStart();
+      poll(device, Date.now() + device.expiresIn * 1000);
+    } catch (e) {
+      traktError = String(e);
+    }
+  }
+
+  function poll(code: api.DeviceCode, deadline: number) {
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(async () => {
+      if (device !== code) return; // dialog closed or restarted
+      if (Date.now() > deadline) {
+        traktError = "The code expired. Start again.";
+        return;
+      }
+      try {
+        if (await api.traktPoll(code.deviceCode)) {
+          device = null;
+          await traktDialog.hide();
+          M3eSnackbar.open("Trakt connected");
+          return;
+        }
+        poll(code, deadline);
+      } catch (e) {
+        traktError = String(e);
+      }
+    }, code.interval * 1000);
+  }
+
+  function traktClosed() {
+    device = null;
+    clearTimeout(pollTimer);
+  }
 
   const ACCENTS = ["#6015EA", "#FF5A5A", "#0B7FD9", "#00A67E", "#E8A317", "#D6336C", "#7B6CFF", "#4E5D6C"];
 
@@ -217,6 +275,49 @@
     </section>
 
     <section>
+      <m3e-heading variant="title" size="large" level={2}>Accounts</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content" class="rows">
+          <div class="row">
+            <div class="text">
+              <strong>AniList</strong>
+              <span>
+                {#if !sync?.anilistAvailable}Not set up in this build.
+                {:else if sync.anilistUser}Signed in as {sync.anilistUser}. Finished anime episodes update your list.
+                {:else}Keep your anime progress in step with your AniList list.{/if}
+              </span>
+            </div>
+            {#if sync?.anilistUser}
+              <m3e-button variant="outlined" onclick={() => api.syncDisconnect("anilist")}>Disconnect</m3e-button>
+            {:else}
+              <m3e-button variant="tonal" disabled={!sync?.anilistAvailable} onclick={() => api.anilistLogin()}>
+                <m3e-icon slot="icon" name="login"></m3e-icon>Connect
+              </m3e-button>
+            {/if}
+          </div>
+          <m3e-divider></m3e-divider>
+          <div class="row">
+            <div class="text">
+              <strong>Trakt</strong>
+              <span>
+                {#if !sync?.traktAvailable}Not set up in this build.
+                {:else if sync.traktUser}Signed in as {sync.traktUser}. Finished movies and episodes go to your history.
+                {:else}Add what you finish to your Trakt history.{/if}
+              </span>
+            </div>
+            {#if sync?.traktUser}
+              <m3e-button variant="outlined" onclick={() => api.syncDisconnect("trakt")}>Disconnect</m3e-button>
+            {:else}
+              <m3e-button variant="tonal" disabled={!sync?.traktAvailable} onclick={connectTrakt}>
+                <m3e-icon slot="icon" name="login"></m3e-icon>Connect
+              </m3e-button>
+            {/if}
+          </div>
+        </div>
+      </m3e-card>
+    </section>
+
+    <section>
       <m3e-heading variant="title" size="large" level={2}>Appearance</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
@@ -264,7 +365,60 @@
   {/if}
 </div>
 
+<m3e-dialog bind:this={traktDialog} dismissible onclosed={traktClosed} class="trakt">
+  <span slot="header">Connect Trakt</span>
+  <div class="trakt-body">
+    {#if traktError}
+      <p class="error">{traktError}</p>
+    {:else if !device}
+      <m3e-loading-indicator></m3e-loading-indicator>
+    {:else}
+      <p>Open the Trakt page below and enter this code:</p>
+      <span class="code">{device.userCode}</span>
+      <m3e-button variant="filled" onclick={() => device && api.openSignInPage(device.verificationUrl)}>
+        <m3e-icon slot="icon" name="open_in_new"></m3e-icon>Open trakt.tv/activate
+      </m3e-button>
+      <div class="waiting">
+        <m3e-loading-indicator></m3e-loading-indicator>
+        <span>Waiting for you to approve on Trakt</span>
+      </div>
+    {/if}
+  </div>
+</m3e-dialog>
+
 <style>
+  .trakt {
+    --m3e-dialog-max-width: 420px;
+  }
+  .trakt-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+    padding-block: 8px;
+  }
+  .trakt-body p {
+    margin: 0;
+  }
+  .code {
+    font-family: var(--app-display-font);
+    font-size: 44px;
+    letter-spacing: 0.12em;
+    user-select: all;
+  }
+  .waiting {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    --m3e-loading-indicator-container-size: 32px;
+    --m3e-loading-indicator-active-indicator-size: 24px;
+  }
+  .error {
+    color: var(--md-sys-color-error);
+  }
   .page {
     display: flex;
     flex-direction: column;

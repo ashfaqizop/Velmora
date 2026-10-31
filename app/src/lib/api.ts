@@ -67,3 +67,26 @@ export const downloadResume = (id: number) => invoke<void>("download_resume", { 
 export const downloadCancel = (id: number) => invoke<void>("download_cancel", { id });
 export const downloadsClear = () => invoke<void>("downloads_clear");
 export const revealFile = (path: string) => invoke<void>("reveal_file", { path });
+
+export interface SyncStatus {
+  anilistAvailable: boolean;
+  anilistUser: string | null;
+  traktAvailable: boolean;
+  traktUser: string | null;
+}
+
+export interface DeviceCode {
+  deviceCode: string;
+  userCode: string;
+  verificationUrl: string;
+  expiresIn: number;
+  interval: number;
+}
+
+export const syncStatus = () => invoke<SyncStatus>("sync_status");
+export const syncDisconnect = (service: "anilist" | "trakt") => invoke<void>("sync_disconnect", { service });
+export const anilistLogin = () => invoke<void>("anilist_login");
+export const traktStart = () => invoke<DeviceCode>("trakt_start");
+export const traktPoll = (deviceCode: string) => invoke<boolean>("trakt_poll", { deviceCode });
+export const syncWatched = (title: TitleSummary, target: Target) => invoke<string[]>("sync_watched", { title, target });
+export const openSignInPage = (url: string) => invoke<void>("open_sign_in_page", { url });

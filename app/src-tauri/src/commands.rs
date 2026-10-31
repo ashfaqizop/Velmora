@@ -12,7 +12,7 @@ use universeapi::download::{DownloadRequest, DownloadStatus};
 use universeapi::torrent::TorrentProgress;
 use universeapi::{Preferences, SearchBatch, SourcesReport};
 
-use crate::{prefs, runtime, AppState, StreamSession};
+use crate::{prefs, runtime, sync, AppState, StreamSession};
 
 const CONFIG_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -271,4 +271,50 @@ pub fn reveal_file(state: State<'_, AppState>, path: String) -> Result<(), Strin
         std::process::Command::new("xdg-open").arg(folder).spawn().map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+// ── AniList / Trakt ────────────────────────────────────────────────────
+
+#[tauri::command]
+pub fn sync_status(state: State<'_, AppState>) -> sync::SyncStatus {
+    state.sync.status()
+}
+
+#[tauri::command]
+pub fn sync_disconnect(app: AppHandle, state: State<'_, AppState>, service: String) {
+    state.sync.disconnect(&service);
+    let _ = tauri::Emitter::emit(&app, "sync-changed", ());
+}
+
+#[tauri::command]
+pub fn anilist_login(app: AppHandle) -> Result<(), String> {
+    sync::anilist_login(&app)
+}
+
+#[tauri::command]
+pub async fn trakt_start(state: State<'_, AppState>) -> Result<sync::DeviceCode, String> {
+    let engine = state.engine.clone();
+    sync::trakt_start(&engine).await
+}
+
+#[tauri::command]
+pub async fn trakt_poll(app: AppHandle, device_code: String) -> Result<bool, String> {
+    sync::trakt_poll(&app, &device_code).await
+}
+
+/// Mark a title or episode watched on every connected service.
+#[tauri::command]
+pub async fn sync_watched(app: AppHandle, title: TitleSummary, target: Target) -> Result<Vec<String>, String> {
+    Ok(sync::watched(&app, &title, target).await.into_iter().map(str::to_string).collect())
+}
+
+/// Open a Trakt or AniList page in the default browser (sign-in only).
+#[tauri::command]
+pub fn open_sign_in_page(app: AppHandle, url: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let allowed = ["https://trakt.tv/", "https://anilist.co/"];
+    if !allowed.iter().any(|p| url.starts_with(p)) {
+        return Err("only Trakt and AniList pages can be opened".into());
+    }
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }

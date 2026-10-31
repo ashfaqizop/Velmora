@@ -299,8 +299,19 @@
 
   // ── Playback ───────────────────────────────────────────────────────
 
+  let synced = false;
+
   function saveProgress() {
-    if (phase === "playing" && duration > 0) library.saveProgress(title, target, time, duration);
+    if (phase !== "playing" || duration <= 0) return;
+    library.saveProgress(title, target, time, duration);
+    // Mostly watched: tell AniList / Trakt once per playback.
+    if (!synced && !file && time / duration >= 0.85) {
+      synced = true;
+      api
+        .syncWatched(title, target)
+        .then((done) => done.length && M3eSnackbar.open(`Marked as watched on ${done.join(" and ")}`))
+        .catch((e) => console.warn("sync failed", e));
+    }
   }
 
   const togglePause = () => setProperty("pause", !paused);

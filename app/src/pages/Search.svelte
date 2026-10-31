@@ -13,9 +13,11 @@
   let providers = $state<ProviderState[]>([]);
   let running = $state(false);
   let run = 0;
+  let attempt = $state(0);
 
   $effect(() => {
     const q = query;
+    void attempt;
     const mine = ++run;
     results = [];
     providers = [];
@@ -63,6 +65,15 @@
       {#each Array(12) as _, i (i)}
         <m3e-skeleton animation="wave" shape="rounded" class="ghost"></m3e-skeleton>
       {/each}
+    </div>
+  {:else if providers.length && providers.every((p) => p.error)}
+    <div class="empty">
+      <m3e-icon name="cloud_off"></m3e-icon>
+      <m3e-heading variant="title" size="large">The sources didn't answer</m3e-heading>
+      <p>Check your connection, then try again.</p>
+      <m3e-button variant="tonal" onclick={() => attempt++}>
+        <m3e-icon slot="icon" name="refresh"></m3e-icon>Try again
+      </m3e-button>
     </div>
   {:else}
     <div class="empty">
