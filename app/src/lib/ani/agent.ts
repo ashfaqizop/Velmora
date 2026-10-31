@@ -21,11 +21,17 @@ export interface Step {
   state: "running" | "done" | "failed";
 }
 
+/** What Ani is doing right now, for the live status line. */
+export type Phase = "thinking" | "researching" | "planning" | "writing";
+
 export interface TurnHandlers {
   /** Research progress, for the "Looking up…" list. */
   onSteps(steps: Step[]): void;
   /** The reply so far, as it streams. */
   onBlocks(blocks: Block[]): void;
+  onPhase(phase: Phase): void;
+  /** Gemini's thought summaries, as they stream. */
+  onThought(text: string): void;
 }
 
 export interface TurnInput {
@@ -69,7 +75,17 @@ export async function runTurn(input: TurnInput, h: TurnHandlers, signal: AbortSi
   const tools = new Map(answerTools.map((t) => [t.decl.name, t]));
   const uiNames = answerTools.filter((t) => t.decl.name.startsWith("render_")).map((t) => t.decl.name);
 
-  const onDelta = (d: { text: string } | { call: FunctionCall }) => {
+  let writing = false;
+  h.onPhase("planning");
+  const onDelta = (d: { text: string } | { thought: string } | { call: FunctionCall }) => {
+    if ("thought" in d) {
+      h.onThought(d.thought);
+      return;
+    }
+    if (!writing) {
+      writing = true;
+      h.onPhase("writing");
+    }
     if ("text" in d) {
       const last = blocks.at(-1);
       if (last?.kind === "text") last.text += d.text;
@@ -129,15 +145,28 @@ async function research(input: TurnInput, ctx: ToolContext, steps: Step[], h: Tu
   contents.push({ role: "user", parts: [{ text: input.message }] });
 
   const findings: string[] = [];
+  h.onPhase("thinking");
+  const onDelta = (d: { text: string } | { thought: string } | { call: FunctionCall }) => {
+    if ("thought" in d) h.onThought(d.thought);
+  };
   for (let round = 0; round < MAX_RESEARCH_ROUNDS && !ctx.signal.aborted; round++) {
-    const res = await generate(
-      ani.toolModel,
-      { system: researchPrompt(), contents, tools: researchTools.map((t) => t.decl), thinking: "low" },
-      undefined,
-      ctx.signal,
-    );
+    let res;
+    try {
+      res = await generate(
+        ani.toolModel,
+        { system: researchPrompt(), contents, tools: researchTools.map((t) => t.decl), thinking: "low" },
+        onDelta,
+        ctx.signal,
+      );
+    } catch (e) {
+      // Answer with what was found so far rather than losing the whole turn.
+      steps.push({ label: `Lookups stopped: ${e instanceof Error ? e.message : String(e)}`, state: "failed" });
+      h.onSteps(steps.map((s) => ({ ...s })));
+      break;
+    }
     const calls = callsOf(res.parts);
     if (!calls.length) break;
+    h.onPhase("researching");
     contents.push({ role: "model", parts: res.parts });
 
     const results = await Promise.all(

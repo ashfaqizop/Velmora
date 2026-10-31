@@ -64,7 +64,7 @@
     <div slot="content" class="content">
       <m3e-stepper linear>
         <m3e-step for="ob-welcome">Welcome</m3e-step>
-        <m3e-step for="ob-watch">How you watch</m3e-step>
+        <m3e-step for="ob-watch">Watching</m3e-step>
         <m3e-step for="ob-sources">Sources</m3e-step>
         <m3e-step for="ob-downloads">Downloads</m3e-step>
         <m3e-step for="ob-ani">Ani</m3e-step>
@@ -242,11 +242,15 @@
   }
   .panel {
     position: relative;
-    width: min(720px, calc(100vw - 64px));
+    width: min(820px, calc(100vw - 64px));
     --m3e-card-shape: var(--md-sys-shape-corner-extra-large, 28px);
   }
   .content {
     padding: 8px;
+  }
+  /* Five steps fit on one row only if no label wraps. */
+  m3e-step {
+    white-space: nowrap;
   }
   .step {
     display: flex;

@@ -27,9 +27,19 @@
   }
 
   // Rotating tips for the card under the menu: a short heading and one useful line.
-  const TIPS: [string, string][] = [
+  // `true` marks tips about the latest update; they get a "New" chip.
+  const TIPS: [string, string, boolean?][] = [
     ["Better movies. Brighter days.", "Every source, one search away."],
-    ["Ask Ani.", "Recommendations from what you watch. Turn it on in Settings."],
+    ["Ask Ani anything.", "Recommendations from what you watch, with cards you can play.", true],
+    ["Ani knows your taste.", "It learns from what you search, watch and download.", true],
+    ["Say it once.", "Tell Ani you prefer dubs and it remembers.", true],
+    ["Watch order, sorted.", "Ask Ani how to watch any franchise or anime.", true],
+    ["The best link, picked.", "Ask Ani for the smallest 1080p download.", true],
+    ["What Ani knows stays here.", "See or clear it in Settings, under Ani.", true],
+    ["What's airing this week?", "Ani shows the schedule in your time zone.", true],
+    ["Your downloads, your folder.", "Pick where they go in Settings."],
+    ["Downloads stay yours.", "Saved in Velmora's own format, playable only here."],
+    ["Sliders that follow you.", "Seek and volume track the pointer exactly."],
     ["Ctrl K finds anything.", "Movies, series and anime from every source at once."],
     ["Space pauses. F goes full screen.", "Arrow keys skip ten seconds either way."],
     ["Stop anywhere.", "Continue Watching remembers the exact second."],
@@ -79,6 +89,7 @@
     <div class="copy" aria-live="off">
       {#key tip}
         <div class="tip" in:fly={{ y: 10, duration: 500, delay: 200, easing: cubicOut }} out:fade={{ duration: 200 }}>
+          {#if TIPS[tip][2]}<span class="new">New</span>{/if}
           <strong class="display">{TIPS[tip][0]}</strong>
           <span>{TIPS[tip][1]}</span>
         </div>
@@ -116,7 +127,7 @@
     position: relative;
     flex: none;
     margin-top: 12px;
-    height: 200px;
+    height: 224px;
     border-radius: var(--md-sys-shape-corner-extra-large, 28px);
     overflow: hidden;
     padding: 20px;
@@ -195,6 +206,17 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .new {
+    align-self: flex-start;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 22%);
+    color: #fff;
   }
   .copy strong {
     font-size: 22px;

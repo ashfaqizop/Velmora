@@ -11,6 +11,12 @@
   ani.loadKey().catch((e) => console.warn("ani key status", e));
 
   let draft = $state("");
+  // The recent-chats list can fold into a slim rail; remembered between launches.
+  let collapsed = $state(localStorage.getItem("velmora.ani.listCollapsed") === "1");
+  function toggleList() {
+    collapsed = !collapsed;
+    localStorage.setItem("velmora.ani.listCollapsed", collapsed ? "1" : "0");
+  }
   let input: HTMLTextAreaElement;
   let thread: HTMLElement;
 
@@ -75,14 +81,25 @@
   }
 </script>
 
-<div class="ani-page">
-  <aside class="history">
-    <m3e-button variant="tonal" class="new" disabled={!chat && !chats.busy} onclick={() => chats.newChat()}>
-      <m3e-icon slot="icon" name="edit_square"></m3e-icon>New chat
-    </m3e-button>
-    {#if chats.list.length}
-      <span class="label">Recent</span>
-      <m3e-action-list class="list">
+<div class="ani-page" class:wide={collapsed}>
+  <aside class="history" class:collapsed>
+    <div class="tools">
+      <m3e-icon-button aria-label={collapsed ? "Show chats" : "Hide chats"} onclick={toggleList}>
+        <m3e-icon name={collapsed ? "left_panel_open" : "left_panel_close"}></m3e-icon>
+      </m3e-icon-button>
+      {#if collapsed}
+        <m3e-icon-button variant="tonal" aria-label="New chat" disabled={!chat && !chats.busy} onclick={() => chats.newChat()}>
+          <m3e-icon name="edit_square"></m3e-icon>
+        </m3e-icon-button>
+      {:else}
+        <m3e-button variant="tonal" class="new" disabled={!chat && !chats.busy} onclick={() => chats.newChat()}>
+          <m3e-icon slot="icon" name="edit_square"></m3e-icon>New chat
+        </m3e-button>
+      {/if}
+    </div>
+    {#if !collapsed && chats.list.length}
+      <span class="label" transition:fade={{ duration: 150 }}>Recent</span>
+      <m3e-action-list class="list" transition:fade={{ duration: 150 }}>
         {#each chats.list as c (c.id)}
           <m3e-list-action class:current={chat?.id === c.id} onclick={() => openChat(c.id)}>
             {c.title}
@@ -175,6 +192,7 @@
     display: grid;
     grid-template-columns: 240px minmax(0, 1fr);
     gap: 28px;
+    transition: grid-template-columns 300ms var(--md-sys-motion-easing-emphasized, ease);
     min-height: calc(100vh - var(--app-titlebar-height) - 60px);
   }
   .history {
@@ -188,8 +206,16 @@
     overflow-y: auto;
     scrollbar-width: none;
   }
-  .new {
-    align-self: flex-start;
+  .ani-page.wide {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .history.collapsed .tools {
+    flex-direction: column;
   }
   .label {
     margin: 12px 0 0 12px;

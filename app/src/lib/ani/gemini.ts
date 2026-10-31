@@ -48,7 +48,7 @@ export interface GenerateRequest {
   temperature?: number;
 }
 
-export type Delta = { text: string } | { call: FunctionCall };
+export type Delta = { text: string } | { thought: string } | { call: FunctionCall };
 
 export interface GenerateResult {
   parts: Part[];
@@ -76,7 +76,12 @@ export async function generate(
   const id = crypto.randomUUID();
   const generationConfig: Record<string, unknown> = {};
   if (req.temperature !== undefined) generationConfig.temperature = req.temperature;
-  if (req.thinking && model.startsWith("gemini-3")) generationConfig.thinkingConfig = { thinkingLevel: req.thinking };
+  // Thought summaries stream as parts marked `thought`; the chat shows them live.
+  if (model.startsWith("gemini-3")) {
+    generationConfig.thinkingConfig = { includeThoughts: true, ...(req.thinking ? { thinkingLevel: req.thinking } : {}) };
+  } else if (model.includes("2.5")) {
+    generationConfig.thinkingConfig = { includeThoughts: true };
+  }
   const body: Record<string, unknown> = {
     systemInstruction: { parts: [{ text: req.system }] },
     contents: req.contents,
@@ -110,6 +115,9 @@ export async function generate(
   signal?.addEventListener("abort", stop, { once: true });
   try {
     await api.aniGenerate(id, model, body, onChunk);
+  } catch (e) {
+    // A stop can surface as an error from a request still being retried.
+    if (!signal?.aborted) throw e instanceof Error ? e : new Error(String(e));
   } finally {
     signal?.removeEventListener("abort", stop);
   }
@@ -144,7 +152,7 @@ function merge(parts: Part[], p: Part, onDelta?: (d: Delta) => void) {
   } else {
     parts.push({ ...p });
   }
-  if (!p.thought && p.text) onDelta?.({ text: p.text });
+  if (p.text) onDelta?.(p.thought ? { thought: p.text } : { text: p.text });
 }
 
 /** The visible text of a model turn. */

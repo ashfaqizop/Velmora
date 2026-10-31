@@ -20,6 +20,12 @@ const GEMINI: &str = "https://generativelanguage.googleapis.com/v1beta";
 /// A long answer with thinking can run well past the engine client's 25 s default.
 const GENERATE_TIMEOUT: Duration = Duration::from_secs(300);
 const CHECK_TIMEOUT: Duration = Duration::from_secs(15);
+/// Waits before retrying an overloaded or rate-limited request.
+const RETRY_DELAYS: [Duration; 2] = [Duration::from_millis(1500), Duration::from_millis(4000)];
+
+fn is_transient(status: u16) -> bool {
+    matches!(status, 429 | 500 | 502 | 503 | 504)
+}
 
 pub struct AniStore {
     key_file: PathBuf,
@@ -89,6 +95,7 @@ fn gemini_error(status: u16, body: &str) -> String {
         401 | 403 => "Gemini refused the request. The key may be wrong or not allowed to use this model.".into(),
         404 => "Gemini doesn't know that model. Pick another one in Settings → Ani.".into(),
         429 => "Gemini's rate limit for this key was reached. Wait a minute and try again.".into(),
+        500..=599 if !message.is_empty() => format!("Gemini is having trouble right now ({}). Try again in a moment.", message.trim_end_matches('.')),
         500..=599 => "Gemini is having trouble right now. Try again in a moment.".into(),
         _ if !message.is_empty() => format!("Gemini: {message}"),
         _ => format!("Gemini answered with HTTP {status}."),
@@ -194,25 +201,36 @@ pub async fn ani_generate(
     if !valid_model(&model) {
         return Err(format!("Unknown model \"{model}\"."));
     }
-    let resp = state
-        .engine
-        .ctx()
-        .http
-        .client()
-        .post(format!("{GEMINI}/models/{model}:streamGenerateContent"))
-        .query(&[("alt", "sse")])
-        .header("x-goog-api-key", &key)
-        .timeout(GENERATE_TIMEOUT)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("Couldn't reach Gemini: {e}"))?;
-    let status = resp.status().as_u16();
-    if !(200..300).contains(&status) {
+    // Overloaded and rate-limited answers are usually gone a few seconds
+    // later, so try again before giving up. Nothing has streamed yet here.
+    let mut attempt = 0;
+    let resp = loop {
+        let resp = state
+            .engine
+            .ctx()
+            .http
+            .client()
+            .post(format!("{GEMINI}/models/{model}:streamGenerateContent"))
+            .query(&[("alt", "sse")])
+            .header("x-goog-api-key", &key)
+            .timeout(GENERATE_TIMEOUT)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Couldn't reach Gemini: {e}"))?;
+        let status = resp.status().as_u16();
+        if (200..300).contains(&status) {
+            break resp;
+        }
         let text = resp.text().await.unwrap_or_default();
+        if attempt < RETRY_DELAYS.len() && is_transient(status) && !ani.take_stop(&id) {
+            tokio::time::sleep(RETRY_DELAYS[attempt]).await;
+            attempt += 1;
+            continue;
+        }
         ani.take_stop(&id);
         return Err(gemini_error(status, &text));
-    }
+    };
 
     let mut stream = resp.bytes_stream();
     let mut buf: Vec<u8> = Vec::new();
@@ -299,6 +317,14 @@ mod tests {
         assert!(valid_model("gemini-3.1-flash-lite"));
         assert!(!valid_model("gemini-3.5-flash:generateContent?x"));
         assert!(!valid_model("../files"));
+    }
+
+    #[test]
+    fn transient_statuses() {
+        assert!(is_transient(503) && is_transient(429));
+        assert!(!is_transient(400) && !is_transient(404));
+        let e = gemini_error(503, r#"{"error":{"message":"The model is overloaded."}}"#);
+        assert_eq!(e, "Gemini is having trouble right now (The model is overloaded). Try again in a moment.");
     }
 
     #[test]

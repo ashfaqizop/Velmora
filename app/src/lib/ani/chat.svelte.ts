@@ -1,12 +1,26 @@
 // Ani's chats: the list, the open conversation, and sending a message.
 // Each chat is saved under its own localStorage key; an index keeps the list.
-import { runTurn, type Block, type Step } from "./agent";
+import { runTurn, type Block, type Phase, type Step } from "./agent";
 import type { Content } from "./gemini";
 import { RefBook, type RefData } from "./refs";
 
 export type Turn =
   | { id: string; role: "user"; text: string; at: number }
-  | { id: string; role: "ani"; blocks: Block[]; steps: Step[]; error?: string; stopped?: boolean; at: number };
+  | {
+      id: string;
+      role: "ani";
+      blocks: Block[];
+      steps: Step[];
+      /** Gemini's thought summaries from both stages. */
+      thoughts?: string;
+      /** Set while the reply is being made. */
+      phase?: Phase;
+      /** Time from sending to the first word of the answer. */
+      thinkingMs?: number;
+      error?: string;
+      stopped?: boolean;
+      at: number;
+    };
 
 export interface Chat {
   id: string;
@@ -122,6 +136,7 @@ class Chats {
     const reply = chat.turns.at(-1) as Extract<Turn, { role: "ani" }>;
 
     this.busy = true;
+    const started = Date.now();
     const controller = new AbortController();
     this.controller = controller;
     try {
@@ -130,6 +145,12 @@ class Chats {
         {
           onSteps: (steps) => (reply.steps = steps),
           onBlocks: (blocks) => (reply.blocks = blocks),
+          onPhase: (phase) => {
+            if (phase === "planning" && reply.thoughts) reply.thoughts += "\n\n";
+            if (phase === "writing" && reply.thinkingMs === undefined) reply.thinkingMs = Date.now() - started;
+            reply.phase = phase;
+          },
+          onThought: (text) => (reply.thoughts = (reply.thoughts ?? "") + text),
         },
         controller.signal,
       );
@@ -142,6 +163,8 @@ class Chats {
       // Keep the question in the history so a retry or follow-up has it.
       chat.history.push({ role: "user", parts: [{ text: message }] }, { role: "model", parts: [{ text: "(no answer)" }] });
     } finally {
+      reply.phase = undefined;
+      reply.thinkingMs ??= Date.now() - started;
       this.busy = false;
       this.controller = null;
       chat.refs = refs.toJSON();

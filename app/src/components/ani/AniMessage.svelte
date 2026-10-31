@@ -10,7 +10,6 @@
   let { turn, last = false }: { turn: Extract<Turn, { role: "ani" }>; last?: boolean } = $props();
 
   const working = $derived(last && chats.busy);
-  const researching = $derived(working && turn.steps.some((s) => s.state === "running"));
   const empty = $derived(!turn.blocks.some((b) => b.kind !== "text" || b.text.trim()));
 
   function undoNote(id: string) {
@@ -26,7 +25,7 @@
     <m3e-icon name="wand_stars" filled></m3e-icon>
   </span>
   <div class="body">
-    <AniSteps steps={turn.steps} working={researching} />
+    <AniSteps steps={turn.steps} thoughts={turn.thoughts} phase={turn.phase} thinkingMs={turn.thinkingMs} {working} />
 
     {#each turn.blocks as b, i (i)}
       {#if b.kind === "text"}
@@ -46,18 +45,20 @@
       {/if}
     {/each}
 
-    {#if working && empty && !researching}
+    {#if working && empty && turn.phase === "writing"}
       <div class="typing" aria-label="Ani is writing"><span></span><span></span><span></span></div>
     {/if}
 
     {#if turn.error}
-      <m3e-callout variant="error" class="error">
-        <m3e-icon slot="icon" name="error"></m3e-icon>
-        {turn.error}
+      <div class="error" role="alert">
+        <m3e-icon name="error"></m3e-icon>
+        <span>{turn.error}</span>
         {#if last}
-          <m3e-button variant="text" size="small" onclick={() => chats.retry()}>Try again</m3e-button>
+          <m3e-button variant="tonal" size="small" disabled={chats.busy} onclick={() => chats.retry()}>
+            <m3e-icon slot="icon" name="refresh"></m3e-icon>Try again
+          </m3e-button>
         {/if}
-      </m3e-callout>
+      </div>
     {:else if turn.stopped}
       <span class="stopped">Stopped.</span>
     {/if}
@@ -170,7 +171,23 @@
     }
   }
   .error {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 10px 10px 16px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.45;
+    background: color-mix(in srgb, var(--md-sys-color-error) 14%, var(--md-sys-color-surface-container));
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-error) 35%, transparent);
+    --m3e-icon-size: 20px;
+  }
+  .error > m3e-icon {
+    color: var(--md-sys-color-error);
+    flex: none;
+  }
+  .error > span {
+    flex: 1;
   }
   .stopped {
     font-size: 13px;
