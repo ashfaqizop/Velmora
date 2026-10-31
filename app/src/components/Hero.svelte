@@ -42,33 +42,35 @@
     {/key}
     <div class="scrim"></div>
 
-    {#key current}
-      <div class="content" in:fly={{ x: -24, duration: 650, delay: 150, easing: cubicOut }} out:fade={{ duration: 200 }}>
-        <m3e-chip class="badge"><m3e-icon slot="icon" name="local_fire_department" filled></m3e-icon>Trending now</m3e-chip>
-        <h1 class="display title">{current.name}</h1>
-        <div class="meta">
-          {#if current.rating}<span class="star"><m3e-icon name="star" filled></m3e-icon>{current.rating.toFixed(1)}</span>{/if}
-          {#if current.year}<span>{current.year}</span>{/if}
-          <span>{kindLabel[current.kind]}</span>
-          {#each current.badges ?? [] as b (b)}<span class="tag">{b}</span>{/each}
+    <div class="stage">
+      {#key current}
+        <div class="content" in:fly={{ x: -24, duration: 650, delay: 150, easing: cubicOut }} out:fade={{ duration: 200 }}>
+          <m3e-chip class="badge"><m3e-icon slot="icon" name="local_fire_department" filled></m3e-icon>Trending now</m3e-chip>
+          <h1 class="display title">{current.name}</h1>
+          <div class="meta">
+            {#if current.rating}<span class="star"><m3e-icon name="star" filled></m3e-icon>{current.rating.toFixed(1)}</span>{/if}
+            {#if current.year}<span>{current.year}</span>{/if}
+            <span>{kindLabel[current.kind]}</span>
+            {#each current.badges ?? [] as b (b)}<span class="tag">{b}</span>{/each}
+          </div>
+          {#if current.overview}<p class="overview">{current.overview}</p>{/if}
+          <div class="actions">
+            <m3e-button variant="filled" size="medium" onclick={() => nav.go({ name: "title", title: current })}>
+              <m3e-icon slot="icon" name="play_arrow" filled></m3e-icon>
+              Watch now
+            </m3e-button>
+            <m3e-button variant="tonal" size="medium" toggle selected={saved} onclick={() => library.toggle(current)}>
+              <m3e-icon slot="icon" name="add"></m3e-icon>
+              <m3e-icon slot="selected-icon" name="check"></m3e-icon>
+              My List
+            </m3e-button>
+            <m3e-icon-button variant="tonal" size="medium" aria-label="Details" onclick={() => nav.go({ name: "title", title: current })}>
+              <m3e-icon name="info"></m3e-icon>
+            </m3e-icon-button>
+          </div>
         </div>
-        {#if current.overview}<p class="overview">{current.overview}</p>{/if}
-        <div class="actions">
-          <m3e-button variant="filled" size="medium" onclick={() => nav.go({ name: "title", title: current })}>
-            <m3e-icon slot="icon" name="play_arrow" filled></m3e-icon>
-            Watch now
-          </m3e-button>
-          <m3e-button variant="tonal" size="medium" toggle selected={saved} onclick={() => library.toggle(current)}>
-            <m3e-icon slot="icon" name="add"></m3e-icon>
-            <m3e-icon slot="selected-icon" name="check"></m3e-icon>
-            My List
-          </m3e-button>
-          <m3e-icon-button variant="tonal" size="medium" aria-label="Details" onclick={() => nav.go({ name: "title", title: current })}>
-            <m3e-icon name="info"></m3e-icon>
-          </m3e-icon-button>
-        </div>
-      </div>
-    {/key}
+      {/key}
+    </div>
 
     {#if items.length > 1}
       <div class="pager">
@@ -96,10 +98,13 @@
 {/if}
 
 <style>
+  /* Grows with its content so nothing is clipped on short windows. */
   .hero {
     position: relative;
-    display: block;
-    height: clamp(320px, 42vh, 440px);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: clamp(340px, 46vh, 480px);
     border-radius: var(--md-sys-shape-corner-extra-large, 28px);
     overflow: hidden;
     isolation: isolate;
@@ -128,10 +133,14 @@
       linear-gradient(90deg, rgb(10 8 18 / 92%) 0%, rgb(10 8 18 / 62%) 38%, transparent 72%),
       linear-gradient(0deg, rgb(10 8 18 / 70%), transparent 45%);
   }
+  /* Outgoing and incoming slides share one cell while they crossfade. */
+  .stage {
+    display: grid;
+    padding: 40px 40px 36px;
+  }
   .content {
-    position: absolute;
-    left: 40px;
-    bottom: 36px;
+    grid-area: 1 / 1;
+    align-self: end;
     width: min(520px, 60%);
     display: flex;
     flex-direction: column;
@@ -147,7 +156,7 @@
   }
   .title {
     margin: 0;
-    font-size: clamp(40px, 4.6vw, 64px);
+    font-size: clamp(36px, 4.2vw, 60px);
     line-height: 1;
     font-weight: 400;
     text-wrap: balance;
@@ -228,5 +237,6 @@
   }
   .ghost {
     width: 100%;
+    min-height: clamp(340px, 46vh, 480px);
   }
 </style>

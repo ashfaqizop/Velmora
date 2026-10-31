@@ -1,6 +1,6 @@
 <script lang="ts">
   import PoweredBy from "./PoweredBy.svelte";
-  import { downloads, feed, library, nav, type Route } from "../lib/state.svelte";
+  import { downloads, library, nav, type Route } from "../lib/state.svelte";
 
   const main: { label: string; icon: string; route: Route }[] = [
     { label: "Home", icon: "home", route: { name: "home" } },
@@ -11,10 +11,6 @@
     { label: "Downloads", icon: "download", route: { name: "downloads" } },
     { label: "Settings", icon: "settings", route: { name: "settings" } },
   ];
-
-  // Collections are the engine's home rails; dot colours echo the reference's genre list.
-  const DOTS = ["#ff6b6b", "#ffb547", "#5ad17a", "#4fa3ff", "#a77bff", "#ff7ad9", "#3fd3c6", "#c792ea"];
-  const collections = $derived(feed.rails.map((r, i) => ({ id: r.id, label: r.title, color: DOTS[i % DOTS.length] })));
 
   function isActive(r: Route) {
     const cur = nav.route;
@@ -39,21 +35,6 @@
       </m3e-nav-menu-item>
     {/each}
 
-    {#if collections.length}
-      <m3e-divider></m3e-divider>
-      <m3e-nav-menu-item-group>
-        <m3e-heading slot="label" variant="label" size="large">Collections</m3e-heading>
-        {#each collections as c (c.id)}
-          <m3e-nav-menu-item
-            selected={nav.route.name === "collection" && nav.route.id === c.id}
-            onclick={() => nav.go({ name: "collection", id: c.id })}
-          >
-            <span slot="icon" class="dot" style:background={c.color}></span>
-            <span slot="label">{c.label}</span>
-          </m3e-nav-menu-item>
-        {/each}
-      </m3e-nav-menu-item-group>
-    {/if}
   </m3e-nav-menu>
 
   <div class="promo">
@@ -81,6 +62,9 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
+    /* Scrolls only on very short windows, without a visible bar. */
+    scrollbar-width: none;
     --m3e-nav-menu-item-height: 48px;
     --m3e-nav-menu-item-shape: 999px;
     --m3e-nav-menu-item-selected-container-color: var(--md-sys-color-primary);
@@ -88,12 +72,7 @@
     --m3e-nav-menu-padding-left: 0;
     --m3e-nav-menu-padding-right: 0;
   }
-  .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-inline: 7px;
-  }
+  /* Deep gradient with white text so it reads with any accent colour. */
   .promo {
     position: relative;
     flex: none;
@@ -109,36 +88,65 @@
     gap: 6px;
     background: linear-gradient(
       150deg,
-      var(--md-sys-color-primary-container) 0%,
-      color-mix(in srgb, var(--md-sys-color-tertiary-container) 70%, #000) 100%
+      color-mix(in srgb, var(--md-sys-color-primary) 58%, #120b24) 0%,
+      color-mix(in srgb, var(--brand-coral) 42%, #1a0b1c) 100%
     );
-    color: var(--md-sys-color-on-primary-container);
+    color: #fff;
+    /* PoweredBy reads these. */
+    --md-sys-color-on-surface: #fff;
+    --md-sys-color-on-surface-variant: rgb(255 255 255 / 78%);
+  }
+  /* A soft shade along the bottom keeps the copy readable over the shapes. */
+  .promo::after {
+    content: "";
+    position: absolute;
+    inset: 40% 0 0;
+    background: linear-gradient(0deg, rgb(10 6 20 / 55%), transparent);
+    pointer-events: none;
   }
   .promo m3e-shape {
     position: absolute;
-    opacity: 0.55;
+    opacity: 0.5;
   }
   .s1 {
     --m3e-shape-size: 72px;
-    --m3e-shape-container-color: var(--md-sys-color-primary);
+    --m3e-shape-container-color: var(--md-sys-color-primary-container);
     top: 14px;
     left: 16px;
+    animation:
+      spin 26s linear infinite,
+      drift 9s ease-in-out infinite alternate;
   }
   .s2 {
     --m3e-shape-size: 120px;
     --m3e-shape-container-color: var(--brand-coral);
     top: -36px;
     right: -30px;
-    opacity: 0.35;
+    opacity: 0.45;
+    animation: spin 40s linear infinite reverse;
   }
   .s3 {
     --m3e-shape-size: 46px;
     --m3e-shape-container-color: var(--md-sys-color-tertiary);
     top: 70px;
     right: 40px;
+    animation:
+      spin 18s linear infinite,
+      drift 7s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes spin {
+    to {
+      rotate: 360deg;
+    }
+  }
+  @keyframes drift {
+    to {
+      translate: 6px 8px;
+    }
   }
   .copy {
     position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -149,11 +157,11 @@
   }
   .copy span {
     font-size: 12px;
-    opacity: 0.85;
+    color: rgb(255 255 255 / 82%);
   }
   .credit {
     position: relative;
+    z-index: 1;
     margin-top: 8px;
-    opacity: 0.9;
   }
 </style>

@@ -64,6 +64,8 @@
     }
   });
 
+  const detailKey = $derived(step ? `${step.kind}:${"connecting" in step ? step.connecting : ""}` : "");
+
   async function checkForUpdate(): Promise<boolean> {
     const update = await atLeast(1100, check({ timeout: 8000 })).catch((e) => {
       console.warn("update check failed", e);
@@ -168,7 +170,8 @@
             <m3e-heading variant="display" size="small" level={1}>{copy.title}</m3e-heading>
           </div>
         {/key}
-        {#key copy.detail}
+        <!-- Animate when the step changes, not on every progress tick (the MB count updates in place). -->
+        {#key detailKey}
           <p class="detail" in:fade={{ duration: 300, delay: 120 }} out:fade={{ duration: 120 }}>{copy.detail}</p>
         {/key}
       </div>

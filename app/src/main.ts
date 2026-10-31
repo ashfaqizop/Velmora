@@ -1,6 +1,5 @@
-import "@fontsource/redaction/400.css";
-import "@fontsource/redaction/400-italic.css";
-import "@fontsource/redaction/700.css";
+import "@fontsource-variable/plus-jakarta-sans/wght.css";
+import "@fontsource-variable/plus-jakarta-sans/wght-italic.css";
 import "@fontsource/instrument-serif/400.css";
 import "@fontsource/instrument-serif/400-italic.css";
 import "material-symbols/outlined.css";

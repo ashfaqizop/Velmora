@@ -5,6 +5,9 @@
   import ContinueCard from "../components/ContinueCard.svelte";
   import { feed, keyOf, library, nav } from "../lib/state.svelte";
 
+  /** One colour per collection chip. */
+  const DOTS = ["#ff6b6b", "#ffb547", "#5ad17a", "#4fa3ff", "#a77bff", "#ff7ad9", "#3fd3c6", "#c792ea"];
+
   const ICONS: Record<string, string> = {
     trending_movies: "local_fire_department",
     trending_series: "tv",
@@ -19,6 +22,19 @@
 
 <div class="home">
   <Hero items={feed.spotlight} loading={feed.loading} />
+
+  {#if feed.rails.length}
+    <nav class="collections" aria-label="Collections">
+      <m3e-chip-set>
+        {#each feed.rails as rail, i (rail.id)}
+          <m3e-assist-chip onclick={() => nav.go({ name: "collection", id: rail.id })}>
+            <span slot="icon" class="dot" style:background={DOTS[i % DOTS.length]}></span>
+            {rail.title}
+          </m3e-assist-chip>
+        {/each}
+      </m3e-chip-set>
+    </nav>
+  {/if}
 
   {#if library.continueWatching.length}
     <Rail title="Continue watching" icon="resume">
@@ -57,6 +73,15 @@
     flex-direction: column;
     gap: 32px;
     padding-bottom: 32px;
+  }
+  .collections {
+    margin-top: -12px;
+  }
+  .dot {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
   }
   .empty {
     display: flex;

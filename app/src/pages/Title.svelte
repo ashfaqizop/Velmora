@@ -66,6 +66,10 @@
     return (last.position / last.duration) * 100;
   }
 
+  /** Site categories that some providers list as genres ("300MB Movies", "BollyWood"). */
+  const NOT_GENRE = /(\d+\s*mb\b|\bmovies?\b|\bhd\b|\d{3,4}p\b|web-?dl|blu-?ray|dual audio|\b(bolly|holly|tolly|kolly)wood\b)/i;
+  const genres = $derived((detail?.genres ?? []).filter((g) => !NOT_GENRE.test(g)));
+
   const runtime = $derived.by(() => {
     const m = detail?.runtime_minutes;
     if (!m) return null;
@@ -74,7 +78,11 @@
 </script>
 
 <article class="title-page">
-  <div class="banner" style:background-image={s.backdrop ? `url("${s.backdrop}")` : undefined}>
+  <div class="banner">
+    <!-- No backdrop (some providers only have posters): use a soft, blurred poster instead. -->
+    {#if s.backdrop || s.poster}
+      <div class="art" class:soft={!s.backdrop} style:background-image={`url("${s.backdrop ?? s.poster}")`}></div>
+    {/if}
     <div class="scrim"></div>
   </div>
 
@@ -88,9 +96,9 @@
         <span>{kindLabel[s.kind]}</span>
         {#if runtime}<span>{runtime}</span>{/if}
       </div>
-      {#if detail?.genres.length}
+      {#if genres.length}
         <m3e-chip-set aria-label="Genres">
-          {#each detail.genres as g (g)}<m3e-chip>{g}</m3e-chip>{/each}
+          {#each genres as g (g)}<m3e-chip>{g}</m3e-chip>{/each}
         </m3e-chip-set>
       {/if}
       <div class="actions">
@@ -199,7 +207,17 @@
     height: 300px;
     border-radius: var(--md-sys-shape-corner-extra-large, 28px);
     overflow: hidden;
-    background: var(--md-sys-color-surface-container-high) center 25% / cover;
+    background: var(--md-sys-color-surface-container-high);
+  }
+  .art {
+    position: absolute;
+    inset: 0;
+    background: center 25% / cover no-repeat;
+  }
+  .art.soft {
+    filter: blur(32px) saturate(1.3);
+    transform: scale(1.25);
+    opacity: 0.75;
   }
   .scrim {
     position: absolute;

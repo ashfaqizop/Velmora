@@ -37,3 +37,6 @@ app/src-tauri/lib/
 # Runtime binaries dropped locally for packaging (shipped via the runtime release)
 /ffmpeg.exe
 /ffprobe.exe
+
+# Video work (launch videos etc.), kept local
+/video-work/

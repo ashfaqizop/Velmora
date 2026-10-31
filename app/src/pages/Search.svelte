@@ -1,58 +1,104 @@
 <script lang="ts">
+  import { fly, scale, slide } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import Poster from "../components/Poster.svelte";
+  import PoweredBy from "../components/PoweredBy.svelte";
   import * as api from "../lib/api";
   import type { TitleSummary } from "../lib/types";
   import { keyOf } from "../lib/state.svelte";
-  import { providerLabel } from "../lib/options";
 
   let { query }: { query: string } = $props();
 
-  type ProviderState = { id: string; count: number; error?: string };
+  /** How long the "finished" card stays before it folds away. */
+  const DONE_HOLD_MS = 1600;
 
   let results = $state<TitleSummary[]>([]);
-  let providers = $state<ProviderState[]>([]);
+  let answered = $state(0);
+  let failed = $state(0);
   let running = $state(false);
-  let run = 0;
+  let showStatus = $state(false);
   let attempt = $state(0);
+  let run = 0;
+  let hideTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Same title from different providers: same name, year and type. */
+  const sameTitle = (t: TitleSummary) =>
+    `${t.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "")}:${t.year ?? ""}:${t.kind === "movie" ? "m" : "s"}`;
+
+  function merge(list: TitleSummary[], incoming: TitleSummary[]) {
+    const out = [...list];
+    for (const item of incoming) {
+      const i = out.findIndex((x) => keyOf(x) === keyOf(item) || sameTitle(x) === sameTitle(item));
+      if (i < 0) out.push(item);
+      else if (!out[i].poster && item.poster) out[i] = item; // keep the copy with artwork
+    }
+    return out;
+  }
 
   $effect(() => {
     const q = query;
     void attempt;
     const mine = ++run;
+    clearTimeout(hideTimer);
     results = [];
-    providers = [];
+    answered = 0;
+    failed = 0;
     running = true;
+    showStatus = true;
     api
       .searchStream(q, (batch) => {
         if (mine !== run) return; // a newer query took over
-        providers = [...providers, { id: batch.provider, count: batch.items.length, error: batch.error }];
-        const seen = new Set(results.map(keyOf));
-        results = [...results, ...batch.items.filter((i) => !seen.has(keyOf(i)))];
+        answered += 1;
+        if (batch.error) failed += 1;
+        results = merge(results, batch.items);
       })
       .catch((e) => console.warn("search failed", e))
       .finally(() => {
-        if (mine === run) running = false;
+        if (mine !== run) return;
+        running = false;
+        hideTimer = setTimeout(() => mine === run && (showStatus = false), DONE_HOLD_MS);
       });
+    return () => clearTimeout(hideTimer);
   });
 
-  const label = providerLabel;
+  const allFailed = $derived(!running && answered > 0 && failed === answered);
+
+  /** Folds the card's height away while fading it, so results move up smoothly. */
+  function fold(node: Element) {
+    const s = slide(node, { duration: 450, easing: cubicOut });
+    return { ...s, css: (t: number, u: number) => `${s.css?.(t, u) ?? ""}opacity:${t};` };
+  }
 </script>
 
 <div class="page">
-  <header>
-    <div class="title">
-      <m3e-heading variant="headline" size="large" level={1}>Results for “{query}”</m3e-heading>
-      {#if running}<m3e-loading-indicator></m3e-loading-indicator>{/if}
+  <m3e-heading variant="headline" size="large" level={1}>Results for “{query}”</m3e-heading>
+
+  {#if showStatus}
+    <div class="status-wrap" out:fold>
+      <m3e-card variant="filled" class="status" in:fly={{ y: -8, duration: 300 }}>
+        <div slot="content" class="status-row" aria-live="polite">
+          <div class="status-icon">
+            {#if running}
+              <m3e-loading-indicator></m3e-loading-indicator>
+            {:else}
+              <span class="done" in:scale={{ start: 0.4, duration: 350, easing: cubicOut }}>
+                <m3e-icon name="check_circle" filled></m3e-icon>
+              </span>
+            {/if}
+          </div>
+          <div class="status-text">
+            <strong>{running ? "Searching through sources" : "Search finished"}</strong>
+            <span>
+              {answered}
+              {answered === 1 ? "source" : "sources"} answered · {results.length}
+              {results.length === 1 ? "result" : "results"}
+            </span>
+          </div>
+          <div class="credit"><PoweredBy height={12} /></div>
+        </div>
+      </m3e-card>
     </div>
-    <m3e-chip-set aria-label="Sources">
-      {#each providers as p (p.id)}
-        <m3e-chip class:error={!!p.error} title={p.error ?? `${p.count} results`}>
-          <m3e-icon slot="icon" name={p.error ? "error" : p.count ? "check_circle" : "remove_circle_outline"}></m3e-icon>
-          {label(p.id)}{p.count ? ` · ${p.count}` : ""}
-        </m3e-chip>
-      {/each}
-    </m3e-chip-set>
-  </header>
+  {/if}
 
   {#if results.length}
     <div class="grid">
@@ -66,7 +112,7 @@
         <m3e-skeleton animation="wave" shape="rounded" class="ghost"></m3e-skeleton>
       {/each}
     </div>
-  {:else if providers.length && providers.every((p) => p.error)}
+  {:else if allFailed}
     <div class="empty">
       <m3e-icon name="cloud_off"></m3e-icon>
       <m3e-heading variant="title" size="large">The sources didn't answer</m3e-heading>
@@ -91,25 +137,50 @@
     gap: 20px;
     padding-bottom: 32px;
   }
-  header {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .status-wrap {
+    /* Keeps the page gap from jumping when the card folds away. */
+    margin-bottom: -4px;
   }
-  .title {
+  .status {
+    --m3e-card-shape: var(--md-sys-shape-corner-large, 16px);
+    --m3e-card-padding: 10px 16px;
+  }
+  .status-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
-  .title m3e-loading-indicator {
-    --m3e-loading-indicator-container-size: 36px;
-    --m3e-loading-indicator-active-indicator-size: 28px;
+  .status-icon {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    --m3e-loading-indicator-container-size: 40px;
+    --m3e-loading-indicator-active-indicator-size: 30px;
   }
-  m3e-chip {
-    --m3e-icon-size: 18px;
+  .done {
+    display: grid;
+    color: var(--md-sys-color-primary);
+    --m3e-icon-size: 32px;
   }
-  m3e-chip.error {
-    color: var(--md-sys-color-error);
+  .status-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .status-text strong {
+    font-weight: 700;
+  }
+  .status-text span {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-variant-numeric: tabular-nums;
+  }
+  .credit {
+    flex: none;
   }
   .grid {
     display: grid;

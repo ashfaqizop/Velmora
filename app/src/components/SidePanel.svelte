@@ -100,6 +100,7 @@
   .panel {
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 20px;
@@ -111,12 +112,16 @@
     --m3e-card-shape: var(--md-sys-shape-corner-extra-large, 28px);
     flex: none;
     overflow: hidden;
-    background:
-      linear-gradient(180deg, rgb(12 10 20 / 15%), rgb(12 10 20 / 88%)),
-      var(--art) center / cover;
   }
+  /* The art lives inside the card body; the card's own container colour
+     would otherwise paint over anything set on the host. */
   .pick-body {
-    min-height: 200px;
+    border-radius: var(--md-sys-shape-corner-extra-large, 28px);
+    background:
+      linear-gradient(180deg, rgb(12 10 20 / 10%) 0%, rgb(12 10 20 / 55%) 45%, rgb(12 10 20 / 92%) 100%),
+      var(--art) center 30% / cover no-repeat,
+      var(--md-sys-color-surface-container-high);
+    min-height: 220px;
     padding: 20px;
     box-sizing: border-box;
     display: flex;
@@ -169,6 +174,10 @@
   m3e-list {
     --m3e-list-item-leading-space: 0;
     --m3e-list-item-trailing-space: 0;
+    min-width: 0;
+  }
+  m3e-list-action {
+    min-width: 0;
   }
   .thumb {
     width: 44px;
@@ -179,11 +188,14 @@
     place-items: center;
     color: var(--md-sys-color-on-surface-variant);
   }
+  /* Long titles wrap to two lines instead of widening the row. */
   .row-name {
-    display: block;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
   }
   .empty {
     margin: 4px 0 0;

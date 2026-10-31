@@ -103,6 +103,7 @@
     clearInterval(saveTimer);
     clearInterval(upNextTimer);
     clearInterval(torrentTimer);
+    clearTimeout(seekGuard);
     cleanups.forEach((f) => f());
     document.documentElement.classList.remove("player-active");
     if (stream) api.closeStream(stream.id).catch(() => {});
@@ -177,6 +178,8 @@
         break;
       case "time-pos":
         time = (ev.data as number | null) ?? 0;
+        // mpv has reached the spot we asked for: hand the bar back to playback.
+        if (seekTarget !== null && Math.abs(time - seekTarget) < 2) endSeek();
         break;
       case "duration":
         duration = (ev.data as number | null) ?? 0;
@@ -316,7 +319,50 @@
 
   const togglePause = () => setProperty("pause", !paused);
   const seekBy = (s: number) => command("seek", [s, "relative"]);
-  const seekTo = (s: number) => command("seek", [s, "absolute"]);
+
+  // Seek bar: dragging only moves the thumb and the time label; one exact
+  // seek runs on release. The thumb then stays on the target until mpv
+  // reports it (or 2 s pass), so it never snaps back to the old position.
+  let dragging = false;
+  let seekTarget: number | null = null;
+  let seekGuard: ReturnType<typeof setTimeout> | undefined;
+
+  const thumbValue = (e: Event) => Number((e.currentTarget as HTMLElement & { value: number }).value);
+
+  function onSeekInput(e: Event) {
+    seeking = thumbValue(e);
+  }
+
+  function onSeekChange(e: Event) {
+    seeking = thumbValue(e);
+    if (!dragging) commitSeek(seeking); // keyboard on the slider
+  }
+
+  function onSeekPointerDown() {
+    dragging = true;
+    window.addEventListener(
+      "pointerup",
+      () => {
+        dragging = false;
+        if (seeking !== null) commitSeek(seeking);
+      },
+      { once: true },
+    );
+  }
+
+  function commitSeek(to: number) {
+    seekTarget = to;
+    seeking = to;
+    command("seek", [to, "absolute+exact"]).catch((e) => console.warn("seek failed", e));
+    clearTimeout(seekGuard);
+    seekGuard = setTimeout(endSeek, 2000);
+  }
+
+  function endSeek() {
+    clearTimeout(seekGuard);
+    seekTarget = null;
+    if (!dragging) seeking = null;
+  }
 
   function setVolume(v: number) {
     volume = v;
@@ -495,15 +541,15 @@
     <footer class="bottom" transition:fade={{ duration: 200 }}>
       <div class="timeline">
         <span class="time">{formatTime(seeking ?? time)}</span>
-        <m3e-slider class="seek" min="0" max={Math.max(1, Math.floor(duration))} step="1" aria-label="Seek">
-          <m3e-slider-thumb
-            value={Math.floor(seeking ?? time)}
-            oninput={(e: Event) => (seeking = (e.currentTarget as HTMLInputElement & { value: number }).value)}
-            onchange={(e: Event) => {
-              seekTo((e.currentTarget as HTMLInputElement & { value: number }).value);
-              seeking = null;
-            }}
-          ></m3e-slider-thumb>
+        <m3e-slider
+          class="seek"
+          min="0"
+          max={Math.max(1, Math.floor(duration))}
+          step="1"
+          aria-label="Seek"
+          onpointerdown={onSeekPointerDown}
+        >
+          <m3e-slider-thumb value={Math.floor(seeking ?? time)} oninput={onSeekInput} onchange={onSeekChange}></m3e-slider-thumb>
         </m3e-slider>
         <span class="time">{formatTime(duration)}</span>
       </div>
@@ -766,6 +812,7 @@
     padding: 16px;
     box-sizing: border-box;
     overflow-y: auto;
+    overflow-x: hidden;
     background: var(--md-sys-color-surface-container-low);
     color: var(--md-sys-color-on-surface);
     border-radius: var(--md-sys-shape-corner-extra-large, 28px) 0 0 var(--md-sys-shape-corner-extra-large, 28px);

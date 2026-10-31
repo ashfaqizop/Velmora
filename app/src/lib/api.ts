@@ -25,7 +25,18 @@ export const refreshConfig = () => invoke<ConfigStatus>("refresh_config");
 
 export const home = () => invoke<Rail[]>("home");
 
-export const detail = (origin: ProviderRef) => invoke<TitleDetail>("detail", { origin });
+/** The engine omits empty lists, so fill them in before the UI sees the detail. */
+export async function detail(origin: ProviderRef): Promise<TitleDetail> {
+  const d = await invoke<Partial<TitleDetail> & Pick<TitleDetail, "summary">>("detail", { origin });
+  return {
+    ...d,
+    genres: d.genres ?? [],
+    cast: d.cast ?? [],
+    directors: d.directors ?? [],
+    screenshots: d.screenshots ?? [],
+    seasons: (d.seasons ?? []).map((s) => ({ ...s, episodes: s.episodes ?? [] })),
+  };
+}
 
 /** Calls `onBatch` once per provider as results arrive; resolves when all are in. */
 export function searchStream(query: string, onBatch: (b: SearchBatch) => void): Promise<void> {

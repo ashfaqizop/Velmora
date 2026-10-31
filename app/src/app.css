@@ -1,7 +1,7 @@
 :root {
-  /* Redaction for text, Instrument Serif for headings and titles (both OFL, bundled). */
-  --app-font: "Redaction", Georgia, serif;
-  --app-display-font: "Instrument Serif", "Redaction", Georgia, serif;
+  /* Plus Jakarta Sans for text, Instrument Serif for headings and titles (both OFL, bundled). */
+  --app-font: "Plus Jakarta Sans Variable", "Segoe UI Variable Text", system-ui, sans-serif;
+  --app-display-font: "Instrument Serif", Georgia, serif;
   --app-titlebar-height: 72px;
   --app-sidebar-width: 256px;
   --app-panel-width: 320px;

@@ -288,6 +288,9 @@
                   onclick={() => settings.setAccent(color)}
                 >
                   <m3e-theme-icon color={color} scheme="dark"></m3e-theme-icon>
+                  {#if settings.accent.toLowerCase() === color.toLowerCase()}
+                    <span class="tick"><m3e-icon name="check"></m3e-icon></span>
+                  {/if}
                 </button>
               {/each}
             </div>
@@ -397,13 +400,22 @@
     gap: 8px;
     justify-content: flex-end;
   }
+  /* The ring follows the preview's rounded-square shape. */
   .swatch {
     all: unset;
+    position: relative;
     cursor: pointer;
-    border-radius: 50%;
+    display: grid;
     padding: 3px;
+    border-radius: 12px;
     outline: 2px solid transparent;
-    transition: outline-color 150ms ease;
+    outline-offset: 1px;
+    transition:
+      outline-color 150ms ease,
+      transform var(--md-sys-motion-spring-fast-spatial, 350ms ease);
+  }
+  .swatch:hover {
+    transform: translateY(-2px);
   }
   .swatch.active {
     outline-color: var(--md-sys-color-primary);
@@ -413,6 +425,20 @@
   }
   m3e-theme-icon {
     --m3e-theme-icon-size: 36px;
+    --m3e-theme-icon-shape: 9px;
+  }
+  .tick {
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    --m3e-icon-size: 14px;
   }
   .ghost {
     height: 320px;
