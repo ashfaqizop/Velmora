@@ -181,6 +181,12 @@ class Personalize {
     return out;
   }
 
+  /** True once any finish was recorded for the title. */
+  finished(t: Pick<TitleSummary, "origin">) {
+    const k = keyOf(t);
+    return this.events.some((e) => e.kind === "finish" && e.title && keyOf(e.title) === k);
+  }
+
   recentSearches(n = 12) {
     return this.events.filter((e) => e.kind === "search").slice(0, n).map((e) => e.query!);
   }

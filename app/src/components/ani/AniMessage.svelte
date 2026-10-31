@@ -34,7 +34,7 @@
           <div class="md">{@html renderMarkdown(b.text)}</div>
         {/if}
       {:else if b.kind === "ui"}
-        <AniBlock name={b.name} args={b.args} refs={chats.book} />
+        <AniBlock name={b.name} args={b.args} refs={chats.book} live={last && !chats.busy} />
       {:else if b.kind === "note"}
         <div class="note" class:removed={b.removed} in:fade={{ duration: 200 }}>
           <m3e-icon name={b.removed ? "bookmark_remove" : "bookmark_added"} filled></m3e-icon>

@@ -29,6 +29,7 @@
   // Rotating tips for the card under the menu: a short heading and one useful line.
   const TIPS: [string, string][] = [
     ["Better movies. Brighter days.", "Every source, one search away."],
+    ["Ask Ani.", "Recommendations from what you watch. Turn it on in Settings."],
     ["Ctrl K finds anything.", "Movies, series and anime from every source at once."],
     ["Space pauses. F goes full screen.", "Arrow keys skip ten seconds either way."],
     ["Stop anywhere.", "Continue Watching remembers the exact second."],

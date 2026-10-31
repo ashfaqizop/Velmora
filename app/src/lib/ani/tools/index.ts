@@ -6,6 +6,7 @@ import { str } from "./types";
 import { discoveryTools } from "./discovery";
 import { linkTools } from "./links";
 import { profileTools } from "./profile";
+import { renderTools } from "./render";
 
 export const researchTools: ResearchTool[] = [...discoveryTools, ...linkTools, ...profileTools];
 
@@ -47,4 +48,4 @@ const profileForget: AnswerTool = {
   },
 };
 
-export const answerTools: AnswerTool[] = [profileNote, profileForget];
+export const answerTools: AnswerTool[] = [profileNote, profileForget, ...renderTools];

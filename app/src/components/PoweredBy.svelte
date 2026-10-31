@@ -5,18 +5,21 @@
   // compact: "Powered by" + asterisk + name on one line.
   // full: the whole UniverseAPI lockup with its tagline (About dialog).
   let { variant = "compact", height = 14 }: { variant?: "compact" | "full"; height?: number } = $props();
+  // Each instance needs its own gradient id; a shared one breaks when the first copy is hidden.
+  const uid = $props.id();
+  const glow = `ua-glow-${uid}`;
 </script>
 
 {#snippet asterisk(size: number)}
   <svg class="asterisk" width={size} height={size} viewBox="0 0 200 200" aria-hidden="true">
     <defs>
-      <radialGradient id="ua-glow" cx="50%" cy="50%" r="50%">
+      <radialGradient id={glow} cx="50%" cy="50%" r="50%">
         <stop offset="0%" stop-color="#ffffff" />
         <stop offset="30%" stop-color="#f3c7c9" />
         <stop offset="100%" stop-color="#c0111a" />
       </radialGradient>
     </defs>
-    <g fill="url(#ua-glow)">
+    <g fill="url(#{glow})">
       <rect x="88" y="0" width="24" height="200" />
       <rect x="0" y="88" width="200" height="24" />
       <rect x="88" y="0" width="24" height="200" transform="rotate(45 100 100)" />

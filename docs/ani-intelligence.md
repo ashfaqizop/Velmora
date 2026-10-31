@@ -73,5 +73,27 @@ Eight steps, two per commit and push. No tag or release without the user's say-s
 4. Agent core: two-stage loop, bundled skills (humanizer, velmora-tools). Done.
 5. The 39 tools. Done.
 6. Chat page: streaming, composer, history. Done.
-7. Generative UI, titles and links.
-8. Generative UI, the rest; polish, docs, version 0.2.0.
+7. Generative UI, titles and links. Done.
+8. Generative UI, the rest; polish, docs, version 0.2.0. Done.
+
+## Where the code lives
+
+- `app/src-tauri/src/ani.rs`: key storage, the streamed Gemini call, `tmdb_raw`, `tmdb_list`, `anilist_find`, `anilist_raw`.
+- `app/src/lib/ani/`:
+  - `gemini.ts`: one streamed call, merging parts with their thought signatures.
+  - `agent.ts`: the two-stage turn.
+  - `prompts.ts`: system prompts that load the skills.
+  - `refs.ts`: the RefBook.
+  - `personalize.svelte.ts`: the activity log and notes.
+  - `chat.svelte.ts`: chats and sending.
+  - `markdown.ts`: an escaping Markdown renderer.
+  - `actions.ts`: what card buttons do.
+- `app/src/lib/ani/tools/`: `discovery.ts`, `links.ts` and `profile.ts` hold the 37 research tools, `render.ts` the 22 UI blocks, `index.ts` the registry and the note tools, and `shape.ts` the compact result shapes.
+- `app/src/lib/ani/skills/`: `humanizer/` (upstream, unchanged), `velmora-tools.md`.
+- `app/src/components/ani/`: the message, the steps list, the block switch, and `blocks/` with one component per block family.
+- `app/src/pages/Ani.svelte`: the chat page.
+
+## Adding a tool or block
+
+- **Research tool:** add a `ResearchTool` to one of the tool modules. Return compact JSON and name titles with `brief()` so they get refs. Mention the tool in `velmora-tools.md`.
+- **UI block:** add a declaration and check to `render.ts`, a component under `components/ani/blocks/`, and a branch in `AniBlock.svelte`.

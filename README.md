@@ -12,7 +12,7 @@
   <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" /></a>
 </p>
 
-Velmora is a Windows app (Android is planned) that looks a title up across several streaming and download sites at once, ranks the links it finds, and plays the best one in a built-in mpv player. Everything runs on your machine. There is no account, no server of ours and no tracking.
+Velmora is a Windows app (Android is planned) that looks a title up across several streaming and download sites at once, ranks the links it finds, and plays the best one in a built-in mpv player. Everything runs on your machine. There is no account, no server of ours and no tracking. If you turn on Ani, your messages go to Google's Gemini API with your own key.
 
 The part that finds and resolves links is a separate Rust library, the [UniverseAPI engine](universeapi/README.md), which lives in this repo and can be used on its own.
 
@@ -25,6 +25,7 @@ The part that finds and resolves links is a separate Rust library, the [Universe
 - Stream torrents while they download. Seeding is off unless you turn it on.
 - Browse full title pages: cast and crew with photos, trailer, gallery, age rating, release details, links to IMDb, TMDB, AniList and MyAnimeList, and similar titles.
 - Sync what you finish to AniList (anime) and Trakt (movies and series).
+- Ask Ani, the built-in assistant, for recommendations, facts about a title, watch orders or the best download link. It looks things up with Velmora's own tools, learns your taste from what you watch, and answers with cards you can play or download from. Ani is optional and runs on your own Gemini API key.
 - Choose your preferred quality, codec, audio and subtitle languages, provider order and accent colour.
 - Update in place. Velmora checks for a new version on every launch and installs it itself.
 
@@ -99,5 +100,6 @@ Parts that ship with or alongside the app keep their own licenses:
 | ffmpeg ([gyan.dev](https://www.gyan.dev/ffmpeg/builds/) essentials build) | GPL-3.0 |
 | Instrument Serif, Plus Jakarta Sans | SIL Open Font License 1.1 |
 | Material Symbols | Apache-2.0 |
+| [humanizer](https://github.com/blader/humanizer) skill, bundled for Ani | MIT |
 
 The UniverseAPI engine draws on ideas from [ani-cli](https://github.com/pystardust/ani-cli), MovieBox-TUI and freeflix-cli. No code from them is included in this repository.

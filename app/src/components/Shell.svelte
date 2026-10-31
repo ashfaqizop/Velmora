@@ -12,7 +12,9 @@
   import Downloads from "../pages/Downloads.svelte";
   import Settings from "../pages/Settings.svelte";
   import Ani from "../pages/Ani.svelte";
-  import { feed, library, nav, network } from "../lib/state.svelte";
+  import { onMount } from "svelte";
+  import { M3eSnackbar } from "@m3e/web/snackbar";
+  import { ani, feed, library, nav, network } from "../lib/state.svelte";
 
   let { revealed = false }: { revealed?: boolean } = $props();
 
@@ -24,6 +26,22 @@
     series: { title: "Series", subtitle: "Shows and dramas people are watching" },
     anime: { title: "Anime", subtitle: "Seasonal hits and all-time favourites" },
   } as const;
+
+  // People who set Velmora up before Ani existed never saw its onboarding step.
+  onMount(() => {
+    if (localStorage.getItem("velmora.ani.enabled") !== null) return;
+    if (localStorage.getItem("velmora.onboarded") !== "1") return;
+    const timer = setTimeout(() => {
+      localStorage.setItem("velmora.ani.enabled", "0");
+      M3eSnackbar.open("New: Ani, an assistant that knows what you watch.", "Try it", {
+        actionCallback: () => {
+          ani.setEnabled(true);
+          nav.go({ name: "ani" });
+        },
+      });
+    }, 4000);
+    return () => clearTimeout(timer);
+  });
 
   // Every navigation starts at the top of the page.
   $effect(() => {

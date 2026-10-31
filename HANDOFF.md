@@ -7,7 +7,11 @@ Last updated 2026-10-31, while v0.1.5 was going through CI. Read this before sta
 - The **UniverseAPI engine** (`universeapi/`, Rust) is at v1.0.0 plus app-driven changes. These include the download folder preference, vault files and the download library.
 - The **Velmora app** (`app/`, Tauri 2 + Svelte 5 + @m3e/web) shipped `app-v0.1.0`, and v0.1.5 was pushed as commits `39aeb71` and `3a44a0e`.
 - v0.1.5 is released (`app-v0.1.5`, with notes).
-- **v0.2.0 is Ani Intelligence**, an in-app Gemini assistant (BYOK). The spec, tool list and the 8-step build plan are in `docs/ani-intelligence.md`. Work goes two steps per commit and push; never tag a release without the user's explicit go-ahead.
+- **v0.2.0 is Ani Intelligence**, an in-app Gemini assistant (BYOK).
+  - All 8 steps of its plan are built, and the version is bumped to 0.2.0.
+  - It has **not** been tagged. Never tag a release without the user's explicit go-ahead.
+  - The spec, the tool and block lists, the code map and how to extend Ani are in `docs/ani-intelligence.md`.
+  - Nobody has chatted with Ani in the real app yet, because there's no Gemini key on this PC. Expect prompt and UI tuning once the user tries it.
 
 ### What v0.1.5 changed (so you don't redo it)
 
@@ -61,11 +65,13 @@ Velmora/
 │   │   ├── lib/state.svelte.ts        nav, feed, library, downloads, settings, network stores
 │   │   ├── lib/slider.ts              the m3e-slider drag fix (use:slider)
 │   │   ├── lib/m3e.ts                 every @m3e/web module the app registers
+│   │   ├── lib/ani/                   Ani: Gemini client, agent, tools, skills, Personalize, chats
 │   │   ├── components/                Splash, TopBar, Sidebar, Hero, Rail, Poster, Onboarding, DownloadFolder, ...
 │   │   └── pages/                     Home, Search, Title, Player, Downloads, Settings, Grid
 │   └── src-tauri/
 │       ├── src/lib.rs                 setup: engine, vault key, loopback server, plugins, command list
 │       ├── src/commands.rs            every #[tauri::command]
+│       ├── src/ani.rs                 Ani's Gemini key, streamed Gemini call, read-only TMDB/AniList lookups
 │       ├── src/stream.rs              loopback HTTP server for mpv (/p, /t via engine proxy; /v vault files)
 │       ├── src/runtime.rs             first-launch download of mpv DLLs + ffmpeg (release runtime-v1)
 │       ├── src/prefs.rs, sync.rs      preferences file; AniList (implicit) and Trakt (PKCE) sign-in
