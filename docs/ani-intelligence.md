@@ -59,9 +59,9 @@ Personalize: `profile_read`, `profile_note`, `profile_forget`, `taste_stats`, `s
 
 App info (read-only): `get_settings`, `sync_status`, `app_info`.
 
-## Generative UI blocks (22)
+## Generative UI blocks (23)
 
-`render_title_list`, `render_carousel`, `render_spotlight`, `render_title_compare`, `render_episodes`, `render_season_overview`, `render_watch_order`, `render_collection`, `render_download_links`, `render_torrents`, `render_link_compare`, `render_stream_links`, `render_cast`, `render_person`, `render_ratings`, `render_facts`, `render_trailer`, `render_gallery`, `render_schedule`, `render_progress`, `render_taste_profile`, `render_choices`. A passive "Ani noted" line shows every `profile_note`.
+`render_title_list`, `render_carousel`, `render_spotlight`, `render_title_compare`, `render_episodes`, `render_season_overview`, `render_watch_order`, `render_collection`, `render_download_links`, `render_torrents`, `render_link_compare`, `render_stream_links`, `render_cast`, `render_person`, `render_ratings`, `render_facts`, `render_trailer`, `render_gallery`, `render_schedule`, `render_progress`, `render_taste_profile`, `render_choices`, `render_about`. A passive "Ani noted" line shows every `profile_note`.
 
 ## Build plan
 

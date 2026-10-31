@@ -96,6 +96,8 @@
           <Settings />
         {:else if nav.route.name === "ani"}
           <Ani />
+        {:else if nav.route.name === "list"}
+          <Grid title={nav.route.title} subtitle="From Ani" items={nav.route.items} />
         {:else if nav.route.name === "search"}
           <Search query={nav.route.query} />
         {:else if nav.route.name === "title"}

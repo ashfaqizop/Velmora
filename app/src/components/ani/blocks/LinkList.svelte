@@ -2,7 +2,7 @@
   import PoweredBy from "../../PoweredBy.svelte";
   import { downloadLink, play } from "../../../lib/ani/actions";
   import type { Entity, RefBook } from "../../../lib/ani/refs";
-  import { providerName, sourceChips } from "../../../lib/sources";
+  import { audioLabel, hostLabel, providerName, releaseTags, sourceChips, subtitleLabel } from "../../../lib/sources";
   import { targetLabel } from "../../../lib/state.svelte";
 
   // render_download_links, render_torrents and render_stream_links: what
@@ -28,15 +28,8 @@
     started = new Set([...started, l.ref]);
   }
 
-  function audio(l: Link) {
-    const t = l.source.tags;
-    const langs = l.source.audio?.map((a) => a.lang ?? a.label) ?? t.audio ?? t.languages ?? [];
-    return langs.length ? langs.slice(0, 3).join(", ") : t.multi_audio ? "Multi audio" : null;
-  }
-  function subs(l: Link) {
-    const n = l.source.subtitles?.length ?? 0;
-    return n ? `${n} subtitle${n === 1 ? "" : "s"}` : l.source.tags.has_subs ? "Subtitles" : null;
-  }
+  const audio = (l: Link) => audioLabel(l.source);
+  const subs = (l: Link) => subtitleLabel(l.source);
 </script>
 
 {#if first}
@@ -59,19 +52,20 @@
 
       <ul>
         {#each links as l (l.ref)}
-          <li class:pick={pick === l.ref}>
+          <li class:pick={pick === l.ref} title={l.source.filename ?? l.source.label}>
             <div class="text">
               <div class="top">
                 <strong>{providerName(l.source)}</strong>
-                <span class="host">{l.source.host}</span>
+                {#if hostLabel(l.source)}<span class="host">{hostLabel(l.source)}</span>{/if}
                 {#if pick === l.ref}<span class="best"><m3e-icon name="wand_stars" filled></m3e-icon>Ani's pick</span>{/if}
               </div>
               <div class="chips">
                 {#each sourceChips(l.source) as c (c)}<span class="chip">{c}</span>{/each}
                 {#if audio(l)}<span class="chip soft"><m3e-icon name="volume_up"></m3e-icon>{audio(l)}</span>{/if}
                 {#if subs(l)}<span class="chip soft"><m3e-icon name="subtitles"></m3e-icon>{subs(l)}</span>{/if}
+                {#each releaseTags(l.source) as tag (tag)}<span class="chip soft">{tag}</span>{/each}
               </div>
-              {#if l.source.filename}<span class="file" title={l.source.filename}>{l.source.filename}</span>{/if}
+              {#if pick === l.ref && args.pick_reason}<span class="why">{args.pick_reason}</span>{/if}
             </div>
             {#if mode === "stream"}
               <m3e-button variant={pick === l.ref ? "filled" : "tonal"} size="small" onclick={() => play(l.title, l.target)}>
@@ -197,13 +191,9 @@
     background: var(--md-sys-color-surface-container-highest);
     color: var(--md-sys-color-on-surface-variant);
   }
-  .file {
-    font-size: 11.5px;
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-    color: var(--md-sys-color-on-surface-variant);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .why {
+    font-size: 13px;
+    color: var(--md-sys-color-primary);
   }
   .credit {
     display: flex;

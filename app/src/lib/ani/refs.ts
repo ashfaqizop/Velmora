@@ -10,6 +10,11 @@ export interface PersonRef {
   role?: string;
   tmdbId?: number;
   anilistId?: number;
+  /** Filled in by person_credits. */
+  born?: string;
+  died?: string;
+  birthplace?: string;
+  imdbId?: string;
 }
 
 export type Entity =

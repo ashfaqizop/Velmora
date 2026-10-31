@@ -42,7 +42,8 @@ const linkRefs: Check = (args, refs) => {
   const list = strs(args.refs).filter((r) => isLink(refs, r));
   if (!list.length) return missing("links");
   const pick = str(args.pick);
-  return { args: { ...args, refs: list.slice(0, 12), pick: pick && list.includes(pick) ? pick : undefined } };
+  const ok = pick && list.includes(pick);
+  return { args: { ...args, refs: list.slice(0, 12), pick: ok ? pick : undefined, pick_reason: ok ? str(args.pick_reason) : undefined } };
 };
 
 const titleList = ui(
@@ -84,10 +85,33 @@ const titleList = ui(
 const carousel = ui(
   {
     name: "render_carousel",
-    description: "A horizontal row of posters, like a Home rail. For 5 to 20 titles that need no explanation each, e.g. 'more in this genre' or a filmography.",
-    parameters: { type: "object", properties: { heading: S.str(), refs: S.refs("Title refs in display order.") }, required: ["refs"] },
+    description:
+      "A horizontal row of posters, like a Home rail, for 5 to 20 titles that need no explanation each. Use groups for tabs (Movies, Series, Anime), ranked for trending or top lists (big rank numbers), and for_you to mark titles that fit this user.",
+    parameters: {
+      type: "object",
+      properties: {
+        heading: S.str(),
+        refs: S.refs("Title refs in display order. Leave out when using groups."),
+        groups: {
+          type: "array",
+          description: "Tabs, each with its own row.",
+          items: { type: "object", properties: { label: S.str("e.g. Movies"), refs: S.refs("Title refs.") }, required: ["label", "refs"] },
+        },
+        ranked: { type: "boolean", description: "Show rank numbers 1, 2, 3." },
+        for_you: S.refs("Refs that match the user's taste; they get a 'For you' chip."),
+      },
+    },
   },
-  titleRefs(2, 20),
+  (args, refs) => {
+    const keep = (list: unknown) => strs(list).filter((r) => isTitle(refs, r)).slice(0, 20);
+    const groups = (Array.isArray(args.groups) ? (args.groups as Args[]) : [])
+      .map((g) => ({ label: str(g?.label) ?? "Titles", refs: keep(g?.refs) }))
+      .filter((g) => g.refs.length)
+      .slice(0, 4);
+    const flat = keep(args.refs);
+    if (!groups.length && flat.length < 2) return flat.length ? { error: "Show at least 2 titles here." } : missing("titles");
+    return { args: { heading: str(args.heading), refs: flat, groups, ranked: args.ranked === true, for_you: keep(args.for_you) } };
+  },
 );
 
 const spotlight = ui(
@@ -223,6 +247,7 @@ const LINK_PARAMS: Schema = {
   properties: {
     refs: S.refs("Link refs, best first."),
     pick: S.str("The link ref you recommend; it gets highlighted."),
+    pick_reason: S.str("Why that one, in a few words, e.g. 'Best quality for the size'."),
     note: S.str("Optional one-line note shown above the links."),
   },
   required: ["refs"],
@@ -420,6 +445,22 @@ const choices = ui(
   },
 );
 
+const about = ui(
+  {
+    name: "render_about",
+    description: "A card about Velmora, UniverseAPI or Ani itself, with live details (version, number of sources, what Personalize holds) and links. Use when the user asks what one of them is or can do.",
+    parameters: {
+      type: "object",
+      properties: { topic: { type: "string", enum: ["velmora", "universeapi", "ani"] } },
+      required: ["topic"],
+    },
+  },
+  (args) => {
+    const topic = str(args.topic);
+    return topic && ["velmora", "universeapi", "ani"].includes(topic) ? { args: { topic } } : { error: "topic must be velmora, universeapi or ani." };
+  },
+);
+
 export const renderTools: AnswerTool[] = [
   titleList,
   carousel,
@@ -443,4 +484,5 @@ export const renderTools: AnswerTool[] = [
   progress,
   taste,
   choices,
+  about,
 ];

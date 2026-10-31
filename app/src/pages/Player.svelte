@@ -15,7 +15,7 @@
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { startMpv, stopMpv } from "../lib/mpv";
-  import { isTorrent, providerName, sourceChips } from "../lib/sources";
+  import { isTorrent, providerName, sourceChips, sourceTitle } from "../lib/sources";
   import { torrentConsent } from "../lib/overlays";
   import { slider } from "../lib/slider";
   import type { AudioMode, OpenedStream, Source, SourcesReport, Target, TitleDetail, TitleSummary } from "../lib/types";
@@ -659,7 +659,7 @@
         {#each report.sources as s, i (i)}
           <m3e-list-action onclick={() => pickSource(i)}>
             <span slot="leading" class="res" class:active={i === current}>{sourceChips(s)[0] ?? "SD"}</span>
-            {providerName(s)} · {s.host}
+            {sourceTitle(s)}
             <span slot="supporting-text">{sourceChips(s).slice(1).join(" · ") || s.label}</span>
             {#if i === current}
               <m3e-icon slot="trailing" name="check_circle" filled class="ok"></m3e-icon>

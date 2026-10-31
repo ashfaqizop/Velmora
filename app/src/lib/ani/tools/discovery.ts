@@ -292,7 +292,7 @@ const genreList: ResearchTool = {
 const trending: ResearchTool = {
   decl: {
     name: "trending",
-    description: "What's trending right now.",
+    description: "What's trending right now. Kind 'all' returns movies, series and anime as three lists.",
     parameters: {
       type: "object",
       properties: {
@@ -307,8 +307,20 @@ const trending: ResearchTool = {
     const kind = str(args.kind) ?? "all";
     if (kind === "anime") return { titles: briefs(await api.anilistFind({ sort: "TRENDING_DESC" }), refs, 15) };
     const window = str(args.window) === "day" ? "day" : "week";
-    const k = kind === "movie" || kind === "tv" ? kind : "all";
-    return { titles: briefs(await api.tmdbList(`/trending/${k}/${window}`, {}, "results", k === "tv" ? "tv" : "movie"), refs, 15) };
+    if (kind === "movie" || kind === "tv") {
+      return { source: "TMDB", titles: briefs(await api.tmdbList(`/trending/${kind}/${window}`, {}, "results", kind), refs, 15) };
+    }
+    // Everything: three lists so Ani can show them as tabs.
+    const [movies, series, anime] = await Promise.all([
+      api.tmdbList(`/trending/movie/${window}`, {}, "results", "movie").catch(() => []),
+      api.tmdbList(`/trending/tv/${window}`, {}, "results", "tv").catch(() => []),
+      api.anilistFind({ sort: "TRENDING_DESC" }).catch(() => []),
+    ]);
+    return {
+      movies: { source: "TMDB", titles: briefs(movies, refs, 12) },
+      series: { source: "TMDB", titles: briefs(series.filter((t) => t.kind !== "anime"), refs, 12) },
+      anime: { source: "AniList", titles: briefs(anime, refs, 12) },
+    };
   },
 };
 
@@ -442,10 +454,23 @@ const personCredits: ResearchTool = {
     }
     const role = str(args.role) ?? "acting";
     const [bio, cast, crew] = await Promise.all([
-      api.tmdbRaw(`/person/${id}`) as Promise<{ biography?: string; birthday?: string; place_of_birth?: string; deathday?: string }>,
+      api.tmdbRaw(`/person/${id}`) as Promise<{
+        biography?: string;
+        birthday?: string;
+        place_of_birth?: string;
+        deathday?: string;
+        imdb_id?: string;
+        known_for_department?: string;
+      }>,
       role === "directing" ? Promise.resolve([]) : api.tmdbList(`/person/${id}/combined_credits`, {}, "cast"),
       role === "acting" ? Promise.resolve([]) : api.tmdbList(`/person/${id}/combined_credits`, {}, "crew"),
     ]);
+    // The person card reads these from the ref, so it needs no lookup of its own.
+    e.person.born = bio.birthday ?? undefined;
+    e.person.died = bio.deathday ?? undefined;
+    e.person.birthplace = bio.place_of_birth ?? undefined;
+    e.person.imdbId = bio.imdb_id ?? undefined;
+    e.person.role ??= bio.known_for_department;
     const all = [...cast, ...crew].sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
     return {
       name: e.person.name,

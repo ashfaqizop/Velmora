@@ -84,7 +84,7 @@ export async function generate(
   }
   const body: Record<string, unknown> = {
     systemInstruction: { parts: [{ text: req.system }] },
-    contents: req.contents,
+    contents: clean(req.contents),
     generationConfig,
   };
   if (req.tools?.length) {
@@ -126,6 +126,38 @@ export async function generate(
   if (blocked) throw new Error(BLOCKED[blocked] ?? "Gemini declined to answer that.");
   if (finishReason && BLOCKED[finishReason] && !parts.length) throw new Error(BLOCKED[finishReason]);
   return { parts, finishReason };
+}
+
+/**
+ * What goes back to Gemini. Thought summaries and empty text parts are
+ * dropped (Gemini doesn't need them back), but any thought signature they
+ * carried moves onto a neighbouring part, because Gemini 3 requires those.
+ */
+function clean(contents: Content[]): Content[] {
+  const out: Content[] = [];
+  for (const c of contents) {
+    const parts: Part[] = [];
+    let pending: string | undefined;
+    for (const p of c.parts) {
+      const empty = !p.functionCall && !p.functionResponse && (p.thought || !p.text);
+      if (empty) {
+        const sig = p.thoughtSignature;
+        const prev = parts.at(-1);
+        if (sig && prev && !prev.thoughtSignature) prev.thoughtSignature = sig;
+        else if (sig) pending = sig;
+        continue;
+      }
+      const part: Part = { ...p };
+      delete part.thought;
+      if (pending && !part.thoughtSignature) {
+        part.thoughtSignature = pending;
+        pending = undefined;
+      }
+      parts.push(part);
+    }
+    if (parts.length) out.push({ role: c.role, parts });
+  }
+  return out;
 }
 
 /** Fold one streamed part into the turn so far. */

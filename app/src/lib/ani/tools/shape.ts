@@ -1,7 +1,7 @@
 // Compact shapes for tool results. Gemini sees refs and the few fields it
 // needs to reason; the full objects stay in the RefBook for the UI.
 import * as api from "../../api";
-import { formatBytes } from "../../sources";
+import { audioLabel, formatBytes, hostLabel, releaseTags, subtitleLabel } from "../../sources";
 import { providerLabel } from "../../options";
 import type { RefBook } from "../refs";
 import type { Source, Target, TitleDetail, TitleSummary } from "../../types";
@@ -99,15 +99,15 @@ export function link(s: Source, title: TitleSummary, target: Target, refs: RefBo
   return {
     ref: refs.addLink(s, title, target),
     provider: providerLabel(s.provider),
-    host: s.host,
+    host: hostLabel(s),
     quality: t.resolution ? (t.resolution >= 2160 ? "4K" : `${t.resolution}p`) : undefined,
     codec: t.codec,
     hdr: t.hdr && t.hdr !== "sdr" ? t.hdr : undefined,
     size: size ? formatBytes(size) : undefined,
     format: s.format,
-    audio: t.audio?.length ? t.audio : t.languages,
-    multi_audio: t.multi_audio || undefined,
-    subtitles: s.subtitles?.length ? s.subtitles.map((x) => x.lang ?? x.label).slice(0, 8) : t.has_subs ? ["embedded"] : undefined,
+    audio: audioLabel(s),
+    subtitles: subtitleLabel(s),
+    release: releaseTags(s).join(", ") || undefined,
     french: t.french,
     season_pack: s.is_pack || undefined,
     torrent: s.torrent ? { seeders: s.torrent.seeders, leechers: s.torrent.leechers } : undefined,

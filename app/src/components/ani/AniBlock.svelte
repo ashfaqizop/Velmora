@@ -19,6 +19,7 @@
   import Progress from "./blocks/Progress.svelte";
   import Taste from "./blocks/Taste.svelte";
   import Choices from "./blocks/Choices.svelte";
+  import AboutCard from "./blocks/AboutCard.svelte";
 
   // One generative UI block: each render_* function maps to a component.
   // `live` is true on the latest reply, where choice chips can still be tapped.
@@ -71,6 +72,8 @@
       <Taste {args} />
     {:else if name === "render_choices"}
       <Choices {args} {live} />
+    {:else if name === "render_about"}
+      <AboutCard {args} />
     {/if}
   </div>
 {/if}

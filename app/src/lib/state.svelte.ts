@@ -26,6 +26,8 @@ export type Route =
   | { name: "title"; title: TitleSummary }
   | { name: "settings" }
   | { name: "ani" }
+  /** A list Ani showed, opened in full from "See all". */
+  | { name: "list"; title: string; items: TitleSummary[] }
   | {
       name: "player";
       title: TitleSummary;

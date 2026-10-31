@@ -3,7 +3,7 @@
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { torrentConsent } from "../lib/overlays";
-  import { isTorrent, providerName, sourceChips } from "../lib/sources";
+  import { isTorrent, sourceChips, sourceTitle } from "../lib/sources";
   import { downloads, nav, settings, targetLabel } from "../lib/state.svelte";
   import type { SourcesReport, Target, TitleSummary } from "../lib/types";
 
@@ -104,7 +104,7 @@
         {#each downloadable as s, i (i)}
           <m3e-list-action disabled={busy} onclick={() => pick(i)}>
             <span slot="leading" class="res">{sourceChips(s)[0] ?? "SD"}</span>
-            {providerName(s)} · {s.host}
+            {sourceTitle(s)}
             <span slot="supporting-text">{sourceChips(s).slice(1).join(" · ") || s.label}</span>
             <m3e-icon slot="trailing" name={isTorrent(s) ? "hub" : "download"}></m3e-icon>
           </m3e-list-action>

@@ -12,8 +12,8 @@
 </script>
 
 {#if t}
-  <m3e-card variant="filled" class="spot" style:--art={art ? `url("${art}")` : "none"}>
-    <div slot="content" class="inner">
+  <div class="spot" style:--art={art ? `url("${art}")` : "none"}>
+    <div class="inner">
       <div class="copy">
         {#if args.badge}
           <span class="overline"><m3e-icon name="wand_stars" filled></m3e-icon>{args.badge}</span>
@@ -26,24 +26,28 @@
         <TitleActions title={t} />
       </div>
     </div>
-  </m3e-card>
+  </div>
 {/if}
 
 <style>
+  /* Full-bleed art; scrims from the left and the bottom keep the copy readable on any image. */
   .spot {
-    --m3e-card-shape: 28px;
+    border-radius: 28px;
     overflow: hidden;
+    background: var(--md-sys-color-surface-container);
   }
   .inner {
     position: relative;
-    min-height: 300px;
+    min-height: 340px;
     display: flex;
     align-items: flex-end;
-    padding: 28px;
+    padding: 32px;
     box-sizing: border-box;
     background:
-      linear-gradient(0deg, rgb(10 6 20 / 92%) 8%, rgb(10 6 20 / 40%) 55%, transparent),
-      var(--art) center / cover no-repeat;
+      linear-gradient(90deg, rgb(10 6 20 / 88%) 0%, rgb(10 6 20 / 62%) 38%, rgb(10 6 20 / 0%) 72%),
+      linear-gradient(0deg, rgb(10 6 20 / 85%) 0%, rgb(10 6 20 / 0%) 55%),
+      var(--art) center 25% / cover no-repeat;
+    text-shadow: 0 1px 12px rgb(0 0 0 / 45%);
     color: #fff;
     /* Buttons and text read on dark art whatever the theme. */
     --md-sys-color-on-surface: #fff;

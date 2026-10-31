@@ -2,7 +2,7 @@
   import PoweredBy from "../../PoweredBy.svelte";
   import { downloadLink } from "../../../lib/ani/actions";
   import type { Entity, RefBook } from "../../../lib/ani/refs";
-  import { formatBytes, providerName } from "../../../lib/sources";
+  import { audioLabel, formatBytes, hostLabel, providerName, subtitleLabel } from "../../../lib/sources";
 
   // render_link_compare: two to four links in columns, Ani's pick highlighted.
   type Link = Extract<Entity, { type: "link" }> & { ref: string };
@@ -23,8 +23,8 @@
     ["Size", (l) => ((l.source.size_bytes ?? l.source.tags.size_bytes) ? formatBytes((l.source.size_bytes ?? l.source.tags.size_bytes)!) : "–")],
     ["Codec", (l) => (l.source.tags.codec === "h265" ? "HEVC" : (l.source.tags.codec?.toUpperCase() ?? "–"))],
     ["HDR", (l) => (l.source.tags.hdr && l.source.tags.hdr !== "sdr" ? (l.source.tags.hdr === "dolby_vision" ? "Dolby Vision" : "HDR") : "No")],
-    ["Audio", (l) => (l.source.audio?.map((a) => a.lang ?? a.label) ?? l.source.tags.audio ?? l.source.tags.languages ?? []).slice(0, 3).join(", ") || (l.source.tags.multi_audio ? "Multi" : "–")],
-    ["Subtitles", (l) => (l.source.subtitles?.length ? String(l.source.subtitles.length) : l.source.tags.has_subs ? "Yes" : "–")],
+    ["Audio", (l) => audioLabel(l.source) ?? "–"],
+    ["Subtitles", (l) => subtitleLabel(l.source)?.replace(/ subs$|^Subs: /, "") ?? "–"],
     ["Seeders", (l) => (l.source.torrent?.seeders != null ? String(l.source.torrent.seeders) : "–")],
   ];
   const rows = $derived(ROWS.filter(([label, f]) => label !== "Seeders" || links.some((l) => f(l) !== "–")));
@@ -43,7 +43,7 @@
         <div class="head" class:pick={l.ref === pick}>
           {#if l.ref === pick}<span class="best"><m3e-icon name="wand_stars" filled></m3e-icon>Ani's pick</span>{/if}
           <strong>{providerName(l.source)}</strong>
-          <span class="host">{l.source.host}</span>
+          {#if hostLabel(l.source)}<span class="host">{hostLabel(l.source)}</span>{/if}
         </div>
       {/each}
       {#each rows as [label, f] (label)}

@@ -104,12 +104,20 @@ export async function runTurn(input: TurnInput, h: TurnHandlers, signal: AbortSi
   };
 
   for (let round = 0; round < MAX_ANSWER_ROUNDS; round++) {
-    const res = await generate(
-      ani.chatModel,
-      { system: answerPrompt(uiNames), contents, tools: answerTools.map((t) => t.decl) },
-      onDelta,
-      signal,
-    );
+    let res;
+    try {
+      res = await generate(
+        ani.chatModel,
+        { system: answerPrompt(uiNames), contents, tools: answerTools.map((t) => t.decl) },
+        onDelta,
+        signal,
+      );
+    } catch (e) {
+      // Keep whatever was already written; say where it broke.
+      const msg = e instanceof Error ? e.message : String(e);
+      if (round > 0 && blocks.length) break;
+      throw new Error(`While writing the answer (${ani.chatModel}): ${msg}`);
+    }
     if (res.parts.length) {
       const model: Content = { role: "model", parts: res.parts };
       contents.push(model);
