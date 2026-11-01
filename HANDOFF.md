@@ -1,6 +1,12 @@
 # Velmora handoff
 
-Last updated 2026-11-01. v0.2.1 is released; v0.2.2 (sound options) is built and waiting for CI.
+Last updated 2026-11-01. v0.2.2 (sound options) is tagged and released.
+
+## Website
+
+- `site/` is the download site (Svelte 5 + Vite + @m3e/web), deployed on Vercel with Root Directory `site`. Pages: landing, `/ani/`, `/universeapi/`, `/changelog/`. See `site/README.md`.
+- The changelog is hand-written in `site/src/lib/changes.ts`. Add each new release at the top; `soon: true` shows it as "In testing" until it ships.
+- Download buttons and download counts come from the GitHub releases API (installer `.exe` assets only). Adsterra ads are configured with Vercel env vars, never committed.
 
 ## v0.2.2: sound options
 
@@ -89,6 +95,7 @@ Velmora/
 ├── universeapi/                       the engine (Rust workspace; see universeapi/README.md)
 ├── .github/workflows/app.yml          frontend check, Windows build; on app-v* tags, signed release
 ├── .github/workflows/universeapi.yml  engine tests, clippy, Android checks, live smoke test
+├── site/                              download website (Vercel, root dir `site`; Adsterra ads via env vars, see site/README.md)
 ├── docs/universe-api-engine.md
 └── README.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md, LICENSE (GPL-3.0-or-later)
 ```

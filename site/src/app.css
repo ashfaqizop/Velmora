@@ -1,0 +1,195 @@
+:root {
+  --font: "Plus Jakarta Sans Variable", "Segoe UI Variable Text", system-ui, sans-serif;
+  --display: "Instrument Serif", Georgia, serif;
+  --bg: #0c0a13;
+  --coral: #ff5a5a;
+  --indigo: #7b6cff;
+  --violet: #8b5cf6;
+  --amber: #ffb74d;
+  --ink: #f4f1fb;
+  --muted: #b2abc4;
+  --line: rgb(255 255 255 / 8%);
+  --glass: rgb(255 255 255 / 4%);
+  --max: 1180px;
+  --brand-coral: var(--coral);
+  --brand-indigo: var(--indigo);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+}
+
+html {
+  overflow-x: clip;
+}
+
+/* Shapes and floating cards hang past the edges on purpose; clipping here
+   keeps them from making the page wider than a phone screen. */
+main,
+footer {
+  overflow-x: clip;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--indigo) 55%, transparent);
+  color: #fff;
+}
+
+a {
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+}
+
+.display {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.wrap {
+  width: min(var(--max), 100% - 48px);
+  margin-inline: auto;
+}
+
+/* Section headers: a small label over a big serif line. */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--indigo);
+}
+.eyebrow::before {
+  content: "";
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--coral), var(--indigo));
+}
+.title {
+  margin: 12px 0 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(38px, 5vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+}
+.title em {
+  font-style: italic;
+  background: linear-gradient(100deg, var(--coral), #ff9a8b 35%, var(--indigo) 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-right: 0.06em;
+}
+.lead {
+  margin: 16px 0 0;
+  max-width: 620px;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+section {
+  position: relative;
+  padding: 120px 0 0;
+}
+
+@media (max-width: 600px) {
+  .wrap {
+    width: calc(100% - 32px);
+  }
+  section {
+    padding-top: 80px;
+  }
+  .lead {
+    font-size: 16.5px;
+  }
+}
+
+/* Elements marked with use:reveal fade up the first time they scroll in. */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--delay, 0s);
+}
+.reveal.shown {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+.on-shape {
+  display: inline-grid;
+  place-items: center;
+}
+.on-shape > * {
+  grid-area: 1 / 1;
+}
+
+/* Phones: a list marked .swipe scrolls sideways as snapping cards, with the
+   next card peeking in. Pair it with <Dots>. */
+@media (max-width: 600px) {
+  .swipe {
+    display: grid !important;
+    grid-template-columns: none !important;
+    grid-auto-flow: column;
+    grid-auto-columns: 82%;
+    gap: 12px !important;
+    margin-inline: -16px !important;
+    padding: 4px 16px 8px !important;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 16px;
+    scrollbar-width: none;
+  }
+  .swipe::-webkit-scrollbar {
+    display: none;
+  }
+  .swipe > * {
+    scroll-snap-align: start;
+    grid-column: auto !important;
+  }
+}

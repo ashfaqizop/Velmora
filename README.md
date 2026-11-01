@@ -48,6 +48,7 @@ Velmora/
 ├── universeapi/                 the UniverseAPI engine (Rust workspace)
 │   ├── crates/universeapi       providers, resolvers, metadata, torrents, downloads, proxy
 │   └── crates/universeapi-cli   developer CLI and the live smoke test
+├── site/                        the download website (Svelte + Vite, deployed on Vercel)
 ├── docs/                        design notes
 └── .github/workflows/           CI for the app and the engine
 ```
