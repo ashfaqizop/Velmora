@@ -1,6 +1,15 @@
 # Velmora handoff
 
-Last updated 2026-10-31, while v0.1.5 was going through CI. Read this before starting v0.2.0 work.
+Last updated 2026-11-01. v0.2.1 is released; v0.2.2 (sound options) is built and waiting for CI.
+
+## v0.2.2: sound options
+
+- `app/src/lib/audio.svelte.ts` holds four switches in localStorage (`velmora.audio.*`) and builds the mpv `af` chain from them:
+  - Dialogue boost: a `pan` filter raises the center channel on 5.1 and 7.1 tracks; stereo gets a speech-band EQ instead.
+  - Night mode: `acompressor`. Even out volume: `dynaudnorm`.
+  - Volume boost: `volume-max` 200 (100 when off). The player's slider turns amber past 100.
+- The player applies the chain live from an `$effect`, and only when the string changes, because each `af` change restarts audio. The layout comes from the selected track's `demux-channels`.
+- The switches are in the player's sound menu (the `graphic_eq` button) and in Settings, under Sound.
 
 ## Where things stand
 

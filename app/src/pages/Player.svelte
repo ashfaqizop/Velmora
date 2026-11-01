@@ -1,6 +1,6 @@
 <script lang="ts">
   import { personalize } from "../lib/ani/personalize.svelte";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, untrack } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -15,6 +15,7 @@
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { startMpv, stopMpv } from "../lib/mpv";
+  import { sound, type SoundOption } from "../lib/audio.svelte";
   import { isTorrent, providerName, sourceChips, sourceTitle } from "../lib/sources";
   import { torrentConsent } from "../lib/overlays";
   import { slider } from "../lib/slider";
@@ -42,7 +43,14 @@
   ] as const satisfies MpvObservableProperty[];
 
   type Phase = "sources" | "opening" | "playing" | "error";
-  type MpvTrack = { id: number; type: "video" | "audio" | "sub"; title?: string; lang?: string; selected?: boolean };
+  type MpvTrack = {
+    id: number;
+    type: "video" | "audio" | "sub";
+    title?: string;
+    lang?: string;
+    selected?: boolean;
+    "demux-channels"?: string;
+  };
 
   let phase = $state<Phase>("sources");
   let status = $state("Finding sources");
@@ -56,7 +64,7 @@
   let duration = $state(0);
   let buffering = $state(false);
   let bufferPct = $state<number | null>(null);
-  let volume = $state(Number(localStorage.getItem("velmora.volume") ?? 100));
+  let volume = $state(Math.min(sound.maxVolume, Number(localStorage.getItem("velmora.volume") ?? 100)));
   let muted = $state(false);
   let tracks = $state<MpvTrack[]>([]);
   let ended = $state(false);
@@ -77,6 +85,8 @@
   let upNextTimer: ReturnType<typeof setInterval> | undefined;
   let torrentTimer: ReturnType<typeof setInterval> | undefined;
   let alive = true;
+  /** mpv is up and takes property changes. */
+  let ready = $state(false);
 
   const episode = $derived<[number, number] | null>(target.type === "episode" ? [target.season, target.episode] : null);
   const next = $derived(nextEpisode(detail, target));
@@ -84,6 +94,8 @@
   const audioTracks = $derived(tracks.filter((t) => t.type === "audio"));
   const subTracks = $derived(tracks.filter((t) => t.type === "sub"));
   const subsOff = $derived(!subTracks.some((t) => t.selected));
+  /** Channel layout of the playing audio track, for dialogue boost. */
+  const layout = $derived(audioTracks.find((t) => t.selected)?.["demux-channels"]);
   const episodeTitle = $derived.by(() => {
     if (target.type !== "episode") return "";
     const ep = detail?.seasons.find((s) => s.number === target.season)?.episodes.find((e) => e.number === target.episode);
@@ -135,11 +147,14 @@
         slang: "en,eng",
         "sub-auto": "fuzzy",
         volume,
+        "volume-max": sound.maxVolume,
+        af: sound.filters(),
       },
       observedProperties: OBSERVED,
     };
     try {
       await startMpv(config);
+      ready = true;
       cleanups.push(await observeProperties(OBSERVED, onProperty));
       cleanups.push(
         await listenEvents((ev) => {
@@ -387,6 +402,29 @@
     if (!dragging) seeking = null;
   }
 
+  // Sound options apply live; mpv only gets a new filter chain when it changes.
+  let appliedAf = sound.filters();
+  $effect(() => {
+    const af = sound.filters(layout);
+    if (!ready || af === appliedAf) return;
+    appliedAf = af;
+    setProperty("af", af).catch((e) => {
+      console.warn("audio filters failed", e);
+      M3eSnackbar.open("Couldn't apply that sound setting to this video");
+    });
+  });
+
+  $effect(() => {
+    const max = sound.maxVolume;
+    if (!ready) return;
+    setProperty("volume-max", max).catch(() => {});
+    if (untrack(() => volume) > max) setVolume(max);
+  });
+
+  function toggleSound(option: SoundOption) {
+    sound.set(option, !sound[option]);
+  }
+
   function setVolume(v: number) {
     volume = v;
     localStorage.setItem("velmora.volume", String(Math.round(v)));
@@ -464,7 +502,7 @@
         seekBy(10);
         break;
       case "ArrowUp":
-        setVolume(Math.min(130, volume + 5));
+        setVolume(Math.min(sound.maxVolume, volume + 5));
         break;
       case "ArrowDown":
         setVolume(Math.max(0, volume - 5));
@@ -607,15 +645,35 @@
           <m3e-icon-button aria-label={muted ? "Unmute" : "Mute"} onclick={() => setProperty("mute", !muted)}>
             <m3e-icon name={muted || volume === 0 ? "volume_off" : volume < 50 ? "volume_down" : "volume_up"}></m3e-icon>
           </m3e-icon-button>
-          <m3e-slider min="0" max="130" step="1" aria-label="Volume" use:slider>
+          <m3e-slider min="0" max={sound.maxVolume} step="1" aria-label="Volume" class:loud={volume > 100 && !muted} use:slider>
             <m3e-slider-thumb
               value={Math.round(muted ? 0 : volume)}
               oninput={(e: Event) => setVolume((e.currentTarget as HTMLInputElement & { value: number }).value)}
             ></m3e-slider-thumb>
           </m3e-slider>
+          {#if volume > 100 && !muted}<span class="boosted">{Math.round(volume)}%</span>{/if}
         </div>
 
         <span class="spacer"></span>
+
+        <m3e-icon-button id="btn-sound" aria-label="Sound">
+          <m3e-icon name="graphic_eq"></m3e-icon>
+          <m3e-menu-trigger for="menu-sound"></m3e-menu-trigger>
+        </m3e-icon-button>
+        <m3e-menu id="menu-sound">
+          <m3e-menu-item-checkbox checked={sound.dialogue} onclick={() => toggleSound("dialogue")}>
+            <m3e-icon slot="icon" name="record_voice_over"></m3e-icon>Dialogue boost
+          </m3e-menu-item-checkbox>
+          <m3e-menu-item-checkbox checked={sound.night} onclick={() => toggleSound("night")}>
+            <m3e-icon slot="icon" name="bedtime"></m3e-icon>Night mode
+          </m3e-menu-item-checkbox>
+          <m3e-menu-item-checkbox checked={sound.normalize} onclick={() => toggleSound("normalize")}>
+            <m3e-icon slot="icon" name="equalizer"></m3e-icon>Even out volume
+          </m3e-menu-item-checkbox>
+          <m3e-menu-item-checkbox checked={sound.boost} onclick={() => toggleSound("boost")}>
+            <m3e-icon slot="icon" name="volume_up"></m3e-icon>Volume up to 200%
+          </m3e-menu-item-checkbox>
+        </m3e-menu>
 
         {#if audioTracks.length > 1}
           <m3e-icon-button id="btn-audio" aria-label="Audio track">
@@ -813,6 +871,17 @@
   .volume m3e-slider {
     --m3e-slider-min-width: 0;
     width: 120px;
+  }
+  /* Past 100% the slider turns amber: louder than the source, may distort. */
+  .volume m3e-slider.loud {
+    --m3e-slider-active-track-color: #ffb74d;
+    --m3e-slider-thumb-color: #ffb74d;
+  }
+  .boosted {
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #ffb74d;
   }
   .spacer {
     flex: 1;

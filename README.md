@@ -20,6 +20,7 @@ The part that finds and resolves links is a separate Rust library, the [Universe
 
 - Search every source at once. Results stream in as each site answers, and the same title from different sites shows up once.
 - Play inside the app with libmpv, so MKV, HEVC, AC3 and 4K files play without extra codecs. If a link fails, the next one starts at the same spot.
+- Sound options in the player and in Settings: Dialogue boost, Night mode, Even out volume, and volume up to 200%.
 - Pick up where you stopped. Continue Watching remembers the exact second, and the end of an episode offers the next one.
 - Download movies and episodes for offline viewing, with pause, resume and a queue, to a folder you choose. Downloads are stored in Velmora's own format and play only inside the app.
 - Stream torrents while they download. Seeding is off unless you turn it on.

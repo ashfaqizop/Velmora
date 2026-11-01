@@ -11,6 +11,7 @@
   import { LANGUAGES, PROVIDER_GROUPS, providerLabel } from "../lib/options";
   import { ani, ANI_CHAT_MODEL, ANI_TOOL_MODEL, settings } from "../lib/state.svelte";
   import { slider } from "../lib/slider";
+  import { sound, type SoundOption } from "../lib/audio.svelte";
   import type { AniModel, AppInfo, MediaKind, Preferences, ProviderId } from "../lib/types";
 
   let info = $state<AppInfo | null>(null);
@@ -77,6 +78,13 @@
   const set = (patch: Partial<Preferences>) => settings.update(patch);
   const checked = (e: Event) => (e.currentTarget as HTMLElement & { checked: boolean }).checked;
   const selectValue = (e: Event) => (e.currentTarget as HTMLElement & { value: string }).value;
+
+  const SOUND: [SoundOption, string, string][] = [
+    ["dialogue", "Dialogue boost", "Makes voices clearer over music and effects. Works best on 5.1 and 7.1 audio."],
+    ["night", "Night mode", "Quiets explosions and lifts whispers, so you don't keep reaching for the volume."],
+    ["normalize", "Even out volume", "Keeps the level steady between scenes and between sources."],
+    ["boost", "Volume up to 200%", "For quiet videos and laptop speakers. Above 100% can distort."],
+  ];
 
   /** Put the chosen language first and keep the rest as fallbacks. */
   function preferLanguage(list: string[], lang: string) {
@@ -183,6 +191,21 @@
               <m3e-button-segment checked={settings.audioMode === "dub"} onclick={() => settings.setAudioMode("dub")}>Dub</m3e-button-segment>
             </m3e-segmented-button>
           </div>
+        </div>
+      </m3e-card>
+    </section>
+
+    <section>
+      <m3e-heading variant="title" size="large" level={2}>Sound</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content" class="rows">
+          {#each SOUND as [option, name, hint], i (option)}
+            {#if i}<m3e-divider></m3e-divider>{/if}
+            <label class="row">
+              <div class="text"><strong>{name}</strong><span>{hint}</span></div>
+              <m3e-switch checked={sound[option]} onchange={(e: Event) => sound.set(option, checked(e))}></m3e-switch>
+            </label>
+          {/each}
         </div>
       </m3e-card>
     </section>
