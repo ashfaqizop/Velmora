@@ -44,7 +44,6 @@ export const RELEASES: ReleaseNote[] = [
     summary: "Live scores and fixtures on Home, a Live TV page with free channels, Ani that knows both, and a search that finds the title you typed.",
     color: "#ff5a5a",
     shape: "sunny",
-    soon: true,
     highlights: [
       { icon: "sports_score", title: "Sports on Home", text: "Live now, upcoming and results in one rail, with a page for every match." },
       { icon: "tv", title: "Where to watch", text: "Official broadcasters in your country, with a Play button for free channels that carry the match." },
