@@ -12,6 +12,7 @@ import type {
   Preferences,
   ProviderRef,
   Rail,
+  Narrowed,
   SearchBatch,
   Source,
   SourcesReport,
@@ -57,6 +58,9 @@ export function searchStream(query: string, onBatch: (b: SearchBatch) => void): 
   channel.onmessage = onBatch;
   return invoke("search_stream", { query, onBatch: channel });
 }
+
+/** The exact matches for a query among its results, and the full list ranked. */
+export const searchNarrow = (query: string, items: TitleSummary[]) => invoke<Narrowed>("search_narrow", { query, items });
 
 export const sources = (title: TitleSummary, target: Target, mode: AudioMode) =>
   invoke<SourcesReport>("sources", { title, target, mode });

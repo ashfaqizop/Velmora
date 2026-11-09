@@ -28,10 +28,13 @@ pub mod net;
 pub mod providers;
 pub mod proxy;
 pub mod rank;
+pub mod relevance;
 pub mod release;
 pub mod resolvers;
+pub mod sports;
 #[cfg(feature = "torrent")]
 pub mod torrent;
+pub mod tv;
 pub mod util;
 pub mod vault;
 

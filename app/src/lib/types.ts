@@ -102,6 +102,12 @@ export interface SearchBatch {
   error?: string;
 }
 
+/** A search looked over: the exact matches (if any) and everything, best first. */
+export interface Narrowed {
+  exact: TitleSummary[];
+  ranked: TitleSummary[];
+}
+
 export interface AppInfo {
   version: string;
   platform: string;

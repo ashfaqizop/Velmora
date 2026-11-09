@@ -6,7 +6,7 @@
   import Poster from "../components/Poster.svelte";
   import PoweredBy from "../components/PoweredBy.svelte";
   import * as api from "../lib/api";
-  import type { TitleSummary } from "../lib/types";
+  import type { Narrowed, TitleSummary } from "../lib/types";
   import { keyOf } from "../lib/state.svelte";
 
   let { query }: { query: string } = $props();
@@ -21,6 +21,14 @@
   let showStatus = $state(false);
   let attempt = $state(0);
   let run = 0;
+
+  // The engine looks the results over: if one of them is exactly what was
+  // typed, only that shows, with a button for the full list.
+  let narrowed = $state<Narrowed>({ exact: [], ranked: [] });
+  let extensive = $state(false);
+  let narrowSeq = 0;
+  const exactOnly = $derived(narrowed.exact.length > 0 && !extensive);
+  const shown = $derived(exactOnly ? narrowed.exact : narrowed.ranked.length ? narrowed.ranked : results);
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Same title from different providers: same name, year and type. */
@@ -37,12 +45,25 @@
     return out;
   }
 
+  /** Asks the engine which results exactly match; the newest answer wins. */
+  function narrow(q: string, mine: number) {
+    const seq = ++narrowSeq;
+    api
+      .searchNarrow(q, $state.snapshot(results) as TitleSummary[])
+      .then((n) => {
+        if (mine === run && seq === narrowSeq) narrowed = n;
+      })
+      .catch((e) => console.warn("narrowing failed", e));
+  }
+
   $effect(() => {
     const q = query;
     void attempt;
     const mine = ++run;
     clearTimeout(hideTimer);
     results = [];
+    narrowed = { exact: [], ranked: [] };
+    extensive = false;
     answered = 0;
     failed = 0;
     running = true;
@@ -54,6 +75,7 @@
         answered += 1;
         if (batch.error) failed += 1;
         results = merge(results, batch.items);
+        narrow(q, mine);
       })
       .catch((e) => console.warn("search failed", e))
       .finally(() => {
@@ -104,11 +126,29 @@
   {/if}
 
   {#if results.length}
-    <div class="grid">
-      {#each results as t (keyOf(t))}
+    <div class="grid" class:exact={exactOnly}>
+      {#each shown as t (keyOf(t))}
         <Poster title={t} />
       {/each}
     </div>
+    {#if exactOnly}
+      <m3e-card variant="filled" class="more" in:fly={{ y: 8, duration: 300 }}>
+        <div slot="content" class="more-row">
+          <m3e-icon name="travel_explore"></m3e-icon>
+          <div class="more-text">
+            <strong>Can't find the movie?</strong>
+            <span>{results.length - narrowed.exact.length} more {results.length - narrowed.exact.length === 1 ? "result" : "results"} from the sources.</span>
+          </div>
+          <m3e-button variant="filled" onclick={() => (extensive = true)}>Click me for extensive search</m3e-button>
+        </div>
+      </m3e-card>
+    {:else if extensive && narrowed.exact.length}
+      <div class="back">
+        <m3e-button variant="text" onclick={() => (extensive = false)}>
+          <m3e-icon slot="icon" name="arrow_upward"></m3e-icon>Show only the exact match
+        </m3e-button>
+      </div>
+    {/if}
   {:else if running}
     <div class="grid">
       {#each Array(12) as _, i (i)}
@@ -189,6 +229,43 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 20px 16px;
+  }
+  /* A lone exact match shouldn't stretch across the whole row. */
+  .grid.exact {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 190px));
+  }
+  .more {
+    --m3e-card-shape: var(--md-sys-shape-corner-large, 16px);
+    --m3e-card-padding: 12px 16px;
+  }
+  .more-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    --m3e-icon-size: 28px;
+  }
+  .more-row > m3e-icon {
+    flex: none;
+    color: var(--md-sys-color-primary);
+  }
+  .more-text {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .more-text strong {
+    font-weight: 700;
+  }
+  .more-text span {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .back {
+    display: flex;
+    justify-content: center;
   }
   .ghost {
     aspect-ratio: 2 / 3;

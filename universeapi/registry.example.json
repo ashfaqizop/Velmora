@@ -17,5 +17,16 @@
     ]
   },
   "host_aliases": {},
+  "sports": {
+    "sports": ["Soccer", "Basketball", "American Football", "Baseball", "Ice Hockey", "Cricket", "Motorsport"],
+    "watch": [
+      { "league": "Example League", "country": "US", "name": "Example Network", "kind": "subscription", "url": "https://example.com/watch" },
+      { "league": "Example League", "country": "GB", "name": "Example Public Broadcaster", "kind": "free", "iptv_channel": "ExampleChannel.uk" }
+    ]
+  },
+  "tv": {
+    "hidden_channels": [],
+    "hidden_hosts": []
+  },
   "disabled": []
 }

@@ -113,6 +113,7 @@ pub fn run() {
             commands::refresh_config,
             commands::home,
             commands::search_stream,
+            commands::search_narrow,
             commands::detail,
             commands::sources,
             commands::open_stream,

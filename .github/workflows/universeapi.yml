@@ -128,6 +128,8 @@ jobs:
     env:
       UNIVERSEAPI_TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
       UNIVERSEAPI_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      UNIVERSEAPI_SPORTSDB_KEY: ${{ secrets.SPORTSDB_KEY }}
+      UNIVERSEAPI_FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

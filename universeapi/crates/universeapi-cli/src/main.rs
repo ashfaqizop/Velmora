@@ -4,6 +4,8 @@
 //! universeapi home
 //! universeapi search "frieren"
 //! universeapi sources "frieren" --season 1 --episode 1
+//! universeapi sports live | upcoming | results | day 2026-11-09 | watch tsdb:123 --country US
+//! universeapi tv channels --country US --category sports --q espn
 //! universeapi smoke --report smoke.json      # live provider health (CI)
 //! ```
 
@@ -14,6 +16,8 @@ use std::path::PathBuf;
 use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use universeapi::model::{AudioMode, ProviderId, ProviderRef, Target};
+use universeapi::sports::{Match, MatchStatus};
+use universeapi::tv::TvQuery;
 use universeapi::{Engine, EngineOptions, Registry};
 
 #[derive(Parser)]
@@ -53,12 +57,90 @@ enum Cmd {
         #[arg(long, default_value_t = 0)]
         pick: usize,
     },
+    /// Scores, fixtures and results.
+    Sports {
+        #[command(subcommand)]
+        what: SportsCmd,
+    },
+    /// Live TV channels from the iptv-org playlist.
+    Tv {
+        #[command(subcommand)]
+        what: TvCmd,
+    },
     /// Live smoke test of every provider and resolver.
     Smoke {
         /// Write a JSON report here.
         #[arg(long)]
         report: Option<PathBuf>,
     },
+}
+
+#[derive(Subcommand)]
+enum SportsCmd {
+    /// Matches on one UTC day (default: today).
+    Day { date: Option<String> },
+    /// Matches in play right now.
+    Live,
+    /// Matches still to come.
+    Upcoming {
+        #[arg(long, default_value_t = 2)]
+        days: u32,
+    },
+    /// Finished matches, newest first.
+    Results {
+        #[arg(long, default_value_t = 2)]
+        days: u32,
+    },
+    /// Where to watch a match id (`tsdb:123` or `fd:456`).
+    Watch {
+        id: String,
+        /// ISO country code.
+        #[arg(long, default_value = "US")]
+        country: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum TvCmd {
+    /// Search the channel library.
+    Channels {
+        #[arg(long)]
+        country: Option<String>,
+        #[arg(long)]
+        category: Option<String>,
+        /// Text to find in channel and network names.
+        #[arg(long)]
+        q: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
+    /// Countries with channels.
+    Countries,
+    /// Categories with channels.
+    Categories,
+    /// Probe a channel's streams.
+    Check { id: String },
+}
+
+fn print_matches(matches: &[Match]) {
+    for m in matches {
+        let at = m
+            .kickoff
+            .map(|k| format!("{:02}:{:02}", k.rem_euclid(86_400) / 3600, k.rem_euclid(3600) / 60))
+            .unwrap_or_else(|| "--:--".into());
+        let status = match m.status {
+            MatchStatus::Upcoming => "soon",
+            MatchStatus::Live => "LIVE",
+            MatchStatus::Finished => "done",
+            MatchStatus::Postponed => "post",
+            MatchStatus::Cancelled => "canc",
+        };
+        let score = match (m.home_score, m.away_score) {
+            (Some(h), Some(a)) => format!("{h}-{a}"),
+            _ => "   ".into(),
+        };
+        println!("  {at} UTC  {status:<5} {score:<5} {}  [{} / {}]  {}", m.title, m.sport, m.league.name, m.id);
+    }
 }
 
 #[tokio::main]
@@ -147,6 +229,118 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+        Cmd::Sports { what } => match what {
+            SportsCmd::Day { date } => {
+                let sports = engine.sports();
+                let day = match date {
+                    Some(d) => sports.day(&d).await?,
+                    None => sports.today().await?,
+                };
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&day)?);
+                } else {
+                    println!("{} · {} matches · from {:?}", day.date, day.matches.len(), day.sources);
+                    print_matches(&day.matches);
+                    for e in &day.errors {
+                        eprintln!("  ✗ {e}");
+                    }
+                }
+            }
+            SportsCmd::Live => {
+                let m = engine.sports().live().await?;
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&m)?);
+                } else {
+                    println!("{} live", m.len());
+                    print_matches(&m);
+                }
+            }
+            SportsCmd::Upcoming { days } => {
+                let m = engine.sports().upcoming(days).await?;
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&m)?);
+                } else {
+                    println!("{} upcoming", m.len());
+                    print_matches(&m);
+                }
+            }
+            SportsCmd::Results { days } => {
+                let m = engine.sports().results(days).await?;
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&m)?);
+                } else {
+                    println!("{} results", m.len());
+                    print_matches(&m);
+                }
+            }
+            SportsCmd::Watch { id, country } => {
+                let m = engine.sports().lookup(&id).await?;
+                let options = engine.sports_watch(&m, &country).await;
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&options)?);
+                } else {
+                    print_matches(std::slice::from_ref(&m));
+                    if options.is_empty() {
+                        println!("  no official broadcaster listed for {country}");
+                    }
+                    for o in &options {
+                        let play = if o.play_channel.is_some() { "  [free channel]" } else { "" };
+                        println!("  {:<24} {:?}  {}{play}", o.name, o.kind, o.country);
+                    }
+                }
+            }
+        },
+        Cmd::Tv { what } => match what {
+            TvCmd::Channels { country, category, q, limit } => {
+                let page = engine.tv().channels(&TvQuery { country, category, text: q, offset: 0, limit }).await?;
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&page)?);
+                } else {
+                    println!("{} channels, showing {}", page.total, page.items.len());
+                    for c in &page.items {
+                        println!(
+                            "  {:<28} {:<3} {:<14} {} streams  {}",
+                            c.name,
+                            c.country.as_deref().unwrap_or("-"),
+                            c.categories.first().map(String::as_str).unwrap_or("-"),
+                            c.streams.len(),
+                            c.id
+                        );
+                    }
+                }
+            }
+            TvCmd::Countries => {
+                let facets = engine.tv().countries().await?;
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&facets)?);
+                } else {
+                    for f in facets.iter().take(40) {
+                        println!("  {:>5}  {:<5} {}", f.count, f.id, f.name);
+                    }
+                }
+            }
+            TvCmd::Categories => {
+                let facets = engine.tv().categories().await?;
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&facets)?);
+                } else {
+                    for f in facets.iter().take(40) {
+                        println!("  {:>5}  {:<12} {}", f.count, f.id, f.name);
+                    }
+                }
+            }
+            TvCmd::Check { id } => {
+                let health = engine.tv().check(&id).await?;
+                if cli.json {
+                    println!("{}", serde_json::to_string_pretty(&health)?);
+                } else {
+                    for h in &health {
+                        let mark = if h.ok { "ok " } else { "bad" };
+                        println!("  {mark} {:>3}  {}  {}", h.status, h.url, h.detail.as_deref().unwrap_or(""));
+                    }
+                }
+            }
+        },
         Cmd::Smoke { report } => {
             let result = smoke::run(&engine).await;
             smoke::print(&result);

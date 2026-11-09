@@ -63,6 +63,8 @@ pub struct Engine {
     tmdb: Arc<Tmdb>,
     cinemeta: Arc<Cinemeta>,
     anilist: Arc<Anilist>,
+    sports: Arc<crate::sports::Sports>,
+    tv: Arc<crate::tv::Tv>,
     /// Content providers (produce sources).
     content: Vec<Arc<dyn Provider>>,
     /// The folder used when no `download_dir` preference is set.
@@ -125,6 +127,8 @@ impl Engine {
             tmdb: Arc::new(Tmdb::new(ctx.clone())),
             cinemeta: Arc::new(Cinemeta::new(ctx.clone())),
             anilist: Arc::new(Anilist::new(ctx.clone())),
+            sports: Arc::new(crate::sports::Sports::new(ctx.clone())),
+            tv: Arc::new(crate::tv::Tv::new(ctx.clone())),
             content,
             default_download_dir,
             downloads,
@@ -169,6 +173,31 @@ impl Engine {
     /// AniList, for anime lookups beyond search and detail (filters, schedules).
     pub fn anilist(&self) -> &Arc<Anilist> {
         &self.anilist
+    }
+
+    /// Live scores, fixtures and results.
+    pub fn sports(&self) -> &Arc<crate::sports::Sports> {
+        &self.sports
+    }
+
+    /// Live TV channels from the public iptv-org playlist.
+    pub fn tv(&self) -> &Arc<crate::tv::Tv> {
+        &self.tv
+    }
+
+    /// Where to watch a match in a country. Like [`crate::sports::Sports::watch`],
+    /// plus a check that a hand-listed free channel is actually in the TV
+    /// library: if it isn't (or can't be loaded), the Play button is dropped.
+    pub async fn sports_watch(&self, m: &crate::sports::Match, country: &str) -> Vec<crate::sports::watch::WatchOption> {
+        let mut options = self.sports.watch(m, country).await;
+        for o in options.iter_mut() {
+            let Some(id) = o.play_channel.clone() else { continue };
+            let playable = matches!(self.tv.channel(&id).await, Ok(Some(_)));
+            if !playable {
+                o.play_channel = None;
+            }
+        }
+        options
     }
 
     pub fn ctx(&self) -> &Arc<Ctx> {
@@ -334,6 +363,13 @@ impl Engine {
             }
         }
         merged
+    }
+
+    /// Full search, looked over: the titles that exactly match the query, plus
+    /// everything ranked best first. See [`crate::relevance`].
+    pub async fn search_smart(&self, query: &str) -> crate::relevance::Narrowed {
+        let all = self.search(query).await;
+        crate::relevance::narrow(&all, query)
     }
 
     pub async fn detail(&self, r: &ProviderRef) -> Result<TitleDetail> {
@@ -551,6 +587,7 @@ mod tests {
         fn assert_send<T: Send>(_: T) {}
         assert_send(e.home());
         assert_send(e.search("x"));
+        assert_send(e.search_smart("x"));
         assert_send(e.search_stream("x").collect::<Vec<_>>());
         assert_send(e.detail(r));
         assert_send(e.sources(t, Target::Movie, AudioMode::Sub));

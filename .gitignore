@@ -39,5 +39,9 @@ app/src-tauri/lib/
 /ffmpeg.exe
 /ffprobe.exe
 
+# Third-party SDK bundles dropped locally for review: proprietary, never committed
+/cr-sdk-*.zip
+/cr-sdk*/
+
 # Video work (launch videos etc.), kept local
 /video-work/

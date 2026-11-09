@@ -29,6 +29,8 @@ pub enum ProviderId {
     Yts,
     Eztv,
     Nyaa,
+    // live TV playlist (iptv-org)
+    IptvOrg,
 }
 
 impl ProviderId {
@@ -49,6 +51,7 @@ impl ProviderId {
             Self::Yts => "yts",
             Self::Eztv => "eztv",
             Self::Nyaa => "nyaa",
+            Self::IptvOrg => "iptv_org",
         }
     }
 
@@ -69,6 +72,7 @@ impl ProviderId {
             Self::Yts => "YTS",
             Self::Eztv => "EZTV",
             Self::Nyaa => "Nyaa",
+            Self::IptvOrg => "Live TV",
         }
     }
 

@@ -497,6 +497,15 @@ pub async fn run(engine: &Engine) -> SmokeReport {
     })
     .await;
 
+    check(&mut r, "engine: an exact title leads smart search", false, async {
+        let n = engine.search_smart("Inception").await;
+        ensure(!n.exact.is_empty(), format!("no exact match for Inception among {} results", n.ranked.len()))?;
+        ensure(n.exact.len() <= n.ranked.len(), "more exact matches than results")?;
+        ensure(n.ranked.first().map(|t| t.name.as_str()) == n.exact.first().map(|t| t.name.as_str()), "the exact match is not first")?;
+        anyhow::Ok(format!("{} exact of {} results: {}", n.exact.len(), n.ranked.len(), n.exact[0].name))
+    })
+    .await;
+
     check(&mut r, "engine: merged search + anime sources", true, async {
         let hits = engine.search("frieren").await;
         let t = hits
@@ -506,6 +515,100 @@ pub async fn run(engine: &Engine) -> SmokeReport {
         let rep = engine.sources(t, Target::Episode { season: 1, episode: 1 }, AudioMode::Sub).await;
         ensure(rep.sources.first().is_some_and(|s| s.verified == Some(true)), format!("best source unverified: {:?}", rep.errors))?;
         anyhow::Ok(format!("{} on {} providers; best {} {}", t.name, 1 + t.also_on.len(), rep.sources[0].provider, rep.sources[0].host))
+    })
+    .await;
+
+    // ── Sports ─────────────────────────────────────────────────────────
+    // The free tiers are thin and sometimes slow, so these warn instead of
+    // failing the run. A WARN here still shows up in the report.
+    let sports = engine.sports();
+    let mut first_id: Option<String> = None;
+    check(&mut r, "sports: today's matches parse", false, async {
+        let day = sports.today().await?;
+        ensure(day.delayed, "a free-tier day must say it is delayed")?;
+        first_id = day.matches.iter().find(|m| m.id.starts_with("tsdb:")).map(|m| m.id.clone());
+        let live = day.matches.iter().filter(|m| m.status == universeapi::sports::MatchStatus::Live).count();
+        ensure(!day.matches.is_empty(), format!("0 matches today (errors: {:?})", day.errors))?;
+        anyhow::Ok(format!("{} matches, {live} live, from {:?}, errors {:?}", day.matches.len(), day.sources, day.errors))
+    })
+    .await;
+
+    check(&mut r, "sports: upcoming and results", false, async {
+        let up = sports.upcoming(2).await?;
+        let done = sports.results(2).await?;
+        ensure(!up.is_empty() || !done.is_empty(), "no upcoming and no finished matches")?;
+        anyhow::Ok(format!("{} upcoming, {} finished", up.len(), done.len()))
+    })
+    .await;
+
+    if let Some(id) = first_id {
+        check(&mut r, "sports: match lookup + where to watch", false, async {
+            let m = sports.lookup(&id).await?;
+            let options = engine.sports_watch(&m, "US").await;
+            ensure(options.iter().all(|o| o.source != "thesportsdb" || o.play_channel.is_none()), "a listed channel got a Play button")?;
+            anyhow::Ok(format!("{} ({}), {} where-to-watch rows", m.title, m.league.name, options.len()))
+        })
+        .await;
+    }
+
+    if sports.sources().contains(&universeapi::sports::SportsSource::FootballData) {
+        check(&mut r, "sports: football-data.org", false, async {
+            let day = sports.today().await?;
+            ensure(
+                day.sources.contains(&universeapi::sports::SportsSource::FootballData),
+                format!("football-data.org did not answer: {:?}", day.errors),
+            )?;
+            let fd = day.matches.iter().filter(|m| m.id.starts_with("fd:")).count();
+            anyhow::Ok(format!("{fd} matches from football-data.org"))
+        })
+        .await;
+    } else {
+        check(&mut r, "sports: football-data.org", false, async {
+            anyhow::Ok("skipped: no football-data token in the environment".to_string())
+        })
+        .await;
+    }
+
+    // ── Live TV (iptv-org) ─────────────────────────────────────────────
+    let tv = engine.tv();
+    check(&mut r, "tv: library loads and is filtered", true, async {
+        let lib = tv.library().await?;
+        ensure(lib.channels.len() >= 1000, format!("only {} channels", lib.channels.len()))?;
+        ensure(lib.channels.iter().all(|c| !c.streams.is_empty()), "a channel without streams got through")?;
+        ensure(lib.blocked > 0, "the playlist's blocklist removed nothing")?;
+        anyhow::Ok(format!("{} channels, {} blocked, {} countries", lib.channels.len(), lib.blocked, lib.countries.len()))
+    })
+    .await;
+
+    check(&mut r, "tv: search and facets", false, async {
+        let news = tv
+            .channels(&universeapi::tv::TvQuery { country: Some("US".into()), category: Some("news".into()), ..Default::default() })
+            .await?;
+        ensure(news.total > 0, "no US news channels")?;
+        let countries = tv.countries().await?;
+        let categories = tv.categories().await?;
+        ensure(countries.len() > 50 && categories.len() > 10, format!("{} countries, {} categories", countries.len(), categories.len()))?;
+        anyhow::Ok(format!("{} US news channels, {} countries, {} categories", news.total, countries.len(), categories.len()))
+    })
+    .await;
+
+    check(&mut r, "tv: a stream plays through the proxy path", false, async {
+        let page = tv
+            .channels(&universeapi::tv::TvQuery { category: Some("news".into()), limit: 8, ..Default::default() })
+            .await?;
+        let mut tried = 0;
+        for c in &page.items {
+            tried += 1;
+            let health = tv.check(&c.id).await?;
+            if let Some(i) = health.iter().position(|h| h.ok) {
+                let src = c.source(i).ok_or_else(|| anyhow::anyhow!("no source for {}", c.id))?;
+                ensure(src.url.starts_with("http"), "source url is not http")?;
+                let path = engine.proxy().register(&src)?;
+                engine.proxy().unregister(&path);
+                return anyhow::Ok(format!("{} ({}/{} streams ok) after {tried} channel(s)", c.name, health.iter().filter(|h| h.ok).count(), health.len()));
+            }
+        }
+        Err(anyhow::anyhow!("none of {tried} news channels had a working stream"))
     })
     .await;
 

@@ -19,6 +19,13 @@ pub mod ttl {
     pub const DETAIL: Duration = Duration::from_secs(6 * 60 * 60);
     pub const MIRROR: Duration = Duration::from_secs(24 * 60 * 60);
     pub const SOURCES: Duration = Duration::from_secs(20 * 60);
+    /// Sports days. Today refreshes often; the free APIs are delayed anyway.
+    pub const SPORTS_LIVE: Duration = Duration::from_secs(60);
+    pub const SPORTS_SOON: Duration = Duration::from_secs(10 * 60);
+    pub const SPORTS_PAST: Duration = Duration::from_secs(60 * 60);
+    /// The joined iptv-org channel library, kept in memory.
+    pub const TV_LIBRARY: Duration = Duration::from_secs(6 * 60 * 60);
+    pub const TV_HEALTH: Duration = Duration::from_secs(15 * 60);
 }
 
 #[derive(Serialize, Deserialize)]

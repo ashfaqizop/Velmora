@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::{MediaKind, ProviderId};
 use crate::release::VideoCodec;
+use crate::sports::watch::WatchRule;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -109,6 +110,14 @@ pub struct Registry {
     pub tmdb_read_token: Option<String>,
     pub cinemeta_url: String,
     pub anilist_url: String,
+    /// TheSportsDB key. Without one the free public test key is used (thin data).
+    pub thesportsdb_key: Option<String>,
+    /// football-data.org token. Needed unless `sports.football_data_url` points at a proxy that holds it.
+    pub football_data_token: Option<String>,
+    /// Sports sources and the "where to watch" rules.
+    pub sports: SportsRemote,
+    /// Live TV (iptv-org) source and the remote hide lists.
+    pub tv: TvRemote,
     /// Remote kill-switches for misbehaving providers.
     pub disabled: Vec<ProviderId>,
     /// Chrome-like User-Agent used for scraping.
@@ -159,9 +168,64 @@ impl Default for Registry {
             tmdb_read_token: None,
             cinemeta_url: "https://v3-cinemeta.strem.io".into(),
             anilist_url: "https://graphql.anilist.co".into(),
+            thesportsdb_key: None,
+            football_data_token: None,
+            sports: SportsRemote::default(),
+            tv: TvRemote::default(),
             disabled: Vec::new(),
             user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36".into(),
         }
+    }
+}
+
+pub const THESPORTSDB_URL: &str = "https://www.thesportsdb.com/api/v1/json";
+pub const FOOTBALL_DATA_URL: &str = "https://api.football-data.org/v4";
+pub const IPTV_API_URL: &str = "https://iptv-org.github.io/api";
+
+/// Sports data sources and the league-to-broadcaster rules behind "where to watch".
+/// Point the two URLs at a caching proxy to keep the keys out of the app.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SportsRemote {
+    /// TheSportsDB v1 base; the key is appended as a path segment.
+    pub thesportsdb_url: String,
+    /// football-data.org v4 base.
+    pub football_data_url: String,
+    /// Sports requested per day from TheSportsDB, which filters by sport.
+    pub sports: Vec<String>,
+    /// Hand-curated broadcaster rules, by league and country.
+    pub watch: Vec<WatchRule>,
+}
+
+impl Default for SportsRemote {
+    fn default() -> Self {
+        Self {
+            thesportsdb_url: THESPORTSDB_URL.into(),
+            football_data_url: FOOTBALL_DATA_URL.into(),
+            sports: ["Soccer", "Basketball", "American Football", "Baseball", "Ice Hockey", "Cricket", "Motorsport"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            watch: Vec::new(),
+        }
+    }
+}
+
+/// Live TV (iptv-org) settings. The hide lists let a channel or host be pulled
+/// remotely, without an app release, if a rights holder asks.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TvRemote {
+    pub api_url: String,
+    /// iptv-org channel ids to hide.
+    pub hidden_channels: Vec<String>,
+    /// Stream hostnames to hide (matches the host and its subdomains).
+    pub hidden_hosts: Vec<String>,
+}
+
+impl Default for TvRemote {
+    fn default() -> Self {
+        Self { api_url: IPTV_API_URL.into(), hidden_channels: Vec::new(), hidden_hosts: Vec::new() }
     }
 }
 
@@ -225,6 +289,12 @@ impl Registry {
         if let Some(k) = env("UNIVERSEAPI_TMDB_API_KEY") {
             self.tmdb_api_key = Some(k);
         }
+        if let Some(k) = env("UNIVERSEAPI_SPORTSDB_KEY") {
+            self.thesportsdb_key = Some(k);
+        }
+        if let Some(t) = env("UNIVERSEAPI_FOOTBALL_DATA_TOKEN") {
+            self.football_data_token = Some(t);
+        }
         if let Some(m) = env("UNIVERSEAPI_HDHUB_MIRROR") {
             self.hdhub.force_mirror = Some(m);
         }
@@ -279,6 +349,20 @@ mod tests {
         assert_eq!(reg.hdhub.host_cdn, "https://h4.suncdn.org/host/", "unspecified fields keep defaults");
         assert_eq!(reg.hdhub.rails.len(), 3);
         assert_eq!(reg.host_aliases.get("hubkloud").map(String::as_str), Some("hubcloud"));
+    }
+
+    #[test]
+    fn sports_and_tv_settings_layer_over_defaults() {
+        let reg = Registry::from_json_over_defaults(
+            r#"{"sports":{"watch":[{"league":"MLS","country":"US","name":"Example TV","kind":"subscription"}]},"tv":{"hidden_channels":["Some.us"]}}"#,
+        )
+        .unwrap();
+        assert_eq!(reg.sports.watch.len(), 1);
+        assert_eq!(reg.sports.watch[0].name, "Example TV");
+        assert_eq!(reg.sports.thesportsdb_url, THESPORTSDB_URL, "untouched fields keep defaults");
+        assert!(reg.sports.sports.iter().any(|s| s == "Soccer"));
+        assert_eq!(reg.tv.hidden_channels, vec!["Some.us".to_string()]);
+        assert_eq!(reg.tv.api_url, IPTV_API_URL);
     }
 
     #[test]

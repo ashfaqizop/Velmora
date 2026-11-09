@@ -81,6 +81,14 @@ pub async fn search_stream(
     Ok(())
 }
 
+/// Looks over a search's results: the exact matches for the query, and the
+/// full list ranked best first. Pure and instant, so the page can call it
+/// after every batch.
+#[tauri::command]
+pub fn search_narrow(query: String, items: Vec<TitleSummary>) -> universeapi::relevance::Narrowed {
+    universeapi::relevance::narrow(&items, &query)
+}
+
 #[tauri::command]
 pub async fn detail(state: State<'_, AppState>, origin: ProviderRef) -> Result<TitleDetail, String> {
     let engine = state.engine.clone();
