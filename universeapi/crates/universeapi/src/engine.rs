@@ -588,6 +588,13 @@ mod tests {
         assert_send(e.home());
         assert_send(e.search("x"));
         assert_send(e.search_smart("x"));
+        assert_send(e.sports().today());
+        assert_send(e.sports().live());
+        assert_send(e.sports().upcoming(2));
+        assert_send(e.sports().results(2));
+        assert_send(e.sports().lookup("tsdb:1"));
+        assert_send(e.tv().channels(&crate::tv::TvQuery::default()));
+        assert_send(e.tv().check("x"));
         assert_send(e.search_stream("x").collect::<Vec<_>>());
         assert_send(e.detail(r));
         assert_send(e.sources(t, Target::Movie, AudioMode::Sub));

@@ -27,6 +27,23 @@ npm run build    # static files in dist/
 
 Every push to `main` that touches `site/` redeploys. To skip builds for app-only commits, set Project → Settings → Git → Ignored Build Step to `git diff --quiet HEAD^ HEAD -- .`.
 
+## Sports cache proxy
+
+`api/sports/[...path].js` is a small Vercel function that proxies TheSportsDB and football-data.org. It holds the keys (`SPORTSDB_KEY` and `FOOTBALL_DATA_TOKEN`, set in Vercel and never committed), calls each API at most once a minute per URL, and lets Vercel's cache answer everyone else. That keeps the keys out of the app and out of the installer, and stops many users from sharing one free-tier limit.
+
+To switch the app over, edit `registry.json` on the repo's `config` branch (no app release needed):
+
+```json
+{
+  "sports": {
+    "thesportsdb_url": "https://YOUR-SITE/api/sports/thesportsdb",
+    "football_data_url": "https://YOUR-SITE/api/sports/football-data"
+  }
+}
+```
+
+With the URLs pointed here the engine needs no keys at all. The function only allows the endpoints Velmora uses, and only GET. It doesn't log anything itself, but Vercel keeps its own request logs, which include the caller's IP, so the privacy policy should say so.
+
 ## Ads
 
 | Variable | Adsterra format | Where it shows |

@@ -20,6 +20,7 @@ The part that finds and resolves links is a separate Rust library, the [Universe
 
 - Search every source at once. Results stream in as each site answers, and the same title from different sites shows up once.
 - Play inside the app with libmpv, so MKV, HEVC, AC3 and 4K files play without extra codecs. If a link fails, the next one starts at the same spot.
+- Sports on Home and a Sports page: live scores, fixtures and results, with official "where to watch" for each match, and a Live TV page of free channels from a public playlist.
 - Sound options in the player and in Settings: Dialogue boost, Night mode, Even out volume, and volume up to 200%.
 - Pick up where you stopped. Continue Watching remembers the exact second, and the end of an episode offers the next one.
 - Download movies and episodes for offline viewing, with pause, resume and a queue, to a folder you choose. Downloads are stored in Velmora's own format and play only inside the app.
@@ -100,7 +101,7 @@ Parts that ship with or alongside the app keep their own licenses:
 | [tauri-plugin-libmpv](https://github.com/nini22P/tauri-plugin-libmpv) | MPL-2.0 |
 | libmpv ([mpv-winbuild](https://github.com/zhongfly/mpv-winbuild), LGPL build) | LGPL-2.1-or-later |
 | ffmpeg ([gyan.dev](https://www.gyan.dev/ffmpeg/builds/) essentials build) | GPL-3.0 |
-| Instrument Serif, Plus Jakarta Sans | SIL Open Font License 1.1 |
+| Instrument Serif, Bricolage Grotesque | SIL Open Font License 1.1 |
 | Material Symbols | Apache-2.0 |
 | [humanizer](https://github.com/blader/humanizer) skill, bundled for Ani | MIT |
 

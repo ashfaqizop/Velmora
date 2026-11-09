@@ -9,7 +9,10 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
 use universeapi::model::{AudioMode, ProviderRef, Rail, Source, Target, TitleDetail, TitleSummary};
 use universeapi::download::{DownloadRequest, DownloadStatus, LocalFile};
+use universeapi::sports::watch::WatchOption;
+use universeapi::sports::{Match, SportsDay};
 use universeapi::torrent::TorrentProgress;
+use universeapi::tv::{Facet, StreamHealth, TvChannel, TvPage, TvQuery};
 use universeapi::{Preferences, SearchBatch, SourcesReport};
 
 use crate::{prefs, runtime, sync, AppState, StreamSession};
@@ -87,6 +90,97 @@ pub async fn search_stream(
 #[tauri::command]
 pub fn search_narrow(query: String, items: Vec<TitleSummary>) -> universeapi::relevance::Narrowed {
     universeapi::relevance::narrow(&items, &query)
+}
+
+// ── Sports ──────────────────────────────────────────────────────────────
+
+/// One UTC day of matches (today when `date` is empty), merged across sources.
+#[tauri::command]
+pub async fn sports_day(state: State<'_, AppState>, date: Option<String>) -> Result<SportsDay, String> {
+    let engine = state.engine.clone();
+    let day = match date {
+        Some(d) => engine.sports().day(&d).await,
+        None => engine.sports().today().await,
+    };
+    day.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn sports_live(state: State<'_, AppState>) -> Result<Vec<Match>, String> {
+    let engine = state.engine.clone();
+    engine.sports().live().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn sports_upcoming(state: State<'_, AppState>, days: u32) -> Result<Vec<Match>, String> {
+    let engine = state.engine.clone();
+    engine.sports().upcoming(days).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn sports_results(state: State<'_, AppState>, days: u32) -> Result<Vec<Match>, String> {
+    let engine = state.engine.clone();
+    engine.sports().results(days).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn sports_lookup(state: State<'_, AppState>, id: String) -> Result<Match, String> {
+    let engine = state.engine.clone();
+    engine.sports().lookup(&id).await.map_err(|e| e.to_string())
+}
+
+/// Official broadcasters for a match in a country (ISO code).
+#[tauri::command]
+pub async fn sports_watch(state: State<'_, AppState>, item: Match, country: String) -> Result<Vec<WatchOption>, String> {
+    let engine = state.engine.clone();
+    Ok(engine.sports_watch(&item, &country).await)
+}
+
+// ── Live TV ─────────────────────────────────────────────────────────────
+
+#[tauri::command]
+pub async fn tv_channels(state: State<'_, AppState>, query: TvQuery) -> Result<TvPage, String> {
+    let engine = state.engine.clone();
+    engine.tv().channels(&query).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tv_channel(state: State<'_, AppState>, id: String) -> Result<Option<TvChannel>, String> {
+    let engine = state.engine.clone();
+    engine.tv().channel(&id).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tv_countries(state: State<'_, AppState>) -> Result<Vec<Facet>, String> {
+    let engine = state.engine.clone();
+    engine.tv().countries().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn tv_categories(state: State<'_, AppState>) -> Result<Vec<Facet>, String> {
+    let engine = state.engine.clone();
+    engine.tv().categories().await.map_err(|e| e.to_string())
+}
+
+/// Probes a channel's streams; used to show which ones answer.
+#[tauri::command]
+pub async fn tv_check(state: State<'_, AppState>, id: String) -> Result<Vec<StreamHealth>, String> {
+    let engine = state.engine.clone();
+    engine.tv().check(&id).await.map_err(|e| e.to_string())
+}
+
+/// A channel's streams as sources, best first, for the player's usual
+/// "next source" fallback.
+#[tauri::command]
+pub async fn tv_sources(state: State<'_, AppState>, id: String) -> Result<Vec<Source>, String> {
+    let engine = state.engine.clone();
+    let channel = engine
+        .tv()
+        .channel(&id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("channel {id} is not available"))?;
+    Ok((0..channel.streams.len()).filter_map(|i| channel.source(i)).collect())
 }
 
 #[tauri::command]

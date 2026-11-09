@@ -12,6 +12,9 @@
   import Downloads from "../pages/Downloads.svelte";
   import Settings from "../pages/Settings.svelte";
   import Ani from "../pages/Ani.svelte";
+  import Live from "../pages/Live.svelte";
+  import Sports from "../pages/Sports.svelte";
+  import Match from "../pages/Match.svelte";
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import { ani, feed, library, nav, network } from "../lib/state.svelte";
@@ -96,6 +99,12 @@
           <Settings />
         {:else if nav.route.name === "ani"}
           <Ani />
+        {:else if nav.route.name === "live"}
+          <Live />
+        {:else if nav.route.name === "sports"}
+          <Sports />
+        {:else if nav.route.name === "match"}
+          <Match match={nav.route.match} />
         {:else if nav.route.name === "list"}
           <Grid title={nav.route.title} subtitle="From Ani" items={nav.route.items} />
         {:else if nav.route.name === "search"}

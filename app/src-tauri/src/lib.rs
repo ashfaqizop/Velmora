@@ -20,6 +20,10 @@ use universeapi::{Engine, EngineOptions, Preferences};
 /// Local and CI check builds have none and use Cinemeta instead.
 const TMDB_READ_TOKEN: Option<&str> = option_env!("VELMORA_TMDB_READ_TOKEN");
 const TMDB_API_KEY: Option<&str> = option_env!("VELMORA_TMDB_API_KEY");
+/// Sports keys, injected the same way. Without them the engine uses TheSportsDB's
+/// free test key and skips football-data.org.
+const SPORTSDB_KEY: Option<&str> = option_env!("VELMORA_SPORTSDB_KEY");
+const FOOTBALL_DATA_TOKEN: Option<&str> = option_env!("VELMORA_FOOTBALL_DATA_TOKEN");
 
 pub struct AppState {
     pub engine: Arc<Engine>,
@@ -114,6 +118,18 @@ pub fn run() {
             commands::home,
             commands::search_stream,
             commands::search_narrow,
+            commands::sports_day,
+            commands::sports_live,
+            commands::sports_upcoming,
+            commands::sports_results,
+            commands::sports_lookup,
+            commands::sports_watch,
+            commands::tv_channels,
+            commands::tv_channel,
+            commands::tv_countries,
+            commands::tv_categories,
+            commands::tv_check,
+            commands::tv_sources,
             commands::detail,
             commands::sources,
             commands::open_stream,
@@ -161,6 +177,8 @@ fn build_engine(app: &App, preferences: Preferences) -> Result<Engine, Box<dyn s
     let mut registry = Registry::default();
     registry.tmdb_read_token = TMDB_READ_TOKEN.filter(|s| !s.is_empty()).map(str::to_string);
     registry.tmdb_api_key = TMDB_API_KEY.filter(|s| !s.is_empty()).map(str::to_string);
+    registry.thesportsdb_key = SPORTSDB_KEY.filter(|s| !s.is_empty()).map(str::to_string);
+    registry.football_data_token = FOOTBALL_DATA_TOKEN.filter(|s| !s.is_empty()).map(str::to_string);
     // UNIVERSEAPI_* env vars still win, which helps when debugging locally.
     let registry = registry.with_env_overrides();
 

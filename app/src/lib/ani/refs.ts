@@ -1,8 +1,8 @@
 // Short references for things Ani found ("t3" for a title, "l2" for a link,
-// "p1" for a person). Tools hand Gemini the ref instead of the full object,
+// "p1" for a person, "m2" for a match, "c1" for a TV channel). Tools hand Gemini the ref instead of the full object,
 // and generative UI blocks name refs, so every poster, link and button in a
 // reply comes from real data rather than from the model's memory.
-import type { Source, Target, TitleSummary } from "../types";
+import type { SportsMatch, Source, Target, TitleSummary, TvChannel } from "../types";
 
 export interface PersonRef {
   name: string;
@@ -20,10 +20,13 @@ export interface PersonRef {
 export type Entity =
   | { type: "title"; title: TitleSummary }
   | { type: "link"; source: Source; title: TitleSummary; target: Target }
-  | { type: "person"; person: PersonRef };
+  | { type: "person"; person: PersonRef }
+  | { type: "match"; match: SportsMatch }
+  | { type: "channel"; channel: TvChannel };
 
 export interface RefData {
-  next: { t: number; l: number; p: number };
+  /** `m` and `c` are missing in chats saved before sports and live TV existed. */
+  next: { t: number; l: number; p: number; m?: number; c?: number };
   items: Record<string, Entity>;
 }
 
@@ -72,6 +75,36 @@ export class RefBook {
   addLink(source: Source, title: TitleSummary, target: Target): string {
     const ref = `l${++this.data.next.l}`;
     this.data.items[ref] = { type: "link", source, title, target };
+    return ref;
+  }
+
+  match(ref: string): SportsMatch | undefined {
+    const e = this.get(ref);
+    return e?.type === "match" ? e.match : undefined;
+  }
+
+  channel(ref: string): TvChannel | undefined {
+    const e = this.get(ref);
+    return e?.type === "channel" ? e.channel : undefined;
+  }
+
+  /** A match keeps one ref however often it turns up, with its newest data. */
+  addMatch(match: SportsMatch): string {
+    const same = Object.entries(this.data.items).find(([, e]) => e.type === "match" && e.match.id === match.id);
+    if (same) {
+      (same[1] as { type: "match"; match: SportsMatch }).match = match;
+      return same[0];
+    }
+    const ref = `m${(this.data.next.m = (this.data.next.m ?? 0) + 1)}`;
+    this.data.items[ref] = { type: "match", match };
+    return ref;
+  }
+
+  addChannel(channel: TvChannel): string {
+    const same = Object.entries(this.data.items).find(([, e]) => e.type === "channel" && e.channel.id === channel.id);
+    if (same) return same[0];
+    const ref = `c${(this.data.next.c = (this.data.next.c ?? 0) + 1)}`;
+    this.data.items[ref] = { type: "channel", channel };
     return ref;
   }
 

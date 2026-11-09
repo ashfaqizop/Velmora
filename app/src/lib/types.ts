@@ -102,6 +102,95 @@ export interface SearchBatch {
   error?: string;
 }
 
+// ── Sports and live TV (mirrors the engine's serde shapes) ──────────────
+
+export type MatchStatus = "upcoming" | "live" | "finished" | "postponed" | "cancelled";
+
+export interface SportsMatch {
+  /** `tsdb:<id>` or `fd:<id>`. */
+  id: string;
+  source: "the_sports_db" | "football_data";
+  sport: string;
+  league: { id: string; name: string; badge?: string; country?: string };
+  /** "Home vs Away", or the event name for sports without teams. */
+  title: string;
+  home?: { name: string; badge?: string };
+  away?: { name: string; badge?: string };
+  status: MatchStatus;
+  /** Unix seconds (UTC). */
+  kickoff?: number;
+  home_score?: number;
+  away_score?: number;
+  phase?: string;
+  venue?: string;
+  round?: string;
+}
+
+export interface SportsDay {
+  date: string;
+  matches: SportsMatch[];
+  sources: string[];
+  errors: string[];
+  delayed: boolean;
+}
+
+export interface WatchOption {
+  name: string;
+  country: string;
+  kind: "free" | "subscription" | "unknown";
+  url?: string;
+  source: string;
+  /** A free channel in the TV library the app can play. */
+  play_channel?: string;
+  logo?: string;
+}
+
+export interface TvStream {
+  url: string;
+  quality?: string;
+  referrer?: string;
+  user_agent?: string;
+  geo_blocked: boolean;
+  not_24_7: boolean;
+}
+
+export interface TvChannel {
+  id: string;
+  name: string;
+  country?: string;
+  network?: string;
+  categories: string[];
+  website?: string;
+  logo?: string;
+  streams: TvStream[];
+}
+
+export interface TvQuery {
+  country?: string;
+  category?: string;
+  text?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export interface TvPage {
+  total: number;
+  items: TvChannel[];
+}
+
+export interface Facet {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface StreamHealth {
+  url: string;
+  ok: boolean;
+  status: number;
+  detail?: string;
+}
+
 /** A search looked over: the exact matches (if any) and everything, best first. */
 export interface Narrowed {
   exact: TitleSummary[];

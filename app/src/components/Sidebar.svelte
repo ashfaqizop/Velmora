@@ -10,6 +10,8 @@
     { label: "Movies", icon: "movie", route: { name: "browse", kind: "movie" } },
     { label: "Series", icon: "tv", route: { name: "browse", kind: "series" } },
     { label: "Anime", icon: "animation", route: { name: "browse", kind: "anime" } },
+    { label: "Live TV", icon: "live_tv", route: { name: "live" } },
+    { label: "Sports", icon: "sports_soccer", route: { name: "sports" } },
     { label: "My List", icon: "bookmarks", route: { name: "mylist" } },
     { label: "Downloads", icon: "download", route: { name: "downloads" } },
     { label: "Settings", icon: "settings", route: { name: "settings" } },
@@ -21,6 +23,8 @@
 
   function isActive(r: Route) {
     const cur = nav.route;
+    // A match belongs under Sports.
+    if (r.name === "sports" && cur.name === "match") return true;
     if (cur.name !== r.name) return false;
     if (cur.name === "browse" && r.name === "browse") return cur.kind === r.kind;
     return true;

@@ -86,6 +86,7 @@ pub struct TvLibrary {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TvQuery {
     /// ISO country code.
     pub country: Option<String>,

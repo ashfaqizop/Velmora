@@ -68,7 +68,15 @@ const universeSearch: ResearchTool = {
       if (b.items.length) answered.push(b.provider);
       found.push(...b.items);
     });
-    return { titles: briefs(found, refs, 15), sources_with_results: answered.length };
+    // If one of the results is exactly the title asked for, the rest is noise.
+    const looked = await api.searchNarrow(q(args), found).catch(() => null);
+    const exact = !!looked?.exact.length;
+    return {
+      exact_match: exact,
+      titles: briefs(exact ? looked.exact : (looked?.ranked ?? found), refs, 15),
+      sources_with_results: answered.length,
+      ...(exact ? { note: "These are exact title matches; looser results were left out. Search again with other words if none is right." } : {}),
+    };
   },
 };
 

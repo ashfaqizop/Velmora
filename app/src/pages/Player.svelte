@@ -19,7 +19,7 @@
   import { isTorrent, providerName, sourceChips, sourceTitle } from "../lib/sources";
   import { torrentConsent } from "../lib/overlays";
   import { slider } from "../lib/slider";
-  import type { AudioMode, OpenedStream, Source, SourcesReport, Target, TitleDetail, TitleSummary } from "../lib/types";
+  import type { AudioMode, OpenedStream, Source, SourcesReport, Target, TitleDetail, TitleSummary, TvChannel } from "../lib/types";
   import { formatTime, library, nav, nextEpisode, targetLabel } from "../lib/state.svelte";
 
   let {
@@ -28,7 +28,11 @@
     mode,
     detail,
     file,
-  }: { title: TitleSummary; target: Target; mode: AudioMode; detail?: TitleDetail; file?: string } = $props();
+    channel,
+  }: { title: TitleSummary; target: Target; mode: AudioMode; detail?: TitleDetail; file?: string; channel?: TvChannel } = $props();
+
+  /** A live TV channel: no seeking, no history, no "watched" sync. */
+  const live = $derived(!!channel);
 
   const OBSERVED = [
     ["pause", "flag"],
@@ -167,6 +171,25 @@
       return;
     }
 
+    if (channel) {
+      // Live TV: the channel's streams stand in for the source search, so the
+      // usual "this one failed, try the next" fallback works as it does for films.
+      status = "Finding the stream";
+      try {
+        report = { sources: await api.tvSources(channel.id), errors: [] };
+      } catch (e) {
+        fail(String(e));
+        return;
+      }
+      if (!alive) return;
+      if (!report.sources.length) {
+        fail("This channel has no stream right now.");
+        return;
+      }
+      await play(0, 0);
+      return;
+    }
+
     if (file) {
       // Offline: a finished download. Vault files come back as a loopback URL
       // that decrypts on the fly; older plain files play from their path.
@@ -226,7 +249,11 @@
         tracks = (ev.data as MpvTrack[]) ?? [];
         break;
       case "eof-reached":
-        if (ev.data === true && !ended) onEnded();
+        // A live stream that ends has dropped; try the next one.
+        if (ev.data === true && !ended) {
+          if (live) onSourceFailed();
+          else onEnded();
+        }
         break;
     }
   }
@@ -279,7 +306,7 @@
     }
     clearInterval(saveTimer);
     saveTimer = setInterval(saveProgress, 10_000);
-    if (!streamed) {
+    if (!streamed && !live) {
       streamed = true;
       const src = report?.sources[current];
       personalize.stream(title, target, file ? "download" : src ? providerName(src) : "unknown");
@@ -342,7 +369,7 @@
   let finished = false;
 
   function saveProgress() {
-    if (phase !== "playing" || duration <= 0) return;
+    if (live || phase !== "playing" || duration <= 0) return;
     library.saveProgress(title, target, time, duration);
     if (!finished && time / duration >= 0.95) {
       finished = true;
@@ -496,10 +523,10 @@
         togglePause();
         break;
       case "ArrowLeft":
-        seekBy(-10);
+        if (!live) seekBy(-10);
         break;
       case "ArrowRight":
-        seekBy(10);
+        if (!live) seekBy(10);
         break;
       case "ArrowUp":
         setVolume(Math.min(sound.maxVolume, volume + 5));
@@ -610,6 +637,12 @@
 
   {#if phase === "playing" && (controls || paused)}
     <footer class="bottom" transition:fade={{ duration: 200 }}>
+      {#if live}
+        <div class="timeline">
+          <span class="live-pill"><i></i>LIVE</span>
+          {#if channel?.country}<span class="live-meta">{channel.country}</span>{/if}
+        </div>
+      {:else}
       <div class="timeline">
         <span class="time">{formatTime(seeking ?? time, duration >= 3600)}</span>
         <m3e-slider
@@ -624,17 +657,20 @@
         </m3e-slider>
         <span class="time">{formatTime(duration, duration >= 3600)}</span>
       </div>
+      {/if}
 
       <div class="buttons">
         <m3e-icon-button variant="filled" size="medium" aria-label={paused ? "Play" : "Pause"} onclick={togglePause}>
           <m3e-icon name={paused ? "play_arrow" : "pause"} filled></m3e-icon>
         </m3e-icon-button>
-        <m3e-icon-button aria-label="Back 10 seconds" onclick={() => seekBy(-10)}>
-          <m3e-icon name="replay_10"></m3e-icon>
-        </m3e-icon-button>
-        <m3e-icon-button aria-label="Forward 10 seconds" onclick={() => seekBy(10)}>
-          <m3e-icon name="forward_10"></m3e-icon>
-        </m3e-icon-button>
+        {#if !live}
+          <m3e-icon-button aria-label="Back 10 seconds" onclick={() => seekBy(-10)}>
+            <m3e-icon name="replay_10"></m3e-icon>
+          </m3e-icon-button>
+          <m3e-icon-button aria-label="Forward 10 seconds" onclick={() => seekBy(10)}>
+            <m3e-icon name="forward_10"></m3e-icon>
+          </m3e-icon-button>
+        {/if}
         {#if next}
           <m3e-icon-button aria-label="Next episode" onclick={playNext}>
             <m3e-icon name="skip_next"></m3e-icon>
@@ -860,6 +896,35 @@
     align-items: center;
     gap: 6px;
     --m3e-icon-button-icon-color: #fff;
+  }
+  .live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 12px 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    background: rgb(255 59 71 / 22%);
+    color: #ff8a92;
+  }
+  .live-pill i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff3b47;
+    box-shadow: 0 0 0 0 rgb(255 59 71 / 60%);
+    animation: live-pulse 1.6s infinite;
+  }
+  .live-meta {
+    font-size: 13px;
+    opacity: 0.7;
+  }
+  @keyframes live-pulse {
+    to {
+      box-shadow: 0 0 0 8px rgb(255 59 71 / 0%);
+    }
   }
   .volume {
     display: flex;

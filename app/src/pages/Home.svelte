@@ -3,7 +3,17 @@
   import Rail from "../components/Rail.svelte";
   import Poster from "../components/Poster.svelte";
   import ContinueCard from "../components/ContinueCard.svelte";
+  import SportsRail from "../components/SportsRail.svelte";
+  import { onMount } from "svelte";
+  import { sports } from "../lib/live.svelte";
   import { feed, keyOf, library, nav } from "../lib/state.svelte";
+
+  // Scores: load when Home opens, then refresh once a minute while it's open.
+  onMount(() => {
+    sports.load();
+    const timer = setInterval(() => sports.load(), 60_000);
+    return () => clearInterval(timer);
+  });
 
   /** One colour per collection chip. */
   const DOTS = ["#ff6b6b", "#ffb547", "#5ad17a", "#4fa3ff", "#a77bff", "#ff7ad9", "#3fd3c6", "#c792ea"];
@@ -43,6 +53,8 @@
       {/each}
     </Rail>
   {/if}
+
+  <SportsRail />
 
   {#if feed.loading}
     <Rail title="Trending movies" icon="local_fire_department" loading />

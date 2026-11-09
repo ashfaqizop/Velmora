@@ -63,6 +63,16 @@ App info (read-only): `get_settings`, `sync_status`, `app_info`.
 
 `render_title_list`, `render_carousel`, `render_spotlight`, `render_title_compare`, `render_episodes`, `render_season_overview`, `render_watch_order`, `render_collection`, `render_download_links`, `render_torrents`, `render_link_compare`, `render_stream_links`, `render_cast`, `render_person`, `render_ratings`, `render_facts`, `render_trailer`, `render_gallery`, `render_schedule`, `render_progress`, `render_taste_profile`, `render_choices`, `render_about`. A passive "Ani noted" line shows every `profile_note`.
 
+## Sports and Live TV (0.3.0)
+
+Eight more research tools and three more blocks, in `tools/sports.ts`:
+
+- `sports_live`, `sports_upcoming`, `sports_results`, `sports_day` and `sports_match` return matches with refs (`m1`), `sports_where_to_watch` returns official broadcasters, `tv_find_channels` and `tv_check_channel` search and test the Live TV library (refs `c1`).
+- Blocks: `render_matches`, `render_where_to_watch` and `render_channels`.
+- `universe_search` now asks the engine which results exactly match the query and returns only those, with `exact_match: true`.
+
+The rule that matters: "where to watch" is about who has the rights. The tools list official broadcasters only, a channel gets a play button only when a hand-written registry rule names it (`free_channel_ref`), and the prompts tell Ani never to look for or suggest a stream of a match, or to pair a match with a channel by name. See `universeapi/README.md` for how the engine enforces it.
+
 ## Build plan
 
 Eight steps, two per commit and push. No tag or release without the user's say-so.
@@ -88,7 +98,7 @@ Eight steps, two per commit and push. No tag or release without the user's say-s
   - `chat.svelte.ts`: chats and sending.
   - `markdown.ts`: an escaping Markdown renderer.
   - `actions.ts`: what card buttons do.
-- `app/src/lib/ani/tools/`: `discovery.ts`, `links.ts` and `profile.ts` hold the 37 research tools, `render.ts` the 22 UI blocks, `index.ts` the registry and the note tools, and `shape.ts` the compact result shapes.
+- `app/src/lib/ani/tools/`: `discovery.ts`, `links.ts`, `profile.ts` and `sports.ts` hold the 45 research tools, `render.ts` the 26 UI blocks, `index.ts` the registry and the note tools, and `shape.ts` the compact result shapes.
 - `app/src/lib/ani/skills/`: `humanizer/` (upstream, unchanged), `velmora-tools.md`.
 - `app/src/components/ani/`: the message, the steps list, the block switch, and `blocks/` with one component per block family.
 - `app/src/pages/Ani.svelte`: the chat page.

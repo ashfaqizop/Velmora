@@ -38,6 +38,28 @@ export const KIND_ICON: Record<ChangeKind, string> = { new: "add_circle", improv
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.3.0",
+    date: "2026-11-09",
+    name: "Sports and Live TV",
+    summary: "Live scores and fixtures on Home, a Live TV page with free channels, Ani that knows both, and a search that finds the title you typed.",
+    color: "#ff5a5a",
+    shape: "sunny",
+    soon: true,
+    highlights: [
+      { icon: "sports_score", title: "Sports on Home", text: "Live now, upcoming and results in one rail, with a page for every match." },
+      { icon: "tv", title: "Where to watch", text: "Official broadcasters in your country, with a Play button for free channels that carry the match." },
+      { icon: "live_tv", title: "Live TV", text: "Browse channels by country and category, keep favorites, and watch in the built-in player." },
+      { icon: "wand_stars", title: "Ani knows sports", text: "Ask who plays tonight, what the score was, or where a match is on." },
+    ],
+    changes: [
+      { kind: "new", title: "Sports page and match pages", text: "Scores can run a few minutes behind, and the page says so." },
+      { kind: "new", title: "Live TV", text: "Channels come from a public playlist. Velmora hosts none of them, and some may not play." },
+      { kind: "new", title: "Ani: 8 more tools and 3 more cards", text: "Matches, where to watch and channels, all from real data." },
+      { kind: "improved", title: "Search", text: "If a result is exactly the title you typed, only that shows, with a button for the full list." },
+      { kind: "improved", title: "A new font", text: "Bricolage Grotesque for text, with Instrument Serif for headings as before." },
+    ],
+  },
+  {
     version: "0.2.2",
     date: "2026-11-01",
     name: "Better sound",

@@ -35,7 +35,7 @@
     {
       icon: "travel_explore",
       title: "It looks things up",
-      text: "A fast model calls Velmora's own tools: search, episodes, ratings, schedules, cast, links and your history. 37 tools in all.",
+      text: "A fast model calls Velmora's own tools: search, episodes, ratings, schedules, cast, links and your history. 45 tools in all, including live scores and Live TV channels.",
     },
     {
       icon: "edit_note",
@@ -213,7 +213,7 @@
       <div use:reveal>
         <span class="eyebrow">Answers you can use</span>
         <h2 class="title">Not just text. <em>Cards.</em></h2>
-        <p class="lead">Ani picks from 23 kinds of cards to show its answer. These are some of them.</p>
+        <p class="lead">Ani picks from 26 kinds of cards to show its answer. These are some of them.</p>
       </div>
       <div class="blocks swipe" bind:this={blocksTrack}>
         {#each BLOCKS as [icon, name, text], i (name)}

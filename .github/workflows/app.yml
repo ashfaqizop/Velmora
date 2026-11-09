@@ -68,6 +68,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
           VELMORA_TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
           VELMORA_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          VELMORA_SPORTSDB_KEY: ${{ secrets.SPORTSDB_KEY }}
+          VELMORA_FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
           VELMORA_ANILIST_CLIENT_ID: ${{ secrets.ANILIST_CLIENT_ID }}
           VELMORA_TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
         with:
@@ -88,6 +90,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
           VELMORA_TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
           VELMORA_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          VELMORA_SPORTSDB_KEY: ${{ secrets.SPORTSDB_KEY }}
+          VELMORA_FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
           VELMORA_ANILIST_CLIENT_ID: ${{ secrets.ANILIST_CLIENT_ID }}
           VELMORA_TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
         shell: bash

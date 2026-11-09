@@ -1,6 +1,6 @@
 :root {
-  /* Plus Jakarta Sans for text, Instrument Serif for headings and titles (both OFL, bundled). */
-  --app-font: "Plus Jakarta Sans Variable", "Segoe UI Variable Text", system-ui, sans-serif;
+  /* Bricolage Grotesque for text, Instrument Serif for headings and titles (both OFL, bundled). */
+  --app-font: "Bricolage Grotesque Variable", "Segoe UI Variable Text", system-ui, sans-serif;
   --app-display-font: "Instrument Serif", Georgia, serif;
   --app-titlebar-height: 72px;
   --app-sidebar-width: 256px;

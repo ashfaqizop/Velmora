@@ -9,9 +9,11 @@ import type {
   MediaKind,
   Preferences,
   Rail,
+  SportsMatch,
   Target,
   TitleDetail,
   TitleSummary,
+  TvChannel,
 } from "./types";
 
 export type Browse = "movie" | "series" | "anime";
@@ -26,6 +28,9 @@ export type Route =
   | { name: "title"; title: TitleSummary }
   | { name: "settings" }
   | { name: "ani" }
+  | { name: "live" }
+  | { name: "sports" }
+  | { name: "match"; match: SportsMatch }
   /** A list Ani showed, opened in full from "See all". */
   | { name: "list"; title: string; items: TitleSummary[] }
   | {
@@ -36,6 +41,8 @@ export type Route =
       detail?: TitleDetail;
       /** A finished download to play offline instead of looking up sources. */
       file?: string;
+      /** A live TV channel: its streams stand in for the source search. */
+      channel?: TvChannel;
     };
 
 class Nav {

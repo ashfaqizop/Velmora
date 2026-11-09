@@ -37,7 +37,7 @@
 {#if nav.route.name === "player"}
   {@const r = nav.route}
   {#key r}
-    <Player title={r.title} target={r.target} mode={r.mode} detail={r.detail} file={r.file} />
+    <Player title={r.title} target={r.target} mode={r.mode} detail={r.detail} file={r.file} channel={r.channel} />
   {/key}
 {/if}
 

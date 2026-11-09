@@ -43,7 +43,7 @@
       ["code", "Open source Rust library, GPL-3.0"],
     ],
     ani: [
-      ["psychology", "Looks things up with 37 Velmora tools before answering"],
+      ["psychology", "Looks things up with 45 Velmora tools before answering"],
       ["person_heart", "Learns your taste from what you search, watch and download"],
       ["view_carousel", "Answers with cards you can play, save or download from"],
       ["key", "Runs on Gemini with your own key, kept on this PC"],

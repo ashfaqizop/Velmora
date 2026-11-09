@@ -20,6 +20,9 @@
   import Taste from "./blocks/Taste.svelte";
   import Choices from "./blocks/Choices.svelte";
   import AboutCard from "./blocks/AboutCard.svelte";
+  import MatchList from "./blocks/MatchList.svelte";
+  import WhereToWatch from "./blocks/WhereToWatch.svelte";
+  import Channels from "./blocks/Channels.svelte";
 
   // One generative UI block: each render_* function maps to a component.
   // `live` is true on the latest reply, where choice chips can still be tapped.
@@ -74,6 +77,12 @@
       <Choices {args} {live} />
     {:else if name === "render_about"}
       <AboutCard {args} />
+    {:else if name === "render_matches"}
+      <MatchList {args} {refs} />
+    {:else if name === "render_where_to_watch"}
+      <WhereToWatch {args} {refs} />
+    {:else if name === "render_channels"}
+      <Channels {args} {refs} />
     {/if}
   </div>
 {/if}

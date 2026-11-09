@@ -22,6 +22,8 @@ function ui(decl: FunctionDeclaration, check: Check): AnswerTool {
 
 const isTitle = (refs: RefBook, r: unknown) => typeof r === "string" && !!refs.title(r) && refs.get(r)?.type === "title";
 const isLink = (refs: RefBook, r: unknown) => typeof r === "string" && refs.get(r)?.type === "link";
+const isMatch = (refs: RefBook, r: unknown) => typeof r === "string" && !!refs.match(r);
+const isChannel = (refs: RefBook, r: unknown) => typeof r === "string" && !!refs.channel(r);
 const missing = (kind: string) => ({ error: `None of those refs are ${kind} from this chat. Use refs from the research notes.` });
 
 const S = {
@@ -461,6 +463,42 @@ const about = ui(
   },
 );
 
+const matches = ui(
+  {
+    name: "render_matches",
+    description:
+      "Match cards: league, status (live, kickoff time or full time), both teams and the score. Use for live scores, fixtures and results. Pass match refs from the sports tools. Tapping a card opens the match page.",
+    parameters: { type: "object", properties: { heading: S.str(), refs: S.refs("Match refs from the sports tools.") }, required: ["refs"] },
+  },
+  (args, refs) => {
+    const list = strs(args.refs).filter((r) => isMatch(refs, r));
+    return list.length ? { args: { heading: str(args.heading), refs: list.slice(0, 12) } } : missing("matches");
+  },
+);
+
+const whereToWatch = ui(
+  {
+    name: "render_where_to_watch",
+    description:
+      "Where to watch one match: official broadcasters and services in the user's country, with a Play button for free channels that carry it. Use when asked where or how to watch a match. Pass one match ref.",
+    parameters: { type: "object", properties: { ref: S.str("A match ref.") }, required: ["ref"] },
+  },
+  (args, refs) => (isMatch(refs, args.ref) ? { args: { ref: args.ref } } : missing("matches")),
+);
+
+const channelCards = ui(
+  {
+    name: "render_channels",
+    description:
+      "Live TV channel cards, each with a button that opens it in the player. Use for questions about which channels are available. Pass channel refs from tv_find_channels.",
+    parameters: { type: "object", properties: { heading: S.str(), refs: S.refs("Channel refs from tv_find_channels.") }, required: ["refs"] },
+  },
+  (args, refs) => {
+    const list = strs(args.refs).filter((r) => isChannel(refs, r));
+    return list.length ? { args: { heading: str(args.heading), refs: list.slice(0, 12) } } : missing("channels");
+  },
+);
+
 export const renderTools: AnswerTool[] = [
   titleList,
   carousel,
@@ -485,4 +523,7 @@ export const renderTools: AnswerTool[] = [
   taste,
   choices,
   about,
+  matches,
+  whereToWatch,
+  channelCards,
 ];

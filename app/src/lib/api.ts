@@ -12,8 +12,16 @@ import type {
   Preferences,
   ProviderRef,
   Rail,
+  Facet,
   Narrowed,
   SearchBatch,
+  SportsDay,
+  SportsMatch,
+  StreamHealth,
+  TvChannel,
+  TvPage,
+  TvQuery,
+  WatchOption,
   Source,
   SourcesReport,
   Target,
@@ -61,6 +69,22 @@ export function searchStream(query: string, onBatch: (b: SearchBatch) => void): 
 
 /** The exact matches for a query among its results, and the full list ranked. */
 export const searchNarrow = (query: string, items: TitleSummary[]) => invoke<Narrowed>("search_narrow", { query, items });
+
+// ── Sports and live TV ──
+
+export const sportsDay = (date?: string) => invoke<SportsDay>("sports_day", { date: date ?? null });
+export const sportsLive = () => invoke<SportsMatch[]>("sports_live");
+export const sportsUpcoming = (days: number) => invoke<SportsMatch[]>("sports_upcoming", { days });
+export const sportsResults = (days: number) => invoke<SportsMatch[]>("sports_results", { days });
+export const sportsLookup = (id: string) => invoke<SportsMatch>("sports_lookup", { id });
+export const sportsWatch = (item: SportsMatch, country: string) => invoke<WatchOption[]>("sports_watch", { item, country });
+
+export const tvChannels = (query: TvQuery) => invoke<TvPage>("tv_channels", { query });
+export const tvChannel = (id: string) => invoke<TvChannel | null>("tv_channel", { id });
+export const tvCountries = () => invoke<Facet[]>("tv_countries");
+export const tvCategories = () => invoke<Facet[]>("tv_categories");
+export const tvCheck = (id: string) => invoke<StreamHealth[]>("tv_check", { id });
+export const tvSources = (id: string) => invoke<Source[]>("tv_sources", { id });
 
 export const sources = (title: TitleSummary, target: Target, mode: AudioMode) =>
   invoke<SourcesReport>("sources", { title, target, mode });

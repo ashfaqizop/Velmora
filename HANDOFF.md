@@ -8,6 +8,14 @@ Last updated 2026-11-01. v0.2.2 (sound options) is tagged and released.
 - The changelog is hand-written in `site/src/lib/changes.ts`. Add each new release at the top; `soon: true` shows it as "In testing" until it ships.
 - Download buttons and download counts come from the GitHub releases API (installer `.exe` assets only). Adsterra ads are configured with Vercel env vars, never committed.
 
+## v0.3.0: sports and live TV (built, not tagged)
+
+- Engine: `universeapi/crates/universeapi/src/{sports,tv,relevance}`. See `universeapi/README.md`. Smoke checks are in `universeapi-cli/src/smoke.rs`.
+- App: pages `Sports`, `Match`, `Live`, the Home rail `SportsRail`, stores in `app/src/lib/live.svelte.ts`, and the Player's live mode (a `channel` prop).
+- Ani: `tools/sports.ts` (8 tools), three new blocks, and `universe_search` narrows to exact matches.
+- Keys: `FOOTBALL_DATA_TOKEN` is a repo secret; `SPORTSDB_KEY` is optional (the free test key is the fallback). Both are baked into builds like the TMDB keys. `site/api/sports` is a caching proxy that keeps them out of the app: point `sports.*_url` in the registry at it to switch.
+- Not done: the Live TV program guide, followed leagues, and a fix for adult anime that comes from sources that don't tag it.
+
 ## v0.2.2: sound options
 
 - `app/src/lib/audio.svelte.ts` holds four switches in localStorage (`velmora.audio.*`) and builds the mpv `af` chain from them:
@@ -59,7 +67,7 @@ Last updated 2026-11-01. v0.2.2 (sound options) is tagged and released.
   - Push through `gh` as `ashfaqizop`.
 - **Commit, push and release only when the user says so.** Batch related fixes into one push. A small follow-up commit for a red build is fine.
 - **Writing style:** plain "humanizer" voice in replies, commits, docs and UI copy. No em dashes, no "not X but Y", no bold-label lists, no closing offers. The user invokes `/humanizer` for docs.
-- **@m3e/web everywhere**, used properly: real components, not lookalikes. Fonts are Instrument Serif (headings) and Plus Jakarta Sans (text). The seed colour is `#6015EA`, vibrant, dark.
+- **@m3e/web everywhere**, used properly: real components, not lookalikes. Fonts are Instrument Serif (headings) and Bricolage Grotesque (text). The seed colour is `#6015EA`, vibrant, dark.
 - **Credit UniverseAPI** wherever sources show up: the "Powered by UniverseAPI" mark is on the splash, the sidebar card, the search status card, About and the player snackbar. Never name the source sites in marketing.
 - **Ask before running a dev server or a browser** (headless or not). The user said yes once, for the slider repro.
 - **Never commit:**

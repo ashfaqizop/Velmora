@@ -1,4 +1,4 @@
-// Ani's tool registry: 37 research tools from the tool modules, and the
+// Ani's tool registry: 45 research tools from the tool modules, and the
 // answer tools (the Personalize notes, plus the generative UI blocks).
 import { personalize } from "../personalize.svelte";
 import type { AnswerTool, ResearchTool } from "./types";
@@ -7,8 +7,9 @@ import { discoveryTools } from "./discovery";
 import { linkTools } from "./links";
 import { profileTools } from "./profile";
 import { renderTools } from "./render";
+import { sportsTools } from "./sports";
 
-export const researchTools: ResearchTool[] = [...discoveryTools, ...linkTools, ...profileTools];
+export const researchTools: ResearchTool[] = [...discoveryTools, ...linkTools, ...profileTools, ...sportsTools];
 
 const profileNote: AnswerTool = {
   decl: {
