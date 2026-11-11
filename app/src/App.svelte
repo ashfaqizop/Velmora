@@ -8,6 +8,8 @@
   import Player from "./pages/Player.svelte";
   import { registerOverlays } from "./lib/overlays";
   import { downloads, feed, nav } from "./lib/state.svelte";
+  import { license } from "./lib/license.svelte";
+  import { ads } from "./lib/ads.svelte";
 
   let splash = $state(true);
   let onboarding = $state(false);
@@ -17,6 +19,8 @@
   // The shell renders under the splash so it is laid out when revealed;
   // the feed waits for the config refresh before calling the engine.
   feed.load();
+  // Max or Public decides whether ads run at all; the rules wait for that answer.
+  license.load().then(() => ads.init());
 
   onMount(() => {
     registerOverlays({

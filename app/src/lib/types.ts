@@ -349,3 +349,16 @@ export interface AniModel {
   id: string;
   displayName: string;
 }
+
+/** Velmora Max license, from src-tauri/src/license.rs. */
+export interface LicenseStatus {
+  tier: "public" | "max";
+  /** none, active, pending (not activated yet), expired (offline too long), revoked, other_device. */
+  state: "none" | "active" | "pending" | "expired" | "revoked" | "other_device";
+  id: string | null;
+  name: string | null;
+  /** Unix seconds: when Max stops if the license server can't be reached. */
+  validUntil: number | null;
+  /** Launches on this PC, this one included. */
+  launches: number;
+}

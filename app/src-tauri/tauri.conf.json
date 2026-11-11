@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "Velmora",
         "width": 1440,
         "height": 900,
@@ -35,7 +36,7 @@
         "style-src": "'self' 'unsafe-inline'",
         "font-src": "'self' data:",
         "script-src": "'self'",
-        "frame-src": "https://www.youtube-nocookie.com https://www.youtube.com",
+        "frame-src": "https://www.youtube-nocookie.com https://www.youtube.com https://getvelmora.dpdns.org",
         "connect-src": "'self' ipc: http://ipc.localhost http://127.0.0.1:*"
       }
     }

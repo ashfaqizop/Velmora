@@ -7,6 +7,7 @@ import type {
   AudioMode,
   ConfigStatus,
   DownloadStatus,
+  LicenseStatus,
   LocalFile,
   OpenedStream,
   Preferences,
@@ -165,3 +166,14 @@ export const tmdbList = (path: string, query: Record<string, string> = {}, field
 export const anilistFind = (filters: Record<string, unknown>) => invoke<TitleSummary[]>("anilist_find", { filters });
 export const anilistRaw = (query: string, variables: Record<string, unknown> = {}) =>
   invoke<unknown>("anilist_raw", { query, variables });
+
+export const licenseStatus = () => invoke<LicenseStatus>("license_status");
+/** Checks the key locally, then activates it on this PC. Rejects with a readable message. */
+export const licenseActivate = (key: string) => invoke<LicenseStatus>("license_activate", { key });
+/** Renews the activation if it's due; quiet when offline. */
+export const licenseRefresh = () => invoke<LicenseStatus>("license_refresh");
+export const licenseRemove = () => invoke<LicenseStatus>("license_remove");
+
+/** The ad rules from the site, or null when it can't be reached. */
+export const adsConfig = () => invoke<unknown>("ads_config");
+export const adsReport = (counts: Record<string, number>) => invoke<void>("ads_report", { counts });

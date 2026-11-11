@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "enabled": true,
+  "minLaunch": 2,
+  "graceSeconds": 120,
+  "refreshSeconds": 90,
+  "maxPerSession": 60,
+  "pauseDelaySeconds": 5,
+  "slots": {
+    "home": { "enabled": true, "unit": "native", "max": 8 },
+    "search": { "enabled": true, "unit": "native", "max": 8 },
+    "grid": { "enabled": true, "unit": "native", "max": 12 },
+    "title": { "enabled": true, "unit": "728x90", "max": 10 },
+    "downloads": { "enabled": true, "unit": "728x90", "max": 10 },
+    "sidebar": { "enabled": true, "unit": "160x300", "max": 20 },
+    "sports": { "enabled": true, "unit": "native", "max": 8 },
+    "live": { "enabled": true, "unit": "native", "max": 8 },
+    "pause": { "enabled": true, "unit": "300x250", "max": 10 },
+    "end": { "enabled": true, "unit": "300x250", "max": 10 }
+  }
+}

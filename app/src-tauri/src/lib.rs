@@ -1,8 +1,10 @@
 //! Velmora desktop/mobile shell: owns the UniverseAPI engine and exposes it
 //! to the web UI as Tauri commands.
 
+mod ads;
 mod ani;
 mod commands;
+mod license;
 mod prefs;
 mod runtime;
 mod stream;
@@ -69,6 +71,7 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            create_main_window(app)?;
             let paths = app.path();
             let config_dir = paths.app_config_dir()?;
             let prefs_file = prefs::path(&config_dir);
@@ -89,6 +92,7 @@ pub fn run() {
             let downloads = engine.downloads().clone();
             tauri::async_runtime::spawn(async move { downloads.remove_orphaned_parts().await });
             app.manage(ani::AniStore::load(&paths.app_local_data_dir()?));
+            app.manage(license::LicenseStore::load(&paths.app_local_data_dir()?));
             app.manage(AppState {
                 engine,
                 stream_port,
@@ -168,9 +172,40 @@ pub fn run() {
             ani::tmdb_list,
             ani::anilist_find,
             ani::anilist_raw,
+            license::license_status,
+            license::license_activate,
+            license::license_refresh,
+            license::license_remove,
+            ads::ads_config,
+            ads::ads_report,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");
+}
+
+/// The main window is made here rather than from the config so that links an
+/// ad (or a trailer) tries to open in a new window go to the default browser
+/// instead of a bare webview window.
+fn create_main_window(app: &App) -> Result<(), Box<dyn std::error::Error>> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "main")
+        .cloned()
+        .ok_or("the main window is missing from tauri.conf.json")?;
+    let handle = app.handle().clone();
+    tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?
+        .on_new_window(move |url, _features| {
+            if matches!(url.scheme(), "https" | "http") {
+                use tauri_plugin_opener::OpenerExt;
+                let _ = handle.opener().open_url(url.as_str(), None::<&str>);
+            }
+            tauri::webview::NewWindowResponse::Deny
+        })
+        .build()?;
+    Ok(())
 }
 
 fn build_engine(app: &App, preferences: Preferences) -> Result<Engine, Box<dyn std::error::Error>> {
