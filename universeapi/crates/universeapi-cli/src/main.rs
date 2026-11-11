@@ -6,6 +6,7 @@
 //! universeapi sources "frieren" --season 1 --episode 1
 //! universeapi sports live | upcoming | results | day 2026-11-09 | watch tsdb:123 --country US
 //! universeapi tv channels --country US --category sports --q espn
+//! universeapi music search "daft punk" | home | album MPRE... | radio <videoId> | play <videoId>
 //! universeapi smoke --report smoke.json      # live provider health (CI)
 //! ```
 
@@ -16,6 +17,7 @@ use std::path::PathBuf;
 use anyhow::{bail, Context};
 use clap::{Parser, Subcommand};
 use universeapi::model::{AudioMode, ProviderId, ProviderRef, Target};
+use universeapi::music::{MusicItem, SearchFilter, StreamMode};
 use universeapi::sports::{Match, MatchStatus};
 use universeapi::tv::TvQuery;
 use universeapi::{Engine, EngineOptions, Registry};
@@ -67,6 +69,11 @@ enum Cmd {
         #[command(subcommand)]
         what: TvCmd,
     },
+    /// YouTube Music, anonymously (no sign-in in the CLI).
+    Music {
+        #[command(subcommand)]
+        what: MusicCmd,
+    },
     /// Live smoke test of every provider and resolver.
     Smoke {
         /// Write a JSON report here.
@@ -98,6 +105,59 @@ enum SportsCmd {
         #[arg(long, default_value = "US")]
         country: String,
     },
+}
+
+#[derive(Subcommand)]
+enum MusicCmd {
+    /// Music Home shelves.
+    Home,
+    /// Charts, new releases, moods or explore.
+    Feed {
+        /// FEmusic_charts, FEmusic_new_releases, FEmusic_moods_and_genres, FEmusic_explore
+        browse_id: String,
+    },
+    /// Search songs, albums, artists, videos and playlists.
+    Search {
+        query: String,
+        /// all, songs, videos, albums, artists, playlists
+        #[arg(long, default_value = "all")]
+        filter: String,
+    },
+    Album {
+        id: String,
+    },
+    Artist {
+        id: String,
+    },
+    Playlist {
+        id: String,
+    },
+    /// Songs like this one.
+    Radio {
+        video_id: String,
+    },
+    Lyrics {
+        video_id: String,
+        #[arg(long, default_value = "")]
+        title: String,
+        #[arg(long, default_value = "")]
+        artist: String,
+    },
+    /// Resolve stream URLs through the managed yt-dlp.
+    Play {
+        video_id: String,
+        #[arg(long)]
+        video: bool,
+    },
+    /// Install or update the managed yt-dlp and show its version.
+    Ytdlp,
+}
+
+fn print_items(items: &[MusicItem]) {
+    for it in items {
+        let len = it.duration.map(|d| format!(" {}:{:02}", d / 60, d % 60)).unwrap_or_default();
+        println!("  [{:?}] {} · {}{} ({})", it.kind, it.title, it.subtitle.as_deref().unwrap_or(""), len, it.id);
+    }
 }
 
 #[derive(Subcommand)]
@@ -341,6 +401,109 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         },
+        Cmd::Music { what } => {
+            let music = engine.music();
+            match what {
+                MusicCmd::Home => {
+                    let page = music.home(None).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&page)?);
+                    } else {
+                        for s in &page.shelves {
+                            println!("{} ({:?}, {} items)", s.title, s.display, s.items.len());
+                            print_items(&s.items[..s.items.len().min(4)]);
+                        }
+                    }
+                }
+                MusicCmd::Feed { browse_id } => {
+                    let page = music.feed(&browse_id, None, None).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&page)?);
+                    } else {
+                        for s in &page.shelves {
+                            println!("{} ({} items)", s.title, s.items.len());
+                            print_items(&s.items[..s.items.len().min(4)]);
+                        }
+                    }
+                }
+                MusicCmd::Search { query, filter } => {
+                    let filter: SearchFilter = serde_json::from_value(serde_json::Value::String(filter))
+                        .context("filter is one of all, songs, videos, albums, artists, playlists")?;
+                    let r = music.search(&query, filter).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&r)?);
+                    } else {
+                        if let Some(t) = &r.top {
+                            println!("Top: [{:?}] {} ({})", t.kind, t.title, t.id);
+                        }
+                        for s in &r.shelves {
+                            println!("{}", s.title);
+                            print_items(&s.items);
+                        }
+                    }
+                }
+                MusicCmd::Album { id } => {
+                    let a = music.album(&id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&a)?);
+                    } else {
+                        let by = a.artists.iter().map(|x| x.name.as_str()).collect::<Vec<_>>().join(", ");
+                        println!("{} · {} · {:?} · {} tracks", a.title, by, a.year, a.tracks.len());
+                        print_items(&a.tracks);
+                    }
+                }
+                MusicCmd::Artist { id } => {
+                    let a = music.artist(&id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&a)?);
+                    } else {
+                        println!("{} · {:?}", a.name, a.subscribers);
+                        for s in &a.shelves {
+                            println!("{} ({} items)", s.title, s.items.len());
+                        }
+                    }
+                }
+                MusicCmd::Playlist { id } => {
+                    let p = music.playlist(&id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&p)?);
+                    } else {
+                        println!("{} · {:?} tracks · more: {}", p.title, p.track_count, p.next.is_some());
+                        print_items(&p.tracks);
+                    }
+                }
+                MusicCmd::Radio { video_id } => {
+                    let q = music.radio(&video_id).await?;
+                    if cli.json {
+                        println!("{}", serde_json::to_string_pretty(&q)?);
+                    } else {
+                        print_items(&q.tracks);
+                    }
+                }
+                MusicCmd::Lyrics { video_id, title, artist } => match music.lyrics(&video_id, &title, &artist, None).await? {
+                    Some(l) if cli.json => println!("{}", serde_json::to_string_pretty(&l)?),
+                    Some(l) => {
+                        println!("{} ({})", l.source, if l.synced { "synced" } else { "plain" });
+                        for line in &l.lines {
+                            match line.time {
+                                Some(t) => println!("  [{:>6.2}] {}", t, line.text),
+                                None => println!("  {}", line.text),
+                            }
+                        }
+                    }
+                    None => println!("No lyrics found."),
+                },
+                MusicCmd::Play { video_id, video } => {
+                    let mode = if video { StreamMode::Video } else { StreamMode::Audio };
+                    let r = music.resolve(&video_id, mode, 1080).await?;
+                    println!("{}", serde_json::to_string_pretty(&r)?);
+                }
+                MusicCmd::Ytdlp => {
+                    music.ytdlp().ensure().await?;
+                    println!("{}", serde_json::to_string_pretty(&music.ytdlp().status().await)?);
+                }
+            }
+        }
         Cmd::Smoke { report } => {
             let result = smoke::run(&engine).await;
             smoke::print(&result);

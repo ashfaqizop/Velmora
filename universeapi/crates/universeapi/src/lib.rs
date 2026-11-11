@@ -24,6 +24,7 @@ pub mod error;
 pub mod impersonate;
 pub mod metadata;
 pub mod model;
+pub mod music;
 pub mod net;
 pub mod providers;
 pub mod proxy;

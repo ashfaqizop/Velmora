@@ -105,6 +105,16 @@ Keys come from the environment, like TMDB: `UNIVERSEAPI_SPORTSDB_KEY` (without o
 
 Not here yet: the program guide (EPG). The playlist's `guides.json` only points at grabber sites; programme data needs the iptv-org EPG project.
 
+## Music
+
+`engine.music()` is a YouTube Music client: Home, charts, new releases, moods, search, album, artist and playlist pages, radio and up-next queues, lyrics, the signed-in library (liked songs, saved playlists, albums and artists), and likes and playlist edits. It talks to YouTube Music's own API (InnerTube, the `WEB_REMIX` client) like music.youtube.com does.
+
+- **Sign-in is the app's job.** The app reads the cookies from a Google sign-in window and passes them to `set_cookies`. Calls are then signed with `SAPISIDHASH`. Google rotates some cookies in ordinary responses, and a client that keeps sending the old ones gets signed out, so every `Set-Cookie` is merged back into the jar and `set_on_rotate` tells the app to save it. The module has its own HTTP client with no cookie store, so the jar is the only copy.
+- **Playback goes through a managed yt-dlp,** downloaded into `tools_dir` on first use and updated every 72 hours. Streams are resolved anonymously; the user's cookies never reach yt-dlp. `resolve` returns an audio URL, plus a video URL when asked.
+- **Lyrics** come from YouTube Music (synced when it has them, through the Android Music client) and then from LRCLIB.
+
+Much of this module is ported from [YTubic](https://github.com/NUber-dev/YTubic) by George Shyshov, a YouTube Music desktop client. YTubic is GPL-3.0-only, so the files in `src/music/` are GPL-3.0-only and say so at the top.
+
 ## CLI
 
 ```
@@ -115,6 +125,8 @@ universeapi sources "akka" --season 1 --pack
 universeapi sports live            # also: upcoming, results, day 2026-11-09, watch tsdb:123 --country US
 universeapi tv channels --country US --category sports --q espn
 universeapi tv check ExampleChannel.us
+universeapi music search "daft punk"     # also: home, feed FEmusic_charts, album <id>, artist <id>, playlist <id>
+universeapi music radio <videoId>        # also: lyrics <videoId> --title .. --artist .., play <videoId> [--video], ytdlp
 universeapi smoke --report smoke.json
 ```
 
@@ -123,4 +135,4 @@ workflow opens (or updates) a `smoke-failure` issue.
 
 ## License
 
-GPL-3.0-or-later.
+GPL-3.0-or-later, except `src/music/`, which is ported from YTubic and is GPL-3.0-only.

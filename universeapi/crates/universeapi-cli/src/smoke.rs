@@ -612,6 +612,81 @@ pub async fn run(engine: &Engine) -> SmokeReport {
     })
     .await;
 
+    // ── YouTube Music (anonymous) ─────────────────────────────────────
+    // The app needs sign-in for Music, but browsing works without it, so the
+    // parsers can be checked here without an account.
+    let music = engine.music();
+    let mut song: Option<universeapi::music::MusicItem> = None;
+    let mut album_id: Option<String> = None;
+
+    check(&mut r, "music: search", false, async {
+        let res = music.search("Daft Punk", universeapi::music::SearchFilter::All).await?;
+        let songs = res.shelves.iter().find(|s| s.title == "Songs").map(|s| s.items.clone()).unwrap_or_default();
+        ensure(!songs.is_empty(), format!("no songs among {} shelves", res.shelves.len()))?;
+        ensure(songs.iter().all(|s| universeapi::music::ytdlp::valid_video_id(&s.id)), "a song without a video ID")?;
+        song = songs.first().cloned();
+        album_id = res
+            .shelves
+            .iter()
+            .flat_map(|s| &s.items)
+            .find(|i| i.kind == universeapi::music::ItemKind::Album)
+            .map(|i| i.id.clone())
+            .or_else(|| songs.iter().find_map(|s| s.album_id.clone()));
+        anyhow::Ok(format!("{} shelves, top: {:?}", res.shelves.len(), res.top.as_ref().map(|t| &t.title)))
+    })
+    .await;
+
+    check(&mut r, "music: home shelves", false, async {
+        let page = music.home(None).await?;
+        ensure(!page.shelves.is_empty(), "no shelves")?;
+        let names = page.shelves.iter().map(|s| s.title.as_str()).take(4).collect::<Vec<_>>().join(", ");
+        anyhow::Ok(format!("{} shelves: {names}", page.shelves.len()))
+    })
+    .await;
+
+    check(&mut r, "music: charts and moods", false, async {
+        let charts = music.feed("FEmusic_charts", None, None).await?;
+        let moods = music.feed("FEmusic_moods_and_genres", None, None).await?;
+        let tiles = moods.shelves.iter().flat_map(|s| &s.items).filter(|i| i.kind == universeapi::music::ItemKind::Category).count();
+        ensure(!charts.shelves.is_empty() && tiles > 0, format!("{} chart shelves, {tiles} mood tiles", charts.shelves.len()))?;
+        anyhow::Ok(format!("{} chart shelves, {tiles} mood tiles", charts.shelves.len()))
+    })
+    .await;
+
+    if let Some(id) = album_id.clone() {
+        check(&mut r, "music: album page", false, async {
+            let a = music.album(&id).await?;
+            ensure(!a.tracks.is_empty(), "no tracks")?;
+            anyhow::Ok(format!("{} · {} tracks · {:?}", a.title, a.tracks.len(), a.year))
+        })
+        .await;
+    }
+
+    if let Some(s) = song.clone() {
+        check(&mut r, "music: radio queue", false, async {
+            let q = music.radio(&s.id).await?;
+            ensure(q.tracks.len() >= 5, format!("only {} tracks", q.tracks.len()))?;
+            anyhow::Ok(format!("{} tracks after {}", q.tracks.len(), s.title))
+        })
+        .await;
+
+        check(&mut r, "music: lyrics", false, async {
+            let l = music.lyrics(&s.id, &s.title, &s.artist_names(), s.duration).await?;
+            anyhow::Ok(match l {
+                Some(l) => format!("{} lines from {} ({})", l.lines.len(), l.source, if l.synced { "synced" } else { "plain" }),
+                None => "none found (not a failure)".into(),
+            })
+        })
+        .await;
+
+        check(&mut r, "music: yt-dlp resolves audio", false, async {
+            let res = music.resolve(&s.id, universeapi::music::StreamMode::Audio, 720).await?;
+            ensure(res.audio_url.starts_with("https://"), "no https stream")?;
+            anyhow::Ok(format!("{} · {:?} {:?} kbps", res.title, res.audio_codec, res.audio_bitrate.map(|b| b.round())))
+        })
+        .await;
+    }
+
     r
 }
 

@@ -34,6 +34,8 @@ pub struct EngineOptions {
     pub blocked_fallback: Option<Arc<dyn BlockedFallback>>,
     /// Where downloads (and torrent pieces) are written. Defaults to the OS temp dir.
     pub download_dir: Option<PathBuf>,
+    /// Where managed tools (yt-dlp for music) live. Defaults to `cache_dir/tools`.
+    pub tools_dir: Option<PathBuf>,
 }
 
 /// Sources plus per-provider failures (shown in a "Sources" diagnostics sheet).
@@ -65,6 +67,7 @@ pub struct Engine {
     anilist: Arc<Anilist>,
     sports: Arc<crate::sports::Sports>,
     tv: Arc<crate::tv::Tv>,
+    music: Arc<crate::music::Music>,
     /// Content providers (produce sources).
     content: Vec<Arc<dyn Provider>>,
     /// The folder used when no `download_dir` preference is set.
@@ -77,6 +80,12 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(opts: EngineOptions) -> Result<Self> {
+        let tools_dir = opts
+            .tools_dir
+            .clone()
+            .or_else(|| opts.cache_dir.as_ref().map(|d| d.join("tools")))
+            .unwrap_or_else(|| std::env::temp_dir().join("velmora-tools"));
+        let music = Arc::new(crate::music::Music::new(tools_dir)?);
         let mut http = Http::new(&opts.registry.user_agent)?;
         if let Some(fb) = opts.blocked_fallback {
             http = http.with_fallback(fb);
@@ -129,6 +138,7 @@ impl Engine {
             anilist: Arc::new(Anilist::new(ctx.clone())),
             sports: Arc::new(crate::sports::Sports::new(ctx.clone())),
             tv: Arc::new(crate::tv::Tv::new(ctx.clone())),
+            music,
             content,
             default_download_dir,
             downloads,
@@ -178,6 +188,11 @@ impl Engine {
     /// Live scores, fixtures and results.
     pub fn sports(&self) -> &Arc<crate::sports::Sports> {
         &self.sports
+    }
+
+    /// YouTube Music: browse, search, library, lyrics and playback.
+    pub fn music(&self) -> &Arc<crate::music::Music> {
+        &self.music
     }
 
     /// Live TV channels from the public iptv-org playlist.
@@ -595,6 +610,24 @@ mod tests {
         assert_send(e.sports().lookup("tsdb:1"));
         assert_send(e.tv().channels(&crate::tv::TvQuery::default()));
         assert_send(e.tv().check("x"));
+        let m = e.music();
+        assert_send(m.home(None));
+        assert_send(m.feed("FEmusic_charts", None, None));
+        assert_send(m.search("x", crate::music::SearchFilter::All));
+        assert_send(m.album("x"));
+        assert_send(m.artist("x"));
+        assert_send(m.playlist("x"));
+        assert_send(m.playlist_more("x"));
+        assert_send(m.queue(Some("x"), None, None));
+        assert_send(m.radio("x"));
+        assert_send(m.lyrics("x", "t", "a", None));
+        assert_send(m.account());
+        assert_send(m.liked_songs(10));
+        assert_send(m.library(crate::music::LibraryKind::Albums));
+        assert_send(m.rate("x", crate::music::Rating::Like));
+        assert_send(m.playlist_create("t", &[]));
+        assert_send(m.resolve("x", crate::music::StreamMode::Audio, 720));
+        assert_send(m.ytdlp().update());
         assert_send(e.search_stream("x").collect::<Vec<_>>());
         assert_send(e.detail(r));
         assert_send(e.sources(t, Target::Movie, AudioMode::Sub));

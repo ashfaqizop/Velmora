@@ -52,3 +52,6 @@ vault.enc
 
 # Local developer tools (Max license admin), kept off GitHub
 /tools/
+
+# Third-party repos cloned for reference, never committed
+/.cache/
