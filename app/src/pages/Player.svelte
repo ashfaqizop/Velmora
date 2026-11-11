@@ -17,6 +17,7 @@
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { startMpv, stopMpv } from "../lib/mpv";
+  import { musicPlayer } from "../lib/music/player.svelte";
   import { sound, type SoundOption } from "../lib/audio.svelte";
   import { isTorrent, providerName, sourceChips, sourceTitle } from "../lib/sources";
   import { torrentConsent } from "../lib/overlays";
@@ -170,6 +171,8 @@
       observedProperties: OBSERVED,
     };
     try {
+      // Music shares mpv; it stops here and can pick up where it was later.
+      await musicPlayer.yieldToVideo();
       await startMpv(config);
       ready = true;
       cleanups.push(await observeProperties(OBSERVED, onProperty));

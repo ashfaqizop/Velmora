@@ -362,3 +362,161 @@ export interface LicenseStatus {
   /** Launches on this PC, this one included. */
   launches: number;
 }
+
+// ── Music (YouTube Music, src-tauri/src/music.rs) ──────────────────────
+
+export type MusicKind = "song" | "video" | "album" | "playlist" | "artist" | "category";
+
+export interface MusicThumb {
+  url: string;
+  width: number;
+  height: number;
+}
+
+export interface MusicArtistRef {
+  id: string | null;
+  name: string;
+}
+
+export interface MusicItem {
+  kind: MusicKind;
+  /** Video ID for songs and videos, browse ID for the rest. */
+  id: string;
+  title: string;
+  subtitle: string | null;
+  thumbnails: MusicThumb[];
+  artists: MusicArtistRef[];
+  album: string | null;
+  albumId: string | null;
+  /** Seconds. */
+  duration: number | null;
+  explicit: boolean;
+  playCount: string | null;
+  setVideoId: string | null;
+  playVideoId: string | null;
+  params: string | null;
+  tint: string | null;
+}
+
+export interface MusicShelfMore {
+  browseId: string;
+  params: string | null;
+  pageType: string | null;
+}
+
+export interface MusicShelf {
+  id: string;
+  title: string;
+  items: MusicItem[];
+  display: "list" | "card" | "grid";
+  more: MusicShelfMore | null;
+}
+
+export interface MusicFeed {
+  title: string | null;
+  shelves: MusicShelf[];
+  next: string | null;
+}
+
+export interface MusicWatchTarget {
+  videoId: string | null;
+  playlistId: string | null;
+  params: string | null;
+}
+
+export type MusicSearchFilter = "all" | "songs" | "videos" | "albums" | "artists" | "playlists";
+
+export interface MusicSearchResults {
+  query: string;
+  top: MusicItem | null;
+  topAction: MusicWatchTarget | null;
+  shelves: MusicShelf[];
+}
+
+export interface MusicAlbum {
+  id: string;
+  title: string;
+  artists: MusicArtistRef[];
+  year: string | null;
+  trackCount: number | null;
+  length: string | null;
+  description: string | null;
+  thumbnails: MusicThumb[];
+  tracks: MusicItem[];
+  playlistId: string | null;
+}
+
+export interface MusicArtist {
+  id: string;
+  name: string;
+  description: string | null;
+  monthlyAudience: string | null;
+  subscribers: string | null;
+  channelId: string | null;
+  subscribed: boolean | null;
+  thumbnails: MusicThumb[];
+  shuffle: MusicWatchTarget | null;
+  radio: MusicWatchTarget | null;
+  shelves: MusicShelf[];
+}
+
+export interface MusicPlaylist {
+  id: string;
+  title: string;
+  description: string | null;
+  subtitle: string | null;
+  thumbnails: MusicThumb[];
+  trackCount: number | null;
+  tracks: MusicItem[];
+  next: string | null;
+  shuffle: MusicWatchTarget | null;
+  editable: boolean;
+}
+
+export interface MusicTrackPage {
+  tracks: MusicItem[];
+  next: string | null;
+}
+
+export interface MusicAccount {
+  name: string;
+  handle: string | null;
+  photo: string | null;
+}
+
+export interface MusicStatus {
+  signedIn: boolean;
+  /** Google ended the session; sign in again. */
+  expired: boolean;
+  signingIn: boolean;
+  account: MusicAccount | null;
+}
+
+export interface MusicLyrics {
+  source: string;
+  synced: boolean;
+  lines: { time: number | null; text: string }[];
+}
+
+export interface MusicStream {
+  videoId: string;
+  title: string;
+  duration: number | null;
+  audioUrl: string;
+  videoUrl: string | null;
+  videoHeight: number | null;
+  headers: [string, string][];
+  audioCodec: string | null;
+  audioBitrate: number | null;
+  ext: string | null;
+  filesize: number | null;
+}
+
+export type MusicRating = "like" | "dislike" | "none";
+export type MusicLibraryKind = "playlists" | "albums" | "artists";
+
+export interface YtDlpStatus {
+  installed: boolean;
+  version: string | null;
+  path: string;
+}

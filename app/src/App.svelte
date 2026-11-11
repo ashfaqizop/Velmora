@@ -10,6 +10,7 @@
   import { downloads, feed, nav } from "./lib/state.svelte";
   import { license } from "./lib/license.svelte";
   import { ads } from "./lib/ads.svelte";
+  import { musicSession } from "./lib/music/session.svelte";
 
   let splash = $state(true);
   let onboarding = $state(false);
@@ -21,6 +22,8 @@
   feed.load();
   // Max or Public decides whether ads run at all; the rules wait for that answer.
   license.load().then(() => ads.init());
+  // YouTube Music sign-in state (only the Music pages need it).
+  musicSession.init();
 
   onMount(() => {
     registerOverlays({

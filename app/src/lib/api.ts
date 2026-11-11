@@ -8,6 +8,21 @@ import type {
   ConfigStatus,
   DownloadStatus,
   LicenseStatus,
+  MusicAccount,
+  MusicAlbum,
+  MusicArtist,
+  MusicFeed,
+  MusicItem,
+  MusicLibraryKind,
+  MusicLyrics,
+  MusicPlaylist,
+  MusicRating,
+  MusicSearchFilter,
+  MusicSearchResults,
+  MusicStatus,
+  MusicStream,
+  MusicTrackPage,
+  YtDlpStatus,
   LocalFile,
   OpenedStream,
   Preferences,
@@ -177,3 +192,42 @@ export const licenseRemove = () => invoke<LicenseStatus>("license_remove");
 /** The ad rules from the site, or null when it can't be reached. */
 export const adsConfig = () => invoke<unknown>("ads_config");
 export const adsReport = (counts: Record<string, number>) => invoke<void>("ads_report", { counts });
+
+// ── Music ──────────────────────────────────────────────────────────────
+
+export const musicStatus = () => invoke<MusicStatus>("music_status");
+export const musicAccount = () => invoke<MusicAccount>("music_account");
+/** Opens Google's sign-in window; the outcome arrives as a `music-status` event. */
+export const musicSignIn = () => invoke<void>("music_sign_in");
+export const musicSignOut = () => invoke<void>("music_sign_out");
+export const musicHome = (next?: string | null) => invoke<MusicFeed>("music_home", { next: next ?? null });
+export const musicFeed = (browseId: string, params?: string | null, next?: string | null) =>
+  invoke<MusicFeed>("music_feed", { browseId, params: params ?? null, next: next ?? null });
+export const musicSearch = (query: string, filter: MusicSearchFilter = "all") =>
+  invoke<MusicSearchResults>("music_search", { query, filter });
+export const musicAlbum = (id: string) => invoke<MusicAlbum>("music_album", { id });
+export const musicArtist = (id: string) => invoke<MusicArtist>("music_artist", { id });
+export const musicPlaylist = (id: string) => invoke<MusicPlaylist>("music_playlist", { id });
+export const musicPlaylistMore = (token: string) => invoke<MusicTrackPage>("music_playlist_more", { token });
+export const musicQueue = (videoId?: string | null, playlistId?: string | null, params?: string | null) =>
+  invoke<MusicTrackPage>("music_queue", { videoId: videoId ?? null, playlistId: playlistId ?? null, params: params ?? null });
+export const musicRadio = (videoId: string) => invoke<MusicTrackPage>("music_radio", { videoId });
+export const musicQueueMore = (token: string) => invoke<MusicTrackPage>("music_queue_more", { token });
+export const musicLyrics = (videoId: string, title: string, artist: string, duration?: number | null) =>
+  invoke<MusicLyrics | null>("music_lyrics", { videoId, title, artist, duration: duration ?? null });
+export const musicLiked = (limit?: number) => invoke<MusicPlaylist>("music_liked", { limit: limit ?? null });
+export const musicLibrary = (kind: MusicLibraryKind) => invoke<MusicItem[]>("music_library", { kind });
+export const musicOwnPlaylists = () => invoke<MusicItem[]>("music_own_playlists");
+export const musicRate = (videoId: string, rating: MusicRating) => invoke<void>("music_rate", { videoId, rating });
+export const musicPlaylistAdd = (playlistId: string, videoIds: string[]) =>
+  invoke<void>("music_playlist_add", { playlistId, videoIds });
+export const musicPlaylistRemove = (playlistId: string, videoId: string, setVideoId: string) =>
+  invoke<void>("music_playlist_remove", { playlistId, videoId, setVideoId });
+export const musicPlaylistCreate = (title: string, videoIds: string[]) =>
+  invoke<string>("music_playlist_create", { title, videoIds });
+export const musicSubscribe = (channelId: string, on: boolean) => invoke<void>("music_subscribe", { channelId, on });
+/** Stream URLs, resolved by yt-dlp without the user's cookies. */
+export const musicStream = (videoId: string, video = false, maxHeight?: number) =>
+  invoke<MusicStream>("music_stream", { videoId, video, maxHeight: maxHeight ?? null });
+export const musicYtdlpStatus = () => invoke<YtDlpStatus>("music_ytdlp_status");
+export const musicYtdlpUpdate = () => invoke<YtDlpStatus>("music_ytdlp_update");

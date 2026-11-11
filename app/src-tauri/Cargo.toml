@@ -43,6 +43,8 @@ universeapi = { path = "../../universeapi/crates/universeapi", features = ["impe
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
 winreg = "0.52"
+# DPAPI for the YouTube Music cookie jar (music.rs).
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
 
 [profile.release]
 codegen-units = 1

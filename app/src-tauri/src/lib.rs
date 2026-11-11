@@ -5,6 +5,7 @@ mod ads;
 mod ani;
 mod commands;
 mod license;
+mod music;
 mod prefs;
 mod runtime;
 mod stream;
@@ -93,7 +94,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move { downloads.remove_orphaned_parts().await });
             app.manage(ani::AniStore::load(&paths.app_local_data_dir()?));
             app.manage(license::LicenseStore::load(&paths.app_local_data_dir()?));
-            app.manage(AppState {
+            let state = AppState {
                 engine,
                 stream_port,
                 sessions: Mutex::new(HashMap::new()),
@@ -101,7 +102,11 @@ pub fn run() {
                 prefs_file,
                 sync,
                 sealed,
-            });
+            };
+            // YouTube Music: restore the saved session (Music needs sign-in; nothing else does).
+            let music_store = music::setup(app.handle(), &state, &paths.app_local_data_dir()?);
+            app.manage(state);
+            app.manage(music_store);
 
             // The window starts hidden so the transparent frame never flashes;
             // the UI shows it on first paint. Fallback if the UI fails to load.
@@ -178,6 +183,32 @@ pub fn run() {
             license::license_remove,
             ads::ads_config,
             ads::ads_report,
+            music::music_status,
+            music::music_account,
+            music::music_sign_in,
+            music::music_sign_out,
+            music::music_home,
+            music::music_feed,
+            music::music_search,
+            music::music_album,
+            music::music_artist,
+            music::music_playlist,
+            music::music_playlist_more,
+            music::music_queue,
+            music::music_radio,
+            music::music_queue_more,
+            music::music_lyrics,
+            music::music_liked,
+            music::music_library,
+            music::music_own_playlists,
+            music::music_rate,
+            music::music_playlist_add,
+            music::music_playlist_remove,
+            music::music_playlist_create,
+            music::music_subscribe,
+            music::music_stream,
+            music::music_ytdlp_status,
+            music::music_ytdlp_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");
@@ -225,7 +256,9 @@ fn build_engine(app: &App, preferences: Preferences) -> Result<Engine, Box<dyn s
         .or_else(|_| paths.app_data_dir().map(|d| d.join("downloads")))
         .ok();
 
-    let opts = EngineOptions { preferences, registry, cache_dir, download_dir, ..Default::default() };
+    // yt-dlp for Music lives next to the other first-launch components.
+    let tools_dir = paths.app_local_data_dir().ok().map(|d| d.join("tools"));
+    let opts = EngineOptions { preferences, registry, cache_dir, download_dir, tools_dir, ..Default::default() };
     // The engine's download manager spawns tasks, so build it inside the runtime.
     let engine = tauri::async_runtime::block_on(async move { Engine::new(opts) })?;
     Ok(engine)
