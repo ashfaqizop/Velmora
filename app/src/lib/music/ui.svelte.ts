@@ -160,7 +160,11 @@ class MusicUi {
     this.addTarget = items.filter(playable);
   }
 
+  /** The list has been asked for once (it can be empty: an account with no playlists). */
+  playlistsLoaded = $state(false);
+
   async loadPlaylists() {
+    this.playlistsLoaded = true;
     try {
       this.playlists = await api.musicOwnPlaylists();
     } catch {

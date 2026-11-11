@@ -47,7 +47,9 @@
 
   // Your playlists, listed under the music menu once signed in.
   $effect(() => {
-    if (mode === "music" && musicSession.signedIn && !musicUi.playlists.length) musicUi.loadPlaylists();
+    // Once per session: checking `playlists.length` alone looped forever on an
+    // account with no playlists (each empty answer re-ran this effect).
+    if (mode === "music" && musicSession.signedIn && !musicUi.playlistsLoaded) musicUi.loadPlaylists();
   });
 
   // Items leave one way and arrive from the other, a few ms apart.
