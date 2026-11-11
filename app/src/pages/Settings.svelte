@@ -5,6 +5,7 @@
   import PoweredBy from "../components/PoweredBy.svelte";
   import DownloadFolder from "../components/DownloadFolder.svelte";
   import AniKey from "../components/AniKey.svelte";
+  import MaxLicense from "../components/MaxLicense.svelte";
   import PersonalizeDialog from "../components/PersonalizeDialog.svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import * as api from "../lib/api";
@@ -436,6 +437,13 @@
             </div>
           </div>
         </div>
+      </m3e-card>
+    </section>
+
+    <section>
+      <m3e-heading variant="title" size="large" level={2}>License</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content" class="rows"><MaxLicense /></div>
       </m3e-card>
     </section>
 

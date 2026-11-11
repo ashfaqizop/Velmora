@@ -4,6 +4,7 @@
   import Poster from "../components/Poster.svelte";
   import ContinueCard from "../components/ContinueCard.svelte";
   import SportsRail from "../components/SportsRail.svelte";
+  import AdSlot from "../components/AdSlot.svelte";
   import { onMount } from "svelte";
   import { sports } from "../lib/live.svelte";
   import { feed, keyOf, library, nav } from "../lib/state.svelte";
@@ -69,12 +70,14 @@
       </m3e-button>
     </div>
   {:else}
-    {#each feed.rails as rail (rail.id)}
+    {#each feed.rails as rail, i (rail.id)}
       <Rail title={rail.title} icon={ICONS[rail.id] ?? "movie"} onseeall={() => nav.go({ name: "collection", id: rail.id })}>
         {#each rail.items as t (keyOf(t))}
           <Poster title={t} width={160} />
         {/each}
       </Rail>
+      <!-- One quiet ad, well below Continue Watching. -->
+      {#if i === 2}<AdSlot id="home" />{/if}
     {/each}
   {/if}
 </div>

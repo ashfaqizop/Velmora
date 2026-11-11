@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { fade, fly } from "svelte/transition";
-  import { cubicOut } from "svelte/easing";
   import PoweredBy from "./PoweredBy.svelte";
+  import AdSlot from "./AdSlot.svelte";
   import { ani, downloads, library, nav, type Route } from "../lib/state.svelte";
 
   const main: { label: string; icon: string; route: Route }[] = [
@@ -30,47 +28,9 @@
     return true;
   }
 
-  // Rotating tips for the card under the menu: a short heading and one useful line.
-  // `true` marks tips about the latest update; they get a "New" chip.
-  const TIPS: [string, string, boolean?][] = [
-    ["Better movies. Brighter days.", "Every source, one search away."],
-    ["Can't hear the dialogue?", "Turn on Dialogue boost from the sound button in the player.", true],
-    ["Watching late?", "Night mode quiets explosions and lifts whispers.", true],
-    ["Quiet video?", "Volume now goes up to 200%. The bar turns amber past 100.", true],
-    ["One level for every source.", "Even out volume keeps loud and quiet links alike.", true],
-    ["Ask Ani anything.", "Recommendations from what you watch, with cards you can play."],
-    ["Ani knows your taste.", "It learns from what you search, watch and download."],
-    ["Say it once.", "Tell Ani you prefer dubs and it remembers."],
-    ["Watch order, sorted.", "Ask Ani how to watch any franchise or anime."],
-    ["The best link, picked.", "Ask Ani for the smallest 1080p download."],
-    ["What Ani knows stays here.", "See or clear it in Settings, under Ani."],
-    ["What's airing this week?", "Ani shows the schedule in your time zone."],
-    ["Your downloads, your folder.", "Pick where they go in Settings."],
-    ["Downloads stay yours.", "Saved in Velmora's own format, playable only here."],
-    ["Sliders that follow you.", "Seek and volume track the pointer exactly."],
-    ["Ctrl K finds anything.", "Movies, series and anime from every source at once."],
-    ["Space pauses. F goes full screen.", "Arrow keys skip ten seconds either way."],
-    ["Stop anywhere.", "Continue Watching remembers the exact second."],
-    ["Downloads play offline.", "Grab an episode before the flight."],
-    ["When a link dies, Velmora moves on.", "The next source starts at the same spot."],
-    ["Sub or dub stays the way you set it.", "Change it on any anime page."],
-    ["Your AniList can update itself.", "Connect it in Settings, then just watch."],
-    ["Purple isn't mandatory.", "Eight accent colours are waiting in Settings."],
-    ["Torrents work best behind a VPN.", "Peers can see your IP while one runs."],
-    ["A new pick every night.", "Tonight's pick on Home changes daily."],
-    ["4K when you want it.", "Turn on auto 4K in Settings, or choose it per title."],
-  ];
-  const TIP_MS = 9000;
-
-  // The first launch always opens on the brand line; later ones start anywhere.
-  let tip = $state(localStorage.getItem("velmora.onboarded") === "1" ? Math.floor(Math.random() * TIPS.length) : 0);
-
-  onMount(() => {
-    const timer = setInterval(() => {
-      if (!document.hidden) tip = (tip + 1) % TIPS.length;
-    }, TIP_MS);
-    return () => clearInterval(timer);
-  });
+  // The sidebar ad needs a taller card, so it only runs on tall windows.
+  let windowHeight = $state(innerHeight);
+  let adShown = $state(false);
 </script>
 
 <aside class="sidebar">
@@ -90,22 +50,18 @@
 
   </m3e-nav-menu>
 
-  <div class="promo">
+  <div class="promo" class:with-ad={adShown}>
     <m3e-shape name="flower" class="s1"></m3e-shape>
     <m3e-shape name="soft-burst" class="s2"></m3e-shape>
     <m3e-shape name="circle" class="s3"></m3e-shape>
-    <div class="copy" aria-live="off">
-      {#key tip}
-        <div class="tip" in:fly={{ y: 10, duration: 500, delay: 200, easing: cubicOut }} out:fade={{ duration: 200 }}>
-          {#if TIPS[tip][2]}<span class="new">New</span>{/if}
-          <strong class="display">{TIPS[tip][0]}</strong>
-          <span>{TIPS[tip][1]}</span>
-        </div>
-      {/key}
-    </div>
+    {#if windowHeight >= 920}
+      <div class="sidebar-ad"><AdSlot id="sidebar" bind:shown={adShown} /></div>
+    {/if}
     <div class="credit"><PoweredBy height={10} /></div>
   </div>
 </aside>
+
+<svelte:window bind:innerHeight={windowHeight} />
 
 <style>
   .sidebar {
@@ -135,7 +91,7 @@
     position: relative;
     flex: none;
     margin-top: 12px;
-    height: 224px;
+    height: 96px;
     border-radius: var(--md-sys-shape-corner-extra-large, 28px);
     overflow: hidden;
     padding: 20px;
@@ -154,7 +110,7 @@
     --md-sys-color-on-surface: #fff;
     --md-sys-color-on-surface-variant: rgb(255 255 255 / 78%);
   }
-  /* A soft shade along the bottom keeps the copy readable over the shapes. */
+  /* A soft shade along the bottom keeps the credit readable over the shapes. */
   .promo::after {
     content: "";
     position: absolute;
@@ -202,38 +158,18 @@
       translate: 6px 8px;
     }
   }
-  /* Outgoing and incoming tips share one cell, so the card never jumps. */
-  .copy {
+  /* While an ad shows, the card grows to fit it and the tips step aside. */
+  .promo.with-ad {
+    height: auto;
+    padding: 12px;
+    justify-content: flex-start;
+  }
+  .promo.with-ad m3e-shape {
+    opacity: 0.18;
+  }
+  .sidebar-ad {
     position: relative;
     z-index: 1;
-    display: grid;
-    align-items: end;
-  }
-  .tip {
-    grid-area: 1 / 1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .new {
-    align-self: flex-start;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: rgb(255 255 255 / 22%);
-    color: #fff;
-  }
-  .copy strong {
-    font-size: 22px;
-    line-height: 1.15;
-    text-wrap: balance;
-  }
-  .copy span {
-    font-size: 12px;
-    color: rgb(255 255 255 / 82%);
   }
   .credit {
     position: relative;

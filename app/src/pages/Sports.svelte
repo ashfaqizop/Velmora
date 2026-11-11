@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import MatchCard from "../components/MatchCard.svelte";
+  import AdSlot from "../components/AdSlot.svelte";
   import { sports } from "../lib/live.svelte";
   import { groupByLeague } from "../lib/sports";
 
@@ -61,7 +62,7 @@
       </m3e-button>
     </div>
   {:else if groups.length}
-    {#each groups as g (g.id)}
+    {#each groups as g, i (g.id)}
       <section>
         <h2>
           {#if g.badge}<img src={g.badge} alt="" loading="lazy" />{/if}
@@ -74,6 +75,8 @@
           {/each}
         </div>
       </section>
+      <!-- Between leagues, never on a match page near "where to watch". -->
+      {#if i === 1 && groups.length > 2}<AdSlot id="sports" />{/if}
     {/each}
   {:else}
     <div class="empty">

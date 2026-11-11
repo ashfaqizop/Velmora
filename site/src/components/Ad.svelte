@@ -1,65 +1,63 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { BANNER_HOST, BANNERS, NATIVE, type BannerSize } from "../lib/ads";
 
-  // One Adsterra placement. Keys come from Vercel environment variables, so
-  // with none set (local dev, forks) this renders nothing at all.
+  // One Adsterra placement on the website.
+  //   banner: 728x90, 468x60 or 320x50, whichever fits the screen
+  //   box:    300x250
+  //   rail:   160x600, fixed to the right edge on very wide screens only
+  //   native: the Native Banner widget
   //
-  // Banners run inside their own iframe: Adsterra's banner code reads a global
-  // `atOptions`, so two banners on one page would otherwise overwrite each other.
-  let { kind = "banner" }: { kind?: "banner" | "native" } = $props();
+  // Banners run in their own iframe, because Adsterra's banner code reads a
+  // global `atOptions` and two on one page would overwrite each other.
+  // Local dev shows nothing.
+  let { kind = "banner" }: { kind?: "banner" | "box" | "rail" | "native" } = $props();
 
-  const env = import.meta.env;
-  const host = env.VITE_ADSTERRA_HOST || "www.highperformanceformat.com";
-  const SIZES = [
-    { min: 760, key: env.VITE_ADSTERRA_BANNER_728, width: 728, height: 90 },
-    { min: 0, key: env.VITE_ADSTERRA_BANNER_300, width: 300, height: 250 },
-    { min: 0, key: env.VITE_ADSTERRA_BANNER_320, width: 320, height: 50 },
-  ];
+  const live = typeof location !== "undefined" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1";
 
-  let banner = $state<{ key: string; width: number; height: number } | null>(null);
+  let size = $state<BannerSize | null>(null);
   let nativeBox = $state<HTMLElement>();
-  const nativeSrc = env.VITE_ADSTERRA_NATIVE;
-  // The container id Adsterra expects is the hash in the script's path.
-  const nativeId = nativeSrc ? `container-${new URL(nativeSrc, location.href).pathname.split("/").filter(Boolean)[0]}` : "";
+
+  const dims = (s: BannerSize) => s.split("x").map(Number) as [number, number];
 
   onMount(() => {
-    if (kind === "banner") {
-      const fit = SIZES.find((s) => s.key && innerWidth >= s.min);
-      if (fit?.key) banner = { key: fit.key, width: fit.width, height: fit.height };
+    if (!live) return;
+    if (kind === "native") {
+      if (nativeBox) {
+        const s = document.createElement("script");
+        s.async = true;
+        s.dataset.cfasync = "false";
+        s.src = NATIVE.script;
+        nativeBox.before(s);
+      }
       return;
     }
-    if (nativeSrc && nativeBox) {
-      const s = document.createElement("script");
-      s.async = true;
-      s.dataset.cfasync = "false";
-      s.src = nativeSrc;
-      nativeBox.before(s);
-    }
+    if (kind === "box") size = "300x250";
+    else if (kind === "rail") size = innerWidth >= 1640 ? "160x600" : null;
+    else size = innerWidth >= 760 ? "728x90" : innerWidth >= 500 ? "468x60" : "320x50";
   });
 
-  const doc = (b: { key: string; width: number; height: number }) =>
-    `<!doctype html><html><body style="margin:0;background:transparent">` +
-    `<script>atOptions={key:'${b.key}',format:'iframe',height:${b.height},width:${b.width},params:{}};<\/script>` +
-    `<script src="https://${host}/${b.key}/invoke.js"><\/script></body></html>`;
+  const doc = (s: BannerSize) => {
+    const [w, h] = dims(s);
+    const key = BANNERS[s];
+    return (
+      `<!doctype html><html><body style="margin:0;background:transparent">` +
+      `<script>atOptions={key:'${key}',format:'iframe',height:${h},width:${w},params:{}};<\/script>` +
+      `<script src="${BANNER_HOST}/${key}/invoke.js"><\/script></body></html>`
+    );
+  };
 </script>
 
-{#if kind === "banner" && banner}
-  <aside class="ad" aria-label="Advertisement">
+{#if size}
+  {@const [w, h] = dims(size)}
+  <aside class="ad" class:rail={kind === "rail"} aria-label="Advertisement">
     <span class="tag">Advertisement</span>
-    <iframe
-      title="Advertisement"
-      srcdoc={doc(banner)}
-      width={banner.width}
-      height={banner.height}
-      scrolling="no"
-      loading="lazy"
-      referrerpolicy="no-referrer-when-downgrade"
-    ></iframe>
+    <iframe title="Advertisement" srcdoc={doc(size)} width={w} height={h} scrolling="no" loading="lazy"></iframe>
   </aside>
-{:else if kind === "native" && nativeSrc}
+{:else if kind === "native" && live}
   <aside class="ad native" aria-label="Advertisement">
     <span class="tag">Advertisement</span>
-    <div id={nativeId} bind:this={nativeBox}></div>
+    <div id={NATIVE.container} bind:this={nativeBox}></div>
   </aside>
 {/if}
 
@@ -71,6 +69,14 @@
     gap: 8px;
     margin: 96px auto 0;
     width: min(var(--max), 100% - 48px);
+  }
+  .ad.rail {
+    position: fixed;
+    right: 24px;
+    top: 120px;
+    width: auto;
+    margin: 0;
+    z-index: 5;
   }
   .tag {
     font-size: 11px;

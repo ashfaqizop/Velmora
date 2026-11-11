@@ -11,6 +11,8 @@
     [`${REPO_URL}/issues`, "Report a problem"],
     [`${REPO_URL}/blob/main/LICENSE`, "License (GPL-3.0)"],
     [`${REPO_URL}/blob/main/SECURITY.md`, "Security"],
+    ["/privacy/", "Privacy policy"],
+    ["/terms/", "Terms of use"],
   ];
 </script>
 

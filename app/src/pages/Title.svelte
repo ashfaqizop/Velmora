@@ -3,6 +3,7 @@
   import { fade } from "svelte/transition";
   import Poster from "../components/Poster.svelte";
   import Rail from "../components/Rail.svelte";
+  import AdSlot from "../components/AdSlot.svelte";
   import * as api from "../lib/api";
   import { providerLabel } from "../lib/options";
   import { openDownload } from "../lib/overlays";
@@ -407,6 +408,9 @@
       </Rail>
     </div>
   {/if}
+
+  <!-- At the very bottom, far from Play, Download and My List. -->
+  <div class="bottom-ad"><AdSlot id="title" /></div>
 </article>
 
 {#snippet person(p: Person)}
@@ -458,6 +462,9 @@
 </m3e-dialog>
 
 <style>
+  .bottom-ad {
+    margin-top: 24px;
+  }
   .title-page {
     position: relative;
     padding-bottom: 40px;

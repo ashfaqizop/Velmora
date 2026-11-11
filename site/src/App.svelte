@@ -13,6 +13,7 @@
   import Footer from "./components/Footer.svelte";
   import Ad from "./components/Ad.svelte";
   import Shapes from "./components/Shapes.svelte";
+  import Tiers from "./components/Tiers.svelte";
   import PoweredBy from "./components/PoweredBy.svelte";
   import AndroidSoon from "./components/AndroidSoon.svelte";
   import DownloadCount from "./components/DownloadCount.svelte";
@@ -25,7 +26,7 @@
   const STATS = [
     ["10+", "sources searched at once"],
     ["4K", "HEVC, AV1 and HDR in the player"],
-    ["0", "accounts, servers or trackers"],
+    ["0", "accounts to sign up for"],
     ["100%", "open source, GPL-3.0"],
   ];
 </script>
@@ -83,6 +84,7 @@
   <Ad kind="native" />
   <AniSection />
   <Privacy />
+  <Tiers />
   <Install />
   <section id="android">
     <div class="wrap" use:reveal><AndroidSoon /></div>

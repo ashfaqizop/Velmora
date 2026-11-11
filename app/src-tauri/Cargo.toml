@@ -1,6 +1,6 @@
 [package]
 name = "velmora"
-version = "0.3.0"
+version = "0.3.5"
 description = "Velmora: movies, series and anime, one engine"
 edition = "2021"
 rust-version = "1.82"

@@ -8,7 +8,16 @@ Last updated 2026-11-01. v0.2.2 (sound options) is tagged and released.
 - The changelog is hand-written in `site/src/lib/changes.ts`. Add each new release at the top; `soon: true` shows it as "In testing" until it ships.
 - Download buttons and download counts come from the GitHub releases API (installer `.exe` assets only). Adsterra ads are configured with Vercel env vars, never committed.
 
-## v0.3.0: sports and live TV (built, not tagged)
+## v0.3.5: Public and Max (built, not tagged)
+
+- Two tiers. Public is the full app with Adsterra ads; Max has none. Max keys are Ed25519-signed, made only by the developer's local tool (kept out of the repo), and each works on one PC.
+- App: `src-tauri/src/license.rs` (key and token checks, Credential Manager, hashed MachineGuid, weekly renewal, 30-day offline grace, launch counter), `src-tauri/src/ads.rs` (fetches `/ads.json`, sends anonymous per-slot counts), `lib/license.svelte.ts`, `lib/ads.svelte.ts` (all the ad rules), `components/AdSlot.svelte`, `components/MaxLicense.svelte` (Settings → License).
+- The main window is now built in `create_main_window` (lib.rs) with `on_new_window`, so ad clicks open in the default browser. `tauri.conf.json` has `"create": false` for it.
+- Slots: home, search (full list only), grid, title (bottom), downloads (while downloading), sidebar (tall windows), sports, live, pause (after 5 s paused), end (end of episode).
+- Site: ad pages in `site/public/ad/`, rules in `site/public/ads.json`, `site/api/license`, `site/api/ads/stats`, privacy and terms pages. See `site/README.md`.
+- The sidebar tips were removed.
+
+## v0.3.0: sports and live TV (released)
 
 - Engine: `universeapi/crates/universeapi/src/{sports,tv,relevance}`. See `universeapi/README.md`. Smoke checks are in `universeapi-cli/src/smoke.rs`.
 - App: pages `Sports`, `Match`, `Live`, the Home rail `SportsRail`, stores in `app/src/lib/live.svelte.ts`, and the Player's live mode (a `channel` prop).

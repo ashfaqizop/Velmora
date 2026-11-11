@@ -15,5 +15,6 @@
 <main id="top">
   <Changelog />
   <Ad kind="banner" />
+  <Ad kind="rail" />
 </main>
 <Footer />

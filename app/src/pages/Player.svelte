@@ -1,4 +1,6 @@
 <script lang="ts">
+  import AdSlot from "../components/AdSlot.svelte";
+  import { ads } from "../lib/ads.svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import { onDestroy, onMount, untrack } from "svelte";
   import { fade, fly } from "svelte/transition";
@@ -81,6 +83,17 @@
   let sheet = $state(false);
   let fullscreen = $state(false);
   let upNext = $state<number | null>(null);
+
+  // A small card after a few seconds of pause; it goes the moment playback resumes.
+  let pauseAd = $state(false);
+  $effect(() => {
+    if (phase !== "playing" || !paused || ended) return;
+    const t = setTimeout(() => (pauseAd = true), ads.rules.pauseDelaySeconds * 1000);
+    return () => {
+      clearTimeout(t);
+      pauseAd = false;
+    };
+  });
 
   const win = getCurrentWindow();
   const cleanups: (() => void)[] = [];
@@ -635,6 +648,16 @@
     </m3e-card>
   {/if}
 
+  {#if pauseAd}
+    <div class="player-ad pause" transition:fade={{ duration: 250 }}><AdSlot id="pause" /></div>
+  {/if}
+  {#if ended && !live}
+    <!-- Beside "Up next", never in its way, and it never delays autoplay. -->
+    <div class="player-ad end" class:with-next={upNext !== null && !!next} transition:fade={{ duration: 250 }}>
+      <AdSlot id="end" />
+    </div>
+  {/if}
+
   {#if phase === "playing" && (controls || paused)}
     <footer class="bottom" transition:fade={{ duration: 200 }}>
       {#if live}
@@ -952,6 +975,21 @@
     flex: 1;
   }
 
+  .player-ad {
+    position: absolute;
+    right: 24px;
+    width: 300px;
+    z-index: 2;
+  }
+  .player-ad.pause {
+    top: 88px;
+  }
+  .player-ad.end {
+    bottom: 140px;
+  }
+  .player-ad.end.with-next {
+    bottom: 320px;
+  }
   .up-next {
     position: absolute;
     right: 24px;

@@ -38,6 +38,26 @@ export const KIND_ICON: Record<ChangeKind, string> = { new: "add_circle", improv
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.3.5",
+    date: "2026-11-12",
+    name: "Public and Max",
+    summary: "Velmora now comes two ways: Public, the full app with a few quiet ads, and Max, the same app with none.",
+    color: "#7b6cff",
+    shape: "12-sided-cookie",
+    soon: true,
+    highlights: [
+      { icon: "verified", title: "Velmora Public", text: "Everything stays free. A few quiet ads help pay for development, never while a video plays." },
+      { icon: "workspace_premium", title: "Velmora Max", text: "No ads at all. Paste a Max key in Settings, under License." },
+      { icon: "lock", title: "Ads in a sealed frame", text: "They can't see what you search or watch, and clicks open in your browser." },
+    ],
+    changes: [
+      { kind: "new", title: "License in Settings", text: "Activate, change or remove a Max key. A key works on one PC at a time." },
+      { kind: "new", title: "Quiet ads in Public", text: "None on your first launch or in the first two minutes, and one on screen at a time." },
+      { kind: "improved", title: "A simpler sidebar", text: "The rotating tips are gone." },
+      { kind: "new", title: "Privacy policy and terms", text: "Both are on the website, in plain language." },
+    ],
+  },
+  {
     version: "0.3.0",
     date: "2026-11-09",
     name: "Sports and Live TV",

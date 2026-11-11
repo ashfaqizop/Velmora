@@ -46,13 +46,25 @@ With the URLs pointed here the engine needs no keys at all. The function only al
 
 ## Ads
 
-| Variable | Adsterra format | Where it shows |
-| --- | --- | --- |
-| `VITE_ADSTERRA_NATIVE` | Native Banner (full `invoke.js` URL) | After the features grid |
-| `VITE_ADSTERRA_BANNER_728` | Banner 728×90 | Above the FAQ, on screens 760 px and wider |
-| `VITE_ADSTERRA_BANNER_300` / `_320` | Banner 300×250 or 320×50 | Same spot, on phones |
+The Adsterra codes are public, so they're committed: `src/lib/ads.ts` for the site and `public/ad/` for the app.
 
-Ads are kept away from the download buttons on purpose, so nobody mistakes an ad for the real download. Popunders and Social Bar are left out for the same reason: on a download page they make the site look like malware.
+| Format | Where it shows |
+| --- | --- |
+| Native Banner | After the features grid, and on the Ani page |
+| Banner 728×90, 468×60 or 320×50 | Above the FAQ and on the changelog, by screen width |
+| Banner 160×600 | Fixed to the right of the changelog, on screens 1640 px and wider |
+| Social Bar | Every page except privacy and terms, 8 seconds after load |
+| Popunder | Once per visit, 3 seconds after the first page loads (`src/lib/traffic.ts`) |
+
+In-page ads stay away from the download buttons, so nobody mistakes an ad for the real download. Nothing loads on `localhost`.
+
+### Ads in the app
+
+`public/ad/<size>.html` and `public/ad/native.html` each show one unit and report back to the app whether they filled (`public/ad/report.js`). Only the app and this site may frame them (see `vercel.json`). `public/ads.json` holds the app's ad rules (on/off, caps, timings, which unit each slot uses), so they can change without an app update. `api/ads/stats` takes anonymous per-slot view counts.
+
+## Max licenses
+
+`api/license/[action].js` activates Max keys, one PC per key, in Upstash Redis. It needs `KV_REST_API_URL`, `KV_REST_API_TOKEN` (from the Upstash integration), `LICENSE_SERVER_KEY` and `LICENSE_ADMIN_TOKEN`. The public keys are in `api/_lib/keys.js`. Keys are made with a local tool that isn't in the repo.
 
 ## Icons
 
@@ -60,4 +72,4 @@ Icons load from Google Fonts as a subset. The full Material Symbols font is 4 MB
 
 ## Pages
 
-Each page is its own HTML file with its own entry script: `index.html` (landing), `changelog/index.html`, `ani/index.html`, `universeapi/index.html`. Add new ones to `PAGES` in `vite.config.ts`.
+Each page is its own HTML file with its own entry script: `index.html` (landing), `changelog/index.html`, `ani/index.html`, `universeapi/index.html`, and `privacy/index.html` and `terms/index.html` (both use `src/legal.ts`; the text is in `src/lib/legal.ts`). Add new ones to `PAGES` in `vite.config.ts`.

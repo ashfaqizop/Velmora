@@ -354,6 +354,10 @@ pub async fn license_activate(
     }
     match ask(&state, "activate", &key, &lic.device).await {
         Answer::Ok(token) if parse_token(&token).is_some() => {
+            // Switching keys: free the old one so it can go to another PC.
+            if let Some(old) = lic.get().filter(|old| old.key != key) {
+                let _ = ask(&state, "release", &old.key, &lic.device).await;
+            }
             lic.put(Some(Stored { key, token: Some(token), problem: None }))?;
             Ok(lic.status())
         }

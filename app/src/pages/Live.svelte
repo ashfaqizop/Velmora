@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ChannelCard from "../components/ChannelCard.svelte";
+  import AdSlot from "../components/AdSlot.svelte";
   import * as api from "../lib/api";
   import { live, sports } from "../lib/live.svelte";
   import type { Facet, TvChannel } from "../lib/types";
@@ -146,6 +147,7 @@
         <ChannelCard channel={c} onopen={() => live.play(c)} />
       {/each}
     </div>
+    {#if items.length >= 24}<AdSlot id="live" />{/if}
     {#if items.length < total}
       <div class="more">
         <m3e-button variant="tonal" onclick={() => (limit += PAGE)}>Show more</m3e-button>

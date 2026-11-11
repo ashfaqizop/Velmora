@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import Poster from "../components/Poster.svelte";
+  import AdSlot from "../components/AdSlot.svelte";
   import type { TitleSummary } from "../lib/types";
   import { keyOf } from "../lib/state.svelte";
 
@@ -11,6 +12,14 @@
     loading = false,
     empty,
   }: { title: string; subtitle?: string; items: TitleSummary[]; loading?: boolean; empty?: Snippet } = $props();
+
+  // Long lists get an ad between blocks of posters, at most two per page.
+  const BLOCK = 30;
+  const blocks = $derived(
+    items.length > BLOCK
+      ? [items.slice(0, BLOCK), items.slice(BLOCK, BLOCK * 2), items.slice(BLOCK * 2)].filter((b) => b.length)
+      : [items],
+  );
 </script>
 
 <div class="page">
@@ -26,11 +35,14 @@
       {/each}
     </div>
   {:else if items.length}
-    <div class="grid">
-      {#each items as t (keyOf(t))}
-        <Poster title={t} />
-      {/each}
-    </div>
+    {#each blocks as block, b (b)}
+      <div class="grid">
+        {#each block as t (keyOf(t))}
+          <Poster title={t} />
+        {/each}
+      </div>
+      {#if b < blocks.length - 1}<AdSlot id="grid" />{/if}
+    {/each}
   {:else}
     <div class="empty">{@render empty?.()}</div>
   {/if}

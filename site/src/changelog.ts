@@ -3,6 +3,7 @@ import "@fontsource/instrument-serif/400.css";
 import "@fontsource/instrument-serif/400-italic.css";
 import "./lib/m3e";
 import "./app.css";
+import "./lib/traffic";
 
 import { mount } from "svelte";
 import ChangelogPage from "./ChangelogPage.svelte";

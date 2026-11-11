@@ -4,7 +4,11 @@
   const FAQ = [
     [
       "Is Velmora free?",
-      "Yes. The app is free and open source under GPL-3.0, with no subscription and no ads inside it. This website shows a few ads to help pay for its hosting.",
+      "Yes. The full app is free and open source under GPL-3.0, with no subscription. Velmora Public shows a few quiet ads, never while a video plays, and they help pay for its development. This website shows ads too.",
+    ],
+    [
+      "What is Velmora Max?",
+      "The same app with no ads at all. Max keys are given out by the developer, not sold. Each key works on one PC at a time: enter it in Settings, under License, and remove it there to move it to another PC.",
     ],
     [
       "Why does Windows warn me about the installer?",

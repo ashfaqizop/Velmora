@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdSlot from "../components/AdSlot.svelte";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import * as api from "../lib/api";
@@ -176,6 +177,9 @@
       </div>
     </section>
   {/if}
+
+  <!-- Only while something is downloading: people wait on this page. -->
+  {#if downloads.active}<AdSlot id="downloads" />{/if}
 
   {#if !downloads.items.length && !onDisk.length}
     <div class="empty">

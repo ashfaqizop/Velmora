@@ -3,6 +3,7 @@
   import PoweredBy from "./PoweredBy.svelte";
   import * as api from "../lib/api";
   import type { AppInfo } from "../lib/types";
+  import { license } from "../lib/license.svelte";
 
   let dialog: HTMLElement & { show(): Promise<void> };
   let info = $state<AppInfo | null>(null);
@@ -18,6 +19,9 @@
   <div class="body">
     <Logo size={40} />
     <p class="version">Version {info?.version ?? "…"}{info ? ` · ${info.platform}` : ""}</p>
+    <p class="version">
+      {license.max ? `Velmora Max${license.status.name ? `, licensed to ${license.status.name}` : ""}` : "Velmora Public"}
+    </p>
     <p>
       Movies, series and anime from many sources, searched and played in one place. Free software under the GPL-3.0
       licence.

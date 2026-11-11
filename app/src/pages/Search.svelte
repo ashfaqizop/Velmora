@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdSlot from "../components/AdSlot.svelte";
   import { untrack } from "svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import { fly, scale, slide } from "svelte/transition";
@@ -142,7 +143,11 @@
           <m3e-button variant="filled" onclick={() => (extensive = true)}>Click me for extensive search</m3e-button>
         </div>
       </m3e-card>
-    {:else if extensive && narrowed.exact.length}
+    {:else}
+      <!-- Only under the full list, never next to an exact match. -->
+      {#if shown.length >= 12}<AdSlot id="search" />{/if}
+    {/if}
+    {#if !exactOnly && extensive && narrowed.exact.length}
       <div class="back">
         <m3e-button variant="text" onclick={() => (extensive = false)}>
           <m3e-icon slot="icon" name="arrow_upward"></m3e-icon>Show only the exact match

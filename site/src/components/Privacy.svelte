@@ -6,7 +6,7 @@
   const ITEMS = [
     ["person_off", "No account", "Install it and start. There is nothing to sign up for."],
     ["cloud_off", "No server of ours", "Searching, ranking and playing all happen on your PC."],
-    ["visibility_off", "No tracking", "The app sends no analytics, and the history it keeps stays local."],
+    ["visibility_off", "No profile of you", "Your history and taste stay on your PC. Ads in Public run in a sealed frame and can't see what you watch."],
     ["code", "Open source", "Every line is on GitHub under GPL-3.0, and GitHub Actions builds every release."],
   ];
 

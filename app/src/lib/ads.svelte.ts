@@ -153,16 +153,21 @@ class Ads {
     return nav.route.name === "player" || nav.route.name === "ani";
   }
 
-  /** May this slot show an ad now? */
-  allowed(id: SlotId): boolean {
+  /** May this slot be on screen at all? Max, a remote switch-off or a quiet
+   *  page hides an ad at once; caps only stop new ones (see `allowed`). */
+  canShow(id: SlotId): boolean {
     const rule = this.rules.slots[id];
-    if (!this.on || !rule?.enabled) return false;
-    if ((this.views[id] ?? 0) >= rule.max) return false;
+    if (!license.loaded || license.max || !this.rules.enabled || !rule?.enabled) return false;
     if (id === "pause" || id === "end") return nav.route.name === "player";
     if (this.quietRoute) return false;
     // The sidebar ad waits while a page ad is on screen.
     if (id === "sidebar") return this.holder === null;
     return true;
+  }
+
+  /** May this slot load a new ad (or refresh) now? */
+  allowed(id: SlotId): boolean {
+    return this.on && this.canShow(id) && (this.views[id] ?? 0) < this.rules.slots[id].max;
   }
 
   /** A page ad asks to show. Only one at a time. */
