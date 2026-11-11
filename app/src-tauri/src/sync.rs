@@ -20,7 +20,9 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Emitter, Manager, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, Url};
+#[cfg(desktop)]
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 use universeapi::model::{Target, TitleSummary};
 use universeapi::Engine;
 
@@ -156,6 +158,21 @@ where
         let _ = w.set_focus();
         return Ok(());
     }
+    #[cfg(mobile)]
+    {
+        let _ = (title, url, redirect, on_redirect);
+        return Err("Signing in here isn't on Android yet".into());
+    }
+    #[cfg(desktop)]
+    sign_in_desktop(app, label, title, url, redirect, on_redirect)
+}
+
+#[cfg(desktop)]
+fn sign_in_desktop<F, Fut>(app: &AppHandle, label: &str, title: &str, url: Url, redirect: &'static str, on_redirect: F) -> Result<(), String>
+where
+    F: Fn(AppHandle, Url) -> Fut + Send + Sync + 'static,
+    Fut: std::future::Future<Output = Result<(), String>> + Send + 'static,
+{
     let handle = app.clone();
     let label_owned = label.to_string();
     WebviewWindowBuilder::new(app, label, WebviewUrl::External(url))

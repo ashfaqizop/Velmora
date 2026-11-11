@@ -110,6 +110,7 @@ pub fn run() {
 
             // The window starts hidden so the transparent frame never flashes;
             // the UI shows it on first paint. Fallback if the UI fails to load.
+            #[cfg(desktop)]
             if let Some(window) = app.get_webview_window("main") {
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
@@ -236,16 +237,20 @@ fn create_main_window(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .find(|w| w.label == "main")
         .cloned()
         .ok_or("the main window is missing from tauri.conf.json")?;
-    let handle = app.handle().clone();
-    tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?
-        .on_new_window(move |url, _features| {
+    #[allow(unused_mut)]
+    let mut builder = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?;
+    #[cfg(desktop)]
+    {
+        let handle = app.handle().clone();
+        builder = builder.on_new_window(move |url, _features| {
             if matches!(url.scheme(), "https" | "http") {
                 use tauri_plugin_opener::OpenerExt;
                 let _ = handle.opener().open_url(url.as_str(), None::<&str>);
             }
             tauri::webview::NewWindowResponse::Deny
-        })
-        .build()?;
+        });
+    }
+    builder.build()?;
     Ok(())
 }
 

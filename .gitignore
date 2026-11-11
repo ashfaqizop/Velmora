@@ -29,8 +29,8 @@ Thumbs.db
 !.env.example
 *.key
 
-# Tauri generated schemas
-app/src-tauri/gen/
+# Tauri generated schemas (gen/android is committed)
+app/src-tauri/gen/schemas/
 
 # mpv DLLs fetched locally for packaging the runtime release
 app/src-tauri/lib/

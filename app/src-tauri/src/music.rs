@@ -24,8 +24,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::Serialize;
+#[cfg(desktop)]
 use tauri::webview::PageLoadEvent;
-use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
+#[cfg(desktop)]
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 use universeapi::music::auth::Cookie;
 use universeapi::music::{
     Account, Album, Artist, FeedPage, LibraryKind, Lyrics, MusicItem, Playlist, Rating, Resolved, SearchFilter,
@@ -41,11 +44,13 @@ const SERVICE_LOGIN_URL: &str =
 const MUSIC_URL: &str = "https://music.youtube.com/";
 /// The browser Google sees. It must match the real engine (WebView2 is
 /// Chrome), or Google refuses the sign-in as an insecure browser.
+#[cfg(desktop)]
 const LOGIN_UA: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36";
 /// Shared by the sign-in and keeper windows (WebView2 needs identical args on
 /// one profile). They keep both windows off the media keys and stop the
 /// hidden keeper from ever playing sound.
+#[cfg(desktop)]
 const WEBVIEW_ARGS: &str =
     "--disable-features=HardwareMediaKeyHandling,MediaSessionService --autoplay-policy=user-gesture-required";
 const KEEP_EVERY: Duration = Duration::from_secs(20 * 60);
@@ -120,6 +125,7 @@ pub struct MusicStore {
 }
 
 /// Page loads seen by the keeper window, so a refresh can wait for its reload.
+#[cfg_attr(mobile, allow(dead_code))]
 static KEEPER_LOADS: AtomicU64 = AtomicU64::new(0);
 
 impl MusicStore {
@@ -279,23 +285,7 @@ pub async fn music_sign_in(app: AppHandle, store: State<'_, MusicStore>) -> Resu
     if let Some(k) = app.get_webview_window(KEEPER_LABEL) {
         let _ = k.close();
     }
-    let profile = store.profile_dir();
-    let url = SERVICE_LOGIN_URL.parse::<tauri::Url>().map_err(|e| e.to_string())?;
-    let win = WebviewWindowBuilder::new(&app, LOGIN_LABEL, WebviewUrl::External(url))
-        .title("Sign in to YouTube Music")
-        .inner_size(500.0, 720.0)
-        .min_inner_size(420.0, 560.0)
-        .center()
-        .data_directory(profile)
-        .user_agent(LOGIN_UA)
-        .additional_browser_args(WEBVIEW_ARGS)
-        // The real host in the title, so a redirect somewhere odd is visible.
-        .on_page_load(|w, payload| {
-            let host = payload.url().host_str().unwrap_or("?").to_string();
-            let _ = w.set_title(&format!("Sign in · {host}"));
-        })
-        .build()
-        .map_err(|e| e.to_string())?;
+    let win = login_window(&app, &store)?;
     store.signing_in.store(true, Ordering::Relaxed);
     emit_status(&app);
 
@@ -408,22 +398,7 @@ async fn refresh(app: &AppHandle) -> Result<bool, String> {
             let _ = w.navigate(MUSIC_URL.parse::<tauri::Url>().map_err(|e| e.to_string())?);
             w
         }
-        None => WebviewWindowBuilder::new(app, KEEPER_LABEL, WebviewUrl::External(MUSIC_URL.parse::<tauri::Url>().map_err(|e| e.to_string())?))
-            .title("YouTube Music session")
-            .visible(false)
-            .skip_taskbar(true)
-            .focused(false)
-            .inner_size(800.0, 600.0)
-            .data_directory(store.profile_dir())
-            .user_agent(LOGIN_UA)
-            .additional_browser_args(WEBVIEW_ARGS)
-            .on_page_load(|_, payload| {
-                if payload.event() == PageLoadEvent::Finished {
-                    KEEPER_LOADS.fetch_add(1, Ordering::Relaxed);
-                }
-            })
-            .build()
-            .map_err(|e| e.to_string())?,
+        None => keeper_window(app, &store)?,
     };
 
     let mut loaded = false;
@@ -451,6 +426,60 @@ async fn refresh(app: &AppHandle) -> Result<bool, String> {
         }
     }
     Err("the keeper page didn't load".into())
+}
+
+/// The sign-in window: Google's own page on its own WebView2 profile.
+#[cfg(desktop)]
+fn login_window(app: &AppHandle, store: &MusicStore) -> Result<WebviewWindow, String> {
+    let url = SERVICE_LOGIN_URL.parse::<tauri::Url>().map_err(|e| e.to_string())?;
+    WebviewWindowBuilder::new(app, LOGIN_LABEL, WebviewUrl::External(url))
+        .title("Sign in to YouTube Music")
+        .inner_size(500.0, 720.0)
+        .min_inner_size(420.0, 560.0)
+        .center()
+        .data_directory(store.profile_dir())
+        .user_agent(LOGIN_UA)
+        .additional_browser_args(WEBVIEW_ARGS)
+        // The real host in the title, so a redirect somewhere odd is visible.
+        .on_page_load(|w, payload| {
+            let host = payload.url().host_str().unwrap_or("?").to_string();
+            let _ = w.set_title(&format!("Sign in · {host}"));
+        })
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+/// The hidden keeper window on the sign-in profile.
+#[cfg(desktop)]
+fn keeper_window(app: &AppHandle, store: &MusicStore) -> Result<WebviewWindow, String> {
+    let url = MUSIC_URL.parse::<tauri::Url>().map_err(|e| e.to_string())?;
+    WebviewWindowBuilder::new(app, KEEPER_LABEL, WebviewUrl::External(url))
+        .title("YouTube Music session")
+        .visible(false)
+        .skip_taskbar(true)
+        .focused(false)
+        .inner_size(800.0, 600.0)
+        .data_directory(store.profile_dir())
+        .user_agent(LOGIN_UA)
+        .additional_browser_args(WEBVIEW_ARGS)
+        .on_page_load(|_, payload| {
+            if payload.event() == PageLoadEvent::Finished {
+                KEEPER_LOADS.fetch_add(1, Ordering::Relaxed);
+            }
+        })
+        .build()
+        .map_err(|e| e.to_string())
+}
+
+// Android has a single window. Sign-in there moves to a native sheet (next step).
+#[cfg(mobile)]
+fn login_window(_app: &AppHandle, _store: &MusicStore) -> Result<WebviewWindow, String> {
+    Err("Music sign-in isn't ready on Android yet".into())
+}
+
+#[cfg(mobile)]
+fn keeper_window(_app: &AppHandle, _store: &MusicStore) -> Result<WebviewWindow, String> {
+    Err("the Music keeper isn't ready on Android yet".into())
 }
 
 /// Forget the session: the jar, the profile and the account.

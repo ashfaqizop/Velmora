@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "app.velmora.android",
+  "bundle": {
+    "android": {
+      "minSdkVersion": 26
+    }
+  }
+}
