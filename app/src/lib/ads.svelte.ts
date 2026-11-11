@@ -14,6 +14,10 @@
 //   90 seconds while the window has focus
 // - nothing while the player (except the pause and end cards) or Ani is open
 // - a slot that doesn't fill collapses to nothing
+//
+// Test mode (Ctrl+Shift+Alt+A, remembered on this PC) skips the first-launch
+// rule and the quiet time, so ads can be checked right away. Max still wins.
+import { M3eSnackbar } from "@m3e/web/snackbar";
 import * as api from "./api";
 import { license } from "./license.svelte";
 import { nav } from "./state.svelte";
@@ -110,6 +114,15 @@ function merge(remote: unknown): AdRules {
 }
 
 const REPORT_EVERY = 10 * 60 * 1000;
+const TEST_FLAG = "velmora.ads.test";
+
+function readTest(): boolean {
+  try {
+    return localStorage.getItem(TEST_FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
 
 class Ads {
   rules = $state<AdRules>(DEFAULTS);
@@ -121,6 +134,8 @@ class Ads {
   /** The page ad on screen right now, if any. */
   holder = $state<string | null>(null);
   private unsent: Record<string, number> = {};
+  /** Hidden switch for checking ads without waiting. */
+  test = $state(readTest());
   private started = false;
 
   async init() {
@@ -132,8 +147,31 @@ class Ads {
       // Defaults.
     }
     setTimeout(() => (this.awake = true), this.rules.graceSeconds * 1000);
+    addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.shiftKey && e.altKey && e.code === "KeyA") {
+        e.preventDefault();
+        this.setTest(!this.test);
+      }
+    });
     setInterval(() => this.report(), REPORT_EVERY);
     addEventListener("beforeunload", () => this.report());
+  }
+
+  setTest(on: boolean) {
+    this.test = on;
+    try {
+      if (on) localStorage.setItem(TEST_FLAG, "1");
+      else localStorage.removeItem(TEST_FLAG);
+    } catch {
+      // Not remembered, still on for this session.
+    }
+    M3eSnackbar.open(
+      on
+        ? license.max
+          ? "Ad test mode on, but Max is active, so ads stay off."
+          : "Ad test mode on: no first-launch rule or quiet time."
+        : "Ad test mode off.",
+    );
   }
 
   /** Ads are on for this install and this moment. */
@@ -141,9 +179,9 @@ class Ads {
     return (
       license.loaded &&
       !license.max &&
-      license.status.launches >= this.rules.minLaunch &&
+      (this.test || license.status.launches >= this.rules.minLaunch) &&
       this.rules.enabled &&
-      this.awake &&
+      (this.test || this.awake) &&
       this.total < this.rules.maxPerSession
     );
   }
