@@ -8,6 +8,7 @@
 // yt-dlp hands back.
 import {
   command,
+  getProperty,
   listenEvents,
   observeProperties,
   setProperty,
@@ -28,6 +29,8 @@ const OBSERVED = [
   ["time-pos", "double", "none"],
   ["duration", "double", "none"],
   ["paused-for-cache", "flag"],
+  // True once mpv is actually drawing video (music videos).
+  ["vo-configured", "flag"],
   // Loudness from the visualizer's astats filter (only there while the full view is open).
   ["af-metadata/viz", "node", "none"],
 ] as const satisfies MpvObservableProperty[];
@@ -118,6 +121,8 @@ class MusicPlayer {
   repeat = $state<Repeat>("off");
   /** Show the music video when there is one. */
   video = $state(false);
+  /** mpv is drawing the video right now. The full view stays opaque until then. */
+  videoShown = $state(false);
   error = $state<string | null>(null);
   /** Where the queue came from, for the "Playing from" line. */
   source = $state<string | null>(null);
@@ -135,6 +140,7 @@ class MusicPlayer {
   private cleanups: (() => void)[] = [];
   private streams = new Map<string, { s: MusicStream; at: number; video: boolean }>();
   private loadSeq = 0;
+  private loadedId: string | null = null;
   private resumeAt = 0;
   private prefetching = false;
 
@@ -178,17 +184,17 @@ class MusicPlayer {
 
   private async ensureMpv() {
     if (this.owned) return;
-    try {
-      await startMpv(this.config(true));
-    } catch {
-      await startMpv(this.config(false));
-    }
-    this.owned = true;
+    // Listen before mpv starts: it reports each observed property once right
+    // after init, and a listener added later misses that first report (which
+    // left the play button showing Play while a song played).
     this.cleanups.push(
       await observeProperties(OBSERVED, ({ name, data }) => {
         switch (name) {
           case "pause":
             this.playing = !(data as boolean);
+            break;
+          case "vo-configured":
+            this.videoShown = this.video && !!data;
             break;
           case "time-pos":
             this.position = (data as number | null) ?? 0;
@@ -219,6 +225,27 @@ class MusicPlayer {
         else if (ev.reason === "error") this.onFailed();
       }),
     );
+    try {
+      try {
+        await startMpv(this.config(true));
+      } catch {
+        await startMpv(this.config(false));
+      }
+    } catch (e) {
+      this.release();
+      throw e;
+    }
+    this.owned = true;
+  }
+
+  /** Read the real pause state from mpv, in case an update was missed. */
+  private async syncPause() {
+    if (!this.owned) return;
+    try {
+      this.playing = !(await getProperty("pause", "flag"));
+    } catch {
+      // Keep what we have.
+    }
   }
 
   /** The video player is taking mpv over. Remember where we were. */
@@ -226,6 +253,7 @@ class MusicPlayer {
     if (!this.owned) return;
     this.resumeAt = this.position;
     this.playing = false;
+    this.videoShown = false;
     this.release();
   }
 
@@ -291,10 +319,14 @@ class MusicPlayer {
     const item = this.current;
     if (!item) return;
     const seq = ++this.loadSeq;
+    // Reloading the same song (a switch to or from video) keeps its length.
+    const same = this.duration > 0 && this.loadedId === item.id;
+    this.loadedId = item.id;
     this.loading = true;
     this.error = null;
+    this.videoShown = false;
     this.position = startAt;
-    this.duration = item.duration ?? 0;
+    this.duration = item.duration ?? (same ? this.duration : 0);
     try {
       await this.ensureMpv();
       if (item.localPath) {
@@ -307,6 +339,7 @@ class MusicPlayer {
         await setProperty("start", startAt > 0 ? String(startAt) : "none");
         await command("loadfile", [local.url]);
         await setProperty("pause", false);
+        this.playing = true;
         return;
       }
       const s = await this.stream(item, this.video);
@@ -316,6 +349,10 @@ class MusicPlayer {
       await setProperty("http-header-fields", fields).catch(() => {});
       await setProperty("start", startAt > 0 ? String(startAt) : "none");
       const withVideo = this.video && !!s.videoUrl;
+      if (this.video && !s.videoUrl) {
+        this.video = false;
+        this.error = "This song has no video, so it plays as audio.";
+      }
       await setProperty("vid", withVideo ? "auto" : "no").catch(() => {});
       await setProperty("force-window", withVideo ? "yes" : "no").catch(() => {});
       if (withVideo && s.videoUrl && s.videoUrl !== s.audioUrl) {
@@ -326,6 +363,7 @@ class MusicPlayer {
         await command("loadfile", [withVideo && s.videoUrl ? s.videoUrl : s.audioUrl]);
       }
       await setProperty("pause", false);
+      this.playing = true;
       this.prefetching = false;
     } catch (e) {
       if (seq === this.loadSeq) {
@@ -437,7 +475,16 @@ class MusicPlayer {
   async toggle() {
     if (!this.active) return;
     if (!this.owned) return this.load(this.resumeAt);
-    await setProperty("pause", this.playing);
+    // Ask mpv rather than trust our copy, so the button always does what it shows.
+    let paused = !this.playing;
+    try {
+      paused = (await getProperty("pause", "flag")) as boolean;
+    } catch {
+      // Use our copy.
+    }
+    await setProperty("pause", !paused).catch(() => {});
+    this.playing = paused;
+    this.syncPause();
   }
 
   async next() {
@@ -502,6 +549,7 @@ class MusicPlayer {
   async setVideo(on: boolean) {
     if (this.video === on) return;
     this.video = on;
+    if (!on) this.videoShown = false;
     if (this.active) await this.load(this.position);
   }
 
@@ -511,6 +559,7 @@ class MusicPlayer {
     this.queue = [];
     this.index = -1;
     this.playing = false;
+    this.videoShown = false;
     this.position = 0;
     this.duration = 0;
     if (this.owned) {
@@ -529,6 +578,14 @@ class MusicPlayer {
 
   private failures = 0;
   private onFailed() {
+    // A music video that won't play falls back to the song, from the same spot.
+    if (this.video) {
+      this.video = false;
+      this.videoShown = false;
+      this.load(this.position);
+      this.error = "The video couldn't be played, so the song plays as audio.";
+      return;
+    }
     // Skip a song that won't play, but don't spin through a broken queue.
     this.failures += 1;
     if (this.failures > 3) {

@@ -121,6 +121,13 @@ pub fn run() {
             }
             Ok(())
         })
+        // Closing the main window quits Velmora. Without this the hidden Music
+        // keeper window keeps the process (and mpv) alive with nothing on screen.
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                window.app_handle().exit(0);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::refresh_config,

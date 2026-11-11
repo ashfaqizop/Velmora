@@ -21,12 +21,18 @@
   const cover = $derived(cur ? art(cur.thumbnails, 600) : null);
   const tint = $derived(musicUi.colors?.base ?? "var(--md-sys-color-primary)");
   const deep = $derived(musicUi.colors?.deep ?? "#120b24");
+  // Video is chosen; the page only turns see-through once mpv is drawing it,
+  // so a slow or failed video never leaves a transparent window.
   const video = $derived(musicPlayer.video);
+  const showingVideo = $derived(musicPlayer.video && musicPlayer.videoShown);
 
   let stage = $state<HTMLElement>();
   let stageSize = $state(420);
   let eqOpen = $state(false);
   let seeking = $state<number | null>(null);
+  let adShown = $state(false);
+  let winH = $state(innerHeight);
+  const tall = $derived(winH >= 900);
 
   function close() {
     musicUi.full = false;
@@ -46,7 +52,9 @@
   }
 
   $effect(() => {
-    document.documentElement.classList.toggle("music-video", video);
+    document.documentElement.classList.toggle("music-video", showingVideo);
+  });
+  $effect(() => {
     if (video) placeVideo();
   });
 
@@ -92,17 +100,17 @@
   };
 </script>
 
-<svelte:window onkeydown={onKey} onresize={placeVideo} />
+<svelte:window bind:innerHeight={winH} onkeydown={onKey} onresize={placeVideo} />
 
 {#if cur}
   <div
     class="full"
-    class:video
+    class:video={showingVideo}
     style:--np={tint}
     style:--np-deep={deep}
     transition:fly={{ y: 60, duration: 480, easing: cubicOut }}
   >
-    {#if !video}
+    {#if !showingVideo}
       <div class="glow" style:background-image={cover ? `url("${cover}")` : undefined} transition:fade={{ duration: 400 }}></div>
     {/if}
     <div class="shade"></div>
@@ -140,13 +148,12 @@
     <div class="body">
       <section class="left">
         <div class="stage" bind:this={stage}>
-          {#if !video}
+          {#if !showingVideo}
             <Visualizer size={stageSize} color={tint} />
             <div class="cover">
               <MorphCover src={cover} size={Math.round(stageSize * 0.66)} playing={musicPlayer.playing} lobes={12} react />
             </div>
-          {:else if musicPlayer.loading}
-            <m3e-loading-indicator></m3e-loading-indicator>
+            {#if video}<span class="vid-wait">Loading the video…</span>{/if}
           {/if}
         </div>
 
@@ -220,7 +227,7 @@
             <m3e-icon slot="icon" name="queue_music"></m3e-icon>Up next
           </m3e-button-segment>
         </m3e-segmented-button>
-        <div class="panel">
+        <div class="panel" class:roomy={!adShown}>
           {#if musicUi.fullTab === "lyrics"}
             <Lyrics />
           {:else}
@@ -247,7 +254,11 @@
             </div>
           {/if}
         </div>
-        <div class="ad"><AdSlot id="nowplaying" /></div>
+        <!-- The ad has its own space under the panel and never covers it. On a
+             short window it only shows with Up next, so lyrics keep the room. -->
+        {#if musicUi.fullTab === "queue" || tall}
+          <div class="ad"><AdSlot id="nowplaying" bind:shown={adShown} /></div>
+        {/if}
       </section>
     </div>
   </div>
@@ -262,7 +273,8 @@
     flex-direction: column;
     color: #fff;
     background: var(--np-deep);
-    overflow: hidden;
+    /* clip, not hidden: a hidden box can still be scrolled by code. */
+    overflow: clip;
     isolation: isolate;
   }
   .full.video {
@@ -404,6 +416,12 @@
     display: grid;
     place-items: center;
   }
+  .vid-wait {
+    position: absolute;
+    bottom: 0;
+    font-size: 12.5px;
+    color: rgb(255 255 255 / 65%);
+  }
   .cover {
     position: relative;
     filter: drop-shadow(0 30px 60px rgb(0 0 0 / 50%));
@@ -489,17 +507,23 @@
     flex-direction: column;
     gap: 14px;
     min-height: 0;
+    overflow: hidden;
   }
   .tabs {
     align-self: flex-start;
   }
+  /* The panel clips its contents: lyrics and the queue scroll inside it and
+     never spill over the ad or the rest of the page. */
   .panel {
     flex: 1;
-    min-height: 0;
+    min-height: 120px;
     position: relative;
+    overflow: hidden;
+    container-type: size;
   }
   .queue {
-    height: 100%;
+    position: absolute;
+    inset: 0;
     overflow-y: auto;
     scrollbar-width: thin;
     display: flex;
@@ -512,7 +536,7 @@
     border-radius: 16px;
   }
   .q.now {
-    background: rgb(255 255 255 / 10%);
+    background: color-mix(in srgb, var(--np) 28%, rgb(255 255 255 / 8%));
   }
   .q-main {
     flex: 1;
@@ -544,10 +568,10 @@
     color: rgb(255 255 255 / 60%);
   }
   .q.now strong {
-    color: var(--np);
+    color: #fff;
   }
-  .ad:empty {
-    display: none;
+  .ad {
+    flex: none;
   }
   @media (max-width: 1100px) {
     .body {

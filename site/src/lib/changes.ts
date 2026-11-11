@@ -38,6 +38,22 @@ export const KIND_ICON: Record<ChangeKind, string> = { new: "add_circle", improv
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.3.6",
+    date: "2026-11-11",
+    name: "Music, fixed",
+    summary: "Fixes for the full music player: lyrics that stay in place, controls that match what's playing, music videos that show, and an app that quits when you close it.",
+    color: "#f472b6",
+    shape: "4-sided-cookie",
+    changes: [
+      { kind: "fixed", title: "Lyrics moved the player", text: "On songs with synced lyrics, following the lyrics pushed the whole player up and cut off its top. Only the lyrics scroll now." },
+      { kind: "fixed", title: "Play showed while a song played", text: "The play button, and pausing, now follow what's actually playing." },
+      { kind: "fixed", title: "Video made the window see-through", text: "The player stays solid until the music video is on screen. A song without a video, or one that won't load, keeps playing as audio." },
+      { kind: "fixed", title: "Velmora kept running after closing", text: "Closing the window now quits Velmora completely." },
+      { kind: "fixed", title: "The ad covered the lyrics", text: "The ad in the full player has its own space under the lyrics and the queue. On smaller screens it only shows with Up next." },
+      { kind: "fixed", title: "The current song in Up next", text: "Its title is readable on every artwork color." },
+    ],
+  },
+  {
     version: "0.3.5",
     date: "2026-11-11",
     name: "Music",

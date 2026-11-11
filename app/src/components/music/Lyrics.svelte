@@ -47,11 +47,15 @@
     return idx;
   });
 
+  // Centre the current line by scrolling the lyrics box only. (scrollIntoView
+  // also scrolled every box around it, which pushed the whole player up.)
   $effect(() => {
     const i = active;
     if (i < 0 || !box || Date.now() - userScrolled < 4000) return;
     const el = box.children[i] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (!el) return;
+    const top = el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2;
+    box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
   });
 </script>
 
@@ -81,10 +85,12 @@
 
 <style>
   .lyrics {
-    height: 100%;
+    position: absolute;
+    inset: 0;
     overflow-y: auto;
     scrollbar-width: none;
-    padding: 40vh 8px 40vh 4px;
+    /* Half the panel above and below, so the first and last lines can sit in the middle. */
+    padding: 45cqh 8px 45cqh 4px;
     box-sizing: border-box;
     mask-image: linear-gradient(180deg, transparent 0%, black 18%, black 82%, transparent 100%);
   }
