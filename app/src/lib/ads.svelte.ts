@@ -22,7 +22,19 @@ import * as api from "./api";
 import { license } from "./license.svelte";
 import { nav } from "./state.svelte";
 
-export type SlotId = "home" | "search" | "grid" | "title" | "downloads" | "sidebar" | "sports" | "live" | "pause" | "end";
+export type SlotId =
+  | "home"
+  | "search"
+  | "grid"
+  | "title"
+  | "downloads"
+  | "sidebar"
+  | "sports"
+  | "live"
+  | "pause"
+  | "end"
+  | "music"
+  | "nowplaying";
 export type Unit = "native" | "728x90" | "468x60" | "320x50" | "300x250" | "160x300" | "160x600";
 
 interface SlotRule {
@@ -70,6 +82,8 @@ export const DEFAULTS: AdRules = {
     live: slot("native", 8),
     pause: slot("300x250", 10),
     end: slot("300x250", 10),
+    music: slot("native", 10),
+    nowplaying: slot("300x250", 8),
   },
 };
 
@@ -197,6 +211,8 @@ class Ads {
     const rule = this.rules.slots[id];
     if (!license.loaded || license.max || !this.rules.enabled || !rule?.enabled) return false;
     if (id === "pause" || id === "end") return nav.route.name === "player";
+    // The expanded music player's card; only mounted while it's open.
+    if (id === "nowplaying") return nav.route.name !== "player";
     if (this.quietRoute) return false;
     // The sidebar ad waits while a page ad is on screen.
     if (id === "sidebar") return this.holder === null;

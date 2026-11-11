@@ -11,6 +11,13 @@
   ani.loadKey().catch((e) => console.warn("ani key status", e));
 
   let draft = $state("");
+  // A question handed over from elsewhere (a song's "Ask Ani"). It waits in the box.
+  $effect(() => {
+    if (ani.prefill) {
+      draft = ani.prefill;
+      ani.prefill = null;
+    }
+  });
   // The recent-chats list can fold into a slim rail; remembered between launches.
   let collapsed = $state(localStorage.getItem("velmora.ani.listCollapsed") === "1");
   function toggleList() {

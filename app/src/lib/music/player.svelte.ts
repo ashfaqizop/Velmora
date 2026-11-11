@@ -11,8 +11,10 @@ import {
   listenEvents,
   observeProperties,
   setProperty,
+  setVideoMarginRatio,
   type MpvConfig,
   type MpvObservableProperty,
+  type VideoMarginRatio,
 } from "tauri-plugin-libmpv-api";
 import * as api from "../api";
 import { sound } from "../audio.svelte";
@@ -26,7 +28,44 @@ const OBSERVED = [
   ["time-pos", "double", "none"],
   ["duration", "double", "none"],
   ["paused-for-cache", "flag"],
+  // Loudness from the visualizer's astats filter (only there while the full view is open).
+  ["af-metadata/viz", "node", "none"],
 ] as const satisfies MpvObservableProperty[];
+
+/** Equalizer presets: [frequency Hz, gain dB] per band. */
+export const EQ_PRESETS: Record<string, { label: string; bands: [number, number][] }> = {
+  flat: { label: "Flat", bands: [] },
+  bass: { label: "Bass boost", bands: [[60, 6], [150, 4], [400, 0]] },
+  vshape: { label: "Bass and treble", bands: [[60, 5], [250, 1], [1000, -2], [4000, 2], [12000, 5]] },
+  vocal: { label: "Vocals", bands: [[100, -2], [400, 0], [1500, 3], [3500, 4], [8000, 1]] },
+  treble: { label: "Treble boost", bands: [[4000, 3], [8000, 5], [14000, 5]] },
+  acoustic: { label: "Acoustic", bands: [[80, 3], [250, 1], [1000, 1], [3000, 2], [10000, 2]] },
+  electronic: { label: "Electronic", bands: [[60, 5], [150, 3], [1000, -1], [5000, 2], [12000, 4]] },
+  late: { label: "Late night", bands: [[60, -3], [250, 0], [2500, 2], [8000, -2]] },
+};
+const EQ_KEY = "velmora.music.eq";
+
+function eqFilter(preset: string): string {
+  const bands = EQ_PRESETS[preset]?.bands ?? [];
+  if (!bands.length) return "";
+  return `@eq:lavfi=[${bands.map(([f, g]) => `equalizer=f=${f}:t=q:w=1:g=${g}`).join(",")}]`;
+}
+
+function readEq(): string {
+  try {
+    const v = localStorage.getItem(EQ_KEY) ?? "flat";
+    return EQ_PRESETS[v] ? v : "flat";
+  } catch {
+    return "flat";
+  }
+}
+
+/** dB ("-23.4", "-inf") to 0..1. */
+function level(v: unknown): number {
+  const n = typeof v === "string" ? parseFloat(v) : typeof v === "number" ? v : NaN;
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(1, (n + 50) / 50));
+}
 
 /** googlevideo URLs last about six hours; use a resolved one for five. */
 const STREAM_TTL = 5 * 60 * 60 * 1000;
@@ -82,6 +121,11 @@ class MusicPlayer {
   error = $state<string | null>(null);
   /** Where the queue came from, for the "Playing from" line. */
   source = $state<string | null>(null);
+  /** Equalizer preset name (EQ_PRESETS). */
+  eq = $state(readEq());
+  /** Live loudness for the visualizer, written ~30 times a second. Not reactive on purpose. */
+  readonly meter = { left: 0, right: 0, at: 0 };
+  private viz = false;
 
   /** The order before shuffle, to restore it. */
   private ordered: MusicItem[] = [];
@@ -125,7 +169,7 @@ class MusicPlayer {
       ytdl: "no",
       volume: this.volume,
       "volume-max": sound.maxVolume,
-      af: sound.filters(),
+      af: this.filters(),
     };
     // Media keys and the Windows media overlay, on mpv builds that have them.
     if (withControls) options["media-controls"] = "yes";
@@ -156,6 +200,14 @@ class MusicPlayer {
           case "paused-for-cache":
             this.buffering = data as boolean;
             break;
+          case "af-metadata/viz": {
+            const m = (data ?? {}) as Record<string, unknown>;
+            const overall = level(m["lavfi.astats.Overall.RMS_level"]);
+            this.meter.left = level(m["lavfi.astats.1.RMS_level"]) || overall;
+            this.meter.right = level(m["lavfi.astats.2.RMS_level"]) || overall;
+            this.meter.at = performance.now();
+            break;
+          }
         }
       }),
     );
@@ -183,6 +235,48 @@ class MusicPlayer {
     this.owned = false;
   }
 
+  // ── Sound ────────────────────────────────────────────────────────
+
+  /** The audio filter chain: equalizer, the shared sound options, and the
+   *  visualizer's loudness meter while the full view is open. */
+  private filters(): string {
+    return [eqFilter(this.eq), sound.filters(), this.viz ? "@viz:lavfi=[astats=metadata=1:reset=1]" : ""]
+      .filter(Boolean)
+      .join(",");
+  }
+
+  /** Re-apply the chain after a sound setting changed. */
+  applyFilters() {
+    if (this.owned) setProperty("af", this.filters()).catch(() => {});
+  }
+
+  setEq(preset: string) {
+    if (!EQ_PRESETS[preset]) return;
+    this.eq = preset;
+    try {
+      localStorage.setItem(EQ_KEY, preset);
+    } catch {
+      // Not remembered.
+    }
+    this.applyFilters();
+  }
+
+  /** The full view turns the loudness meter on while it's open. */
+  setVisualizer(on: boolean) {
+    if (this.viz === on) return;
+    this.viz = on;
+    if (!on) {
+      this.meter.left = 0;
+      this.meter.right = 0;
+    }
+    this.applyFilters();
+  }
+
+  /** Where the music video goes in the window, as margins (0..1). */
+  placeVideo(margins: VideoMarginRatio) {
+    if (this.owned) setVideoMarginRatio(margins).catch(() => {});
+  }
+
   // ── Streams ──────────────────────────────────────────────────────
 
   private async stream(item: MusicItem, video: boolean): Promise<MusicStream> {
@@ -203,6 +297,18 @@ class MusicPlayer {
     this.duration = item.duration ?? 0;
     try {
       await this.ensureMpv();
+      if (item.localPath) {
+        // A downloaded song plays from this PC, no network needed.
+        const local = await api.openLocal(item.localPath);
+        if (seq !== this.loadSeq) return;
+        await setProperty("http-header-fields", "").catch(() => {});
+        await setProperty("audio-files", "").catch(() => {});
+        await setProperty("vid", "no").catch(() => {});
+        await setProperty("start", startAt > 0 ? String(startAt) : "none");
+        await command("loadfile", [local.url]);
+        await setProperty("pause", false);
+        return;
+      }
       const s = await this.stream(item, this.video);
       if (seq !== this.loadSeq) return;
       const { ua, fields } = headerOptions(s);
@@ -233,6 +339,7 @@ class MusicPlayer {
 
   /** Resolve the next song ahead of time, so it starts without a wait. */
   private maybePrefetch() {
+    if (this.current?.localPath) return;
     if (this.prefetching || !this.duration || this.duration - this.position > PREFETCH_AT) return;
     const next = this.queue[this.index + 1];
     if (!next) {

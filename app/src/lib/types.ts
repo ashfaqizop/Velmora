@@ -396,6 +396,8 @@ export interface MusicItem {
   playVideoId: string | null;
   params: string | null;
   tint: string | null;
+  /** UI only: a downloaded copy to play instead of streaming. */
+  localPath?: string;
 }
 
 export interface MusicShelfMore {
@@ -519,4 +521,11 @@ export interface YtDlpStatus {
   installed: boolean;
   version: string | null;
   path: string;
+}
+
+/** A song saved on this PC (music downloads). */
+export interface OfflineSong {
+  item: MusicItem;
+  path: string;
+  size: number;
 }

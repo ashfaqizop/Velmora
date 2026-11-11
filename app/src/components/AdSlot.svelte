@@ -22,7 +22,7 @@
   // A slot never changes its id, so these are fixed for its lifetime.
   const fixedId = untrack(() => id);
   // Page ads take turns; the sidebar and the player's cards don't.
-  const shared = fixedId !== "sidebar" && fixedId !== "pause" && fixedId !== "end";
+  const shared = !["sidebar", "pause", "end", "nowplaying"].includes(fixedId);
   const instance = `${fixedId}-${Math.random().toString(36).slice(2)}`;
 
   let box = $state<HTMLElement>();

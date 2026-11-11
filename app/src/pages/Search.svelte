@@ -1,5 +1,9 @@
 <script lang="ts">
   import AdSlot from "../components/AdSlot.svelte";
+  import TrackRow from "../components/music/TrackRow.svelte";
+  import { musicSession } from "../lib/music/session.svelte";
+  import { nav } from "../lib/state.svelte";
+  import type { MusicItem } from "../lib/types";
   import { untrack } from "svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import { fly, scale, slide } from "svelte/transition";
@@ -94,6 +98,21 @@
     const s = slide(node, { duration: 450, easing: cubicOut });
     return { ...s, css: (t: number, u: number) => `${s.css?.(t, u) ?? ""}opacity:${t};` };
   }
+
+  // Signed in to YouTube Music: a few songs that match, under the titles.
+  let songs = $state<MusicItem[]>([]);
+  $effect(() => {
+    const q = query.trim();
+    songs = [];
+    if (!musicSession.signedIn || q.length < 2) return;
+    const timer = setTimeout(() => {
+      api
+        .musicSearch(q, "songs")
+        .then((r) => (songs = r.shelves.flatMap((x) => x.items).filter((x) => x.kind === "song").slice(0, 4)))
+        .catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
+  });
 </script>
 
 <div class="page">
@@ -176,9 +195,36 @@
       <p>Try the original title, or fewer words.</p>
     </div>
   {/if}
+
+  {#if songs.length}
+    <section class="songs-row" in:fly={{ y: 10, duration: 300 }}>
+      <header>
+        <h2 class="display">Songs</h2>
+        <m3e-button variant="text" size="small" onclick={() => nav.go({ name: "music-search", query })}>
+          More in Music<m3e-icon slot="trailing-icon" name="arrow_forward"></m3e-icon>
+        </m3e-button>
+      </header>
+      {#each songs as s, i (s.id)}
+        <TrackRow item={s} index={i} list={songs} source={`Search: ${query}`} showAlbum={false} />
+      {/each}
+    </section>
+  {/if}
 </div>
 
 <style>
+  .songs-row {
+    margin-top: 28px;
+  }
+  .songs-row header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .songs-row h2 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    font-weight: 400;
+  }
   .page {
     display: flex;
     flex-direction: column;

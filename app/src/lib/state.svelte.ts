@@ -31,6 +31,15 @@ export type Route =
   | { name: "live" }
   | { name: "sports" }
   | { name: "match"; match: SportsMatch }
+  // Music mode (YouTube Music). Every route starting with "music" belongs to it.
+  | { name: "music" }
+  | { name: "music-explore"; tab?: "charts" | "new" | "moods" }
+  | { name: "music-search"; query: string }
+  | { name: "music-album"; id: string }
+  | { name: "music-artist"; id: string }
+  | { name: "music-playlist"; id: string }
+  | { name: "music-library"; tab?: "liked" | "playlists" | "albums" | "artists" | "downloaded" }
+  | { name: "music-feed"; browseId: string; params?: string | null; title: string }
   /** A list Ani showed, opened in full from "See all". */
   | { name: "list"; title: string; items: TitleSummary[] }
   | {
@@ -45,14 +54,32 @@ export type Route =
       channel?: TvChannel;
     };
 
+/** Music mode: the routes that belong to YouTube Music. */
+export const isMusic = (r: Route) => r.name.startsWith("music");
+
 class Nav {
   route = $state<Route>({ name: "home" });
   private stack: Route[] = [];
+  /** Where to land when leaving Music mode. */
+  private lastVelmora: Route = { name: "home" };
+
+  get musicMode() {
+    return isMusic(this.route);
+  }
+
+  /** Leave Music mode for the page you were on before it. */
+  leaveMusic() {
+    this.go(this.lastVelmora);
+  }
 
   go(route: Route) {
     if (JSON.stringify(route) === JSON.stringify(this.route)) return;
+    if (isMusic(route) && !isMusic(this.route) && this.route.name !== "player") this.lastVelmora = this.route;
     // Typing in search refines the current search instead of stacking pages.
-    if (!(route.name === "search" && this.route.name === "search")) this.stack.push(this.route);
+    const refining =
+      (route.name === "search" && this.route.name === "search") ||
+      (route.name === "music-search" && this.route.name === "music-search");
+    if (!refining) this.stack.push(this.route);
     this.route = route;
   }
 
@@ -66,7 +93,7 @@ class Nav {
   }
 
   get canGoBack() {
-    return this.route.name !== "home";
+    return this.route.name !== "home" && this.route.name !== "music";
   }
 }
 
@@ -366,6 +393,15 @@ class AniSettings {
   chatModel = $state(localStorage.getItem("velmora.ani.chatModel") ?? ANI_CHAT_MODEL);
   toolModel = $state(localStorage.getItem("velmora.ani.toolModel") ?? ANI_TOOL_MODEL);
   key = $state<AniKeyStatus | null>(null);
+  /** A question another page wants typed into Ani's box (the user still sends it). */
+  prefill = $state<string | null>(null);
+
+  /** Open Ani with a question ready to send. */
+  ask(text: string) {
+    if (!this.enabled) this.setEnabled(true);
+    this.prefill = text;
+    nav.go({ name: "ani" });
+  }
 
   get ready() {
     return this.enabled && !!this.key?.set;

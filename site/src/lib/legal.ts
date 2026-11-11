@@ -38,6 +38,15 @@ export const PRIVACY: LegalDoc = {
       ],
     },
     {
+      heading: "Music",
+      paragraphs: [
+        "Music is optional and is the only part of Velmora that needs a Google account. You sign in on Google's own page, in a separate window; Velmora never sees your password. Velmora keeps the YouTube cookies that window receives, encrypted with Windows so only your Windows account on this PC can read them, and uses them to talk to YouTube Music directly from your PC. They never reach us.",
+        "With them, Velmora shows your YouTube Music home, library and playlists, and sends your likes and playlist changes to your account. A hidden window refreshes the session every 20 minutes so Google doesn't sign you out.",
+        "Songs play through yt-dlp, a separate open-source program Velmora downloads and keeps updated. It fetches each song from YouTube without your cookies. Lyrics come from YouTube Music and LRCLIB.",
+        "Signing out in Settings, under Music, deletes the cookies and the sign-in window's data from this PC.",
+      ],
+    },
+    {
       heading: "AniList and Trakt",
       paragraphs: [
         "If you connect AniList or Trakt, Velmora stores the sign-in on your PC and tells that service what you finished watching. Nothing is sent until you connect.",
@@ -102,6 +111,12 @@ export const TERMS: LegalDoc = {
       paragraphs: [
         "Velmora doesn't host, upload or store any movies, shows, channels or streams. It searches third-party sites and plays what they serve, the way a browser does. You're responsible for what you watch and download, and for following the law where you live.",
         "\"Where to watch\" for sports lists official broadcasters only. Live TV channels come from a public playlist that Velmora doesn't control. Some may not play.",
+      ],
+    },
+    {
+      heading: "Music and YouTube",
+      paragraphs: [
+        "Velmora isn't affiliated with Google or YouTube. Music uses your own YouTube account, and YouTube's terms apply to how you use it. You're responsible for that use, including downloading songs.",
       ],
     },
     {

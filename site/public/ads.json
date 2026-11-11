@@ -16,6 +16,8 @@
     "sports": { "enabled": true, "unit": "native", "max": 8 },
     "live": { "enabled": true, "unit": "native", "max": 8 },
     "pause": { "enabled": true, "unit": "300x250", "max": 10 },
-    "end": { "enabled": true, "unit": "300x250", "max": 10 }
+    "end": { "enabled": true, "unit": "300x250", "max": 10 },
+    "music": { "enabled": true, "unit": "native", "max": 10 },
+    "nowplaying": { "enabled": true, "unit": "300x250", "max": 8 }
   }
 }

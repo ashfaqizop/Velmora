@@ -22,6 +22,7 @@ import type {
   MusicStatus,
   MusicStream,
   MusicTrackPage,
+  OfflineSong,
   YtDlpStatus,
   LocalFile,
   OpenedStream,
@@ -231,3 +232,7 @@ export const musicStream = (videoId: string, video = false, maxHeight?: number) 
   invoke<MusicStream>("music_stream", { videoId, video, maxHeight: maxHeight ?? null });
 export const musicYtdlpStatus = () => invoke<YtDlpStatus>("music_ytdlp_status");
 export const musicYtdlpUpdate = () => invoke<YtDlpStatus>("music_ytdlp_update");
+/** Download a song as a Velmora-only file in the Music folder. */
+export const musicDownload = (item: MusicItem) => invoke<number>("music_download", { item });
+export const musicDownloads = () => invoke<OfflineSong[]>("music_downloads");
+export const musicDownloadDelete = (path: string) => invoke<void>("music_download_delete", { path });

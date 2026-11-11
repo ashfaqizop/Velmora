@@ -209,6 +209,9 @@ pub fn run() {
             music::music_stream,
             music::music_ytdlp_status,
             music::music_ytdlp_update,
+            music::music_download,
+            music::music_downloads,
+            music::music_download_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");

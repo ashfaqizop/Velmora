@@ -54,6 +54,17 @@ html.player-active .shell {
   visibility: hidden;
 }
 
+/* A music video plays behind the full music player. */
+html.music-video,
+html.music-video body,
+html.music-video #theme,
+html.music-video #app {
+  background: transparent !important;
+}
+html.music-video .shell {
+  visibility: hidden;
+}
+
 /* An icon or text centred on an m3e-shape: both share one grid cell.
    (Content slotted into the shape itself isn't centred.) */
 .on-shape {

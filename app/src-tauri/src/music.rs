@@ -637,3 +637,121 @@ pub async fn music_ytdlp_update(state: State<'_, AppState>) -> Result<YtDlpStatu
     }
     Ok(y.status().await)
 }
+
+// ── Downloads ───────────────────────────────────────────────────────
+//
+// Songs download like videos: through the engine's queue, saved as
+// Velmora-only .vlm files, in a "Music" folder inside the download folder.
+// A small index keeps each song's details (cover, artists, album) so the
+// Downloaded tab looks like the rest of Music offline.
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct IndexEntry {
+    file_title: String,
+    item: MusicItem,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfflineSong {
+    item: MusicItem,
+    path: String,
+    size: u64,
+}
+
+fn index_file(store: &MusicStore) -> PathBuf {
+    store.dir.join("downloads.json")
+}
+
+fn read_index(store: &MusicStore) -> Vec<IndexEntry> {
+    std::fs::read(index_file(store)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+}
+
+fn write_index(store: &MusicStore, list: &[IndexEntry]) {
+    if let Ok(text) = serde_json::to_vec(list) {
+        let _ = std::fs::create_dir_all(&store.dir);
+        let _ = std::fs::write(index_file(store), text);
+    }
+}
+
+fn music_dir(state: &AppState) -> PathBuf {
+    state.engine.download_dir().join("Music")
+}
+
+/// "Daft Punk - Get Lucky", safe for a file name.
+fn file_title(item: &MusicItem) -> String {
+    let by = item.artist_names();
+    let raw = if by.is_empty() { item.title.clone() } else { format!("{by} - {}", item.title) };
+    raw.chars().map(|c| if r#"<>:"/\|?*"#.contains(c) || c.is_control() { ' ' } else { c }).collect::<String>().trim().to_string()
+}
+
+fn norm(s: &str) -> String {
+    s.to_lowercase().chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
+/// Download a song for offline listening.
+#[tauri::command]
+pub async fn music_download(
+    state: State<'_, AppState>,
+    store: State<'_, MusicStore>,
+    item: MusicItem,
+) -> Result<u64, String> {
+    use universeapi::model::{ProviderId, Source, StreamFormat};
+    let resolved = state.engine.music().resolve(&item.id, StreamMode::Audio, 0).await.map_err(err)?;
+    let title = file_title(&item);
+    let mut source = Source::new(ProviderId::YoutubeMusic, "YouTube Music", title.clone(), resolved.audio_url.clone());
+    source.headers = resolved.headers.iter().cloned().collect();
+    source.format = match resolved.ext.as_deref() {
+        Some("m4a") | Some("mp4") => StreamFormat::Mp4,
+        _ => StreamFormat::Webm,
+    };
+    source.size_bytes = resolved.filesize;
+    let request = universeapi::download::DownloadRequest {
+        source,
+        title: title.clone(),
+        dest_dir: Some(music_dir(&state)),
+        episode: None,
+    };
+    let id = state.engine.downloads().enqueue(request).await;
+    let mut index = read_index(&store);
+    index.retain(|e| e.item.id != item.id);
+    index.push(IndexEntry { file_title: title, item });
+    write_index(&store, &index);
+    Ok(id)
+}
+
+/// Songs saved on this PC, with their details when the index has them.
+#[tauri::command]
+pub fn music_downloads(state: State<'_, AppState>, store: State<'_, MusicStore>) -> Vec<OfflineSong> {
+    let index = read_index(&store);
+    let Ok(entries) = std::fs::read_dir(music_dir(&state)) else { return Vec::new() };
+    let mut out = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_string();
+        if !path.is_file() || name.ends_with(".part") || name.contains(".part.") {
+            continue;
+        }
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default();
+        // "Title (2)" is a second copy of "Title".
+        let base = stem.rsplit_once(" (").filter(|(_, n)| n.trim_end_matches(')').parse::<u32>().is_ok()).map_or(stem, |(b, _)| b);
+        let Some(e) = index.iter().find(|e| norm(&e.file_title) == norm(base)) else { continue };
+        let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+        out.push(OfflineSong { item: e.item.clone(), path: path.display().to_string(), size });
+    }
+    out
+}
+
+/// Delete a downloaded song.
+#[tauri::command]
+pub fn music_download_delete(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    let file = PathBuf::from(&path);
+    // Only files inside the Music download folder.
+    let dir = music_dir(&state);
+    let inside = file.parent().and_then(|p| p.canonicalize().ok()) == dir.canonicalize().ok();
+    if !inside {
+        return Err("That file isn't a downloaded song.".into());
+    }
+    std::fs::remove_file(&file).map_err(|e| e.to_string())
+}

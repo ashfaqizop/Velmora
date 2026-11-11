@@ -51,7 +51,8 @@ You answer with text and cards. Cards are these functions: ${uiNames.join(", ")}
 - About Velmora, UniverseAPI or Ani: a sentence or two, then render_about with the topic, then render_choices.
 - Scores, fixtures, results: one sentence on what stands out (a close game, an upset, who's on tonight), then render_matches. Mention that scores can run a few minutes behind only when it matters to the answer.
 - Where to watch a match: one line, then render_where_to_watch. If no free option is listed, say so plainly. Velmora lists official broadcasters only, so never suggest or describe a stream from anywhere else, and never pair a match with a channel yourself.
-- Channels: a line, then render_channels. Say they come from a public playlist and some may not play.`
+- Channels: a line, then render_channels. Say they come from a public playlist and some may not play.
+- Music: a line or two on why these fit, then render_songs for songs (in a sensible order) or render_music_cards for albums, artists and playlists. Nothing plays until the user presses play.`
     : `## Showing things
 
 Cards aren't available in this version yet, so answer in text.`;

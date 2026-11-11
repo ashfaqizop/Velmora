@@ -9,7 +9,7 @@ const ICONS = [
   "back_hand", "badge", "bedtime", "bookmark", "build", "calendar_month", "check_circle", "checklist",
   "close", "cloud_off", "code", "compare_arrows", "donut_large", "download", "edit_note", "equalizer",
   "folder_open", "format_list_numbered", "graphic_eq", "history", "home", "info", "key",
-  "keyboard_arrow_down", "keyboard_arrow_up", "leaderboard", "link", "lock", "menu", "movie", "palette",
+  "keyboard_arrow_down", "keyboard_arrow_up", "leaderboard", "library_music", "lyrics", "link", "lock", "menu", "movie", "palette",
   "person", "person_heart", "person_off", "play_arrow", "play_circle", "psychology", "record_voice_over",
   "schedule", "search", "settings", "star", "sticky_note_2", "swap_horiz", "sync", "toggle_off",
   "travel_explore", "trending_up", "verified", "video_library", "view_carousel", "visibility", "visibility_off",

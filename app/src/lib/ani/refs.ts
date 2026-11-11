@@ -2,7 +2,7 @@
 // "p1" for a person, "m2" for a match, "c1" for a TV channel). Tools hand Gemini the ref instead of the full object,
 // and generative UI blocks name refs, so every poster, link and button in a
 // reply comes from real data rather than from the model's memory.
-import type { SportsMatch, Source, Target, TitleSummary, TvChannel } from "../types";
+import type { MusicItem, SportsMatch, Source, Target, TitleSummary, TvChannel } from "../types";
 
 export interface PersonRef {
   name: string;
@@ -22,11 +22,13 @@ export type Entity =
   | { type: "link"; source: Source; title: TitleSummary; target: Target }
   | { type: "person"; person: PersonRef }
   | { type: "match"; match: SportsMatch }
-  | { type: "channel"; channel: TvChannel };
+  | { type: "channel"; channel: TvChannel }
+  /** A song, album, artist or playlist from YouTube Music ("s1"). */
+  | { type: "music"; item: MusicItem };
 
 export interface RefData {
   /** `m` and `c` are missing in chats saved before sports and live TV existed. */
-  next: { t: number; l: number; p: number; m?: number; c?: number };
+  next: { t: number; l: number; p: number; m?: number; c?: number; s?: number };
   items: Record<string, Entity>;
 }
 
@@ -105,6 +107,22 @@ export class RefBook {
     if (same) return same[0];
     const ref = `c${(this.data.next.c = (this.data.next.c ?? 0) + 1)}`;
     this.data.items[ref] = { type: "channel", channel };
+    return ref;
+  }
+
+  music(ref: string): MusicItem | undefined {
+    const e = this.get(ref);
+    return e?.type === "music" ? e.item : undefined;
+  }
+
+  /** A song, album, artist or playlist keeps one ref however often it turns up. */
+  addMusic(item: MusicItem): string {
+    const same = Object.entries(this.data.items).find(
+      ([, e]) => e.type === "music" && e.item.kind === item.kind && e.item.id === item.id,
+    );
+    if (same) return same[0];
+    const ref = `s${(this.data.next.s = (this.data.next.s ?? 0) + 1)}`;
+    this.data.items[ref] = { type: "music", item };
     return ref;
   }
 

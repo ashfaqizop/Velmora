@@ -16,6 +16,13 @@ Last updated 2026-11-01. v0.2.2 (sound options) is tagged and released.
 - Slots: home, search (full list only), grid, title (bottom), downloads (while downloading), sidebar (tall windows), sports, live, pause (after 5 s paused), end (end of episode).
 - Site: ad pages in `site/public/ad/`, rules in `site/public/ads.json`, `site/api/license`, `site/api/ads/stats`, privacy and terms pages. See `site/README.md`.
 - The sidebar tips were removed.
+- Music (YouTube Music), ported in part from YTubic (GPL-3.0-only; the files say so):
+  - Engine `universeapi/.../src/music/`: InnerTube client, parsers, lyrics, managed yt-dlp. CLI `universeapi music ...`, smoke checks.
+  - App `src-tauri/src/music.rs`: Google sign-in window (own WebView2 profile), DPAPI jar, 20-minute keeper, commands, song downloads into `<downloads>/Music` with an index.
+  - UI: music mode (routes `music*`, `nav.musicMode`, sidebar switch), pages in `src/pages/music/`, components in `src/components/music/`, stores in `src/lib/music/` (session, player, ui, feeds, color).
+  - Player: `lib/music/player.svelte.ts` drives the shared mpv (audio, or video placed with margins), prefetch, radio, EQ presets, and an astats meter for the visualizer. The video player calls `musicPlayer.yieldToVideo()` before taking mpv.
+  - Ani: `tools/music.ts` (6 tools), `render_songs` and `render_music_cards`, refs `s1...`.
+  - Known: on data-center IPs YouTube asks yt-dlp to sign in ("not a bot"); home connections usually work. Media keys depend on the bundled mpv supporting `media-controls`.
 
 ## v0.3.0: sports and live TV (released)
 

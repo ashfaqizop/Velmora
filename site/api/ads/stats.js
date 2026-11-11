@@ -7,7 +7,7 @@
 
 import { rateLimited, redis } from "../_lib/license.js";
 
-const SLOTS = new Set(["home", "search", "grid", "title", "downloads", "sidebar", "sports", "live", "pause", "end"]);
+const SLOTS = new Set(["home", "search", "grid", "title", "downloads", "sidebar", "sports", "live", "pause", "end", "music", "nowplaying"]);
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");

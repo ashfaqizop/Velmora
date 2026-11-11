@@ -7,20 +7,22 @@
   let { onabout }: { onabout: () => void } = $props();
 
   let input: HTMLInputElement;
-  let query = $state(nav.route.name === "search" ? nav.route.query : "");
+  const searching = () => (nav.route.name === "search" || nav.route.name === "music-search" ? nav.route.query : "");
+  let query = $state(searching());
   let timer: ReturnType<typeof setTimeout> | undefined;
   let maximized = $state(false);
 
   // Keep the box in sync when leaving search from elsewhere.
   $effect(() => {
-    if (nav.route.name !== "search" && document.activeElement !== input) query = "";
+    if (nav.route.name !== "search" && nav.route.name !== "music-search" && document.activeElement !== input) query = "";
   });
 
   function submit(now = false) {
     clearTimeout(timer);
     const q = query.trim();
     if (q.length < 2) return;
-    const go = () => nav.go({ name: "search", query: q });
+    // In Music mode the box searches YouTube Music.
+    const go = () => nav.go(nav.musicMode ? { name: "music-search", query: q } : { name: "search", query: q });
     if (now) go();
     else timer = setTimeout(go, 380);
   }
@@ -58,7 +60,7 @@
       <input
         bind:this={input}
         slot="input"
-        placeholder="Search movies, series, anime..."
+        placeholder={nav.musicMode ? "Search songs, albums, artists..." : "Search movies, series, anime..."}
         aria-label="Search"
         bind:value={query}
         oninput={() => submit()}

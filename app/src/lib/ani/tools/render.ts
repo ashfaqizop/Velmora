@@ -24,6 +24,14 @@ const isTitle = (refs: RefBook, r: unknown) => typeof r === "string" && !!refs.t
 const isLink = (refs: RefBook, r: unknown) => typeof r === "string" && refs.get(r)?.type === "link";
 const isMatch = (refs: RefBook, r: unknown) => typeof r === "string" && !!refs.match(r);
 const isChannel = (refs: RefBook, r: unknown) => typeof r === "string" && !!refs.channel(r);
+const isSong = (refs: RefBook, r: unknown) => {
+  const it = typeof r === "string" ? refs.music(r) : undefined;
+  return !!it && (it.kind === "song" || it.kind === "video");
+};
+const isMusicCard = (refs: RefBook, r: unknown) => {
+  const it = typeof r === "string" ? refs.music(r) : undefined;
+  return !!it && (it.kind === "album" || it.kind === "artist" || it.kind === "playlist");
+};
 const missing = (kind: string) => ({ error: `None of those refs are ${kind} from this chat. Use refs from the research notes.` });
 
 const S = {
@@ -499,6 +507,32 @@ const channelCards = ui(
   },
 );
 
+const songs = ui(
+  {
+    name: "render_songs",
+    description:
+      "A list of songs with cover, artist and length, each playable, with Play all. Use for song recommendations, top songs, an album's tracks, or songs like one the user named. Pass song refs from the music tools, in order.",
+    parameters: { type: "object", properties: { heading: S.str(), refs: S.refs("Song refs (s...) from the music tools.") }, required: ["refs"] },
+  },
+  (args, refs) => {
+    const list = strs(args.refs).filter((r) => isSong(refs, r));
+    return list.length ? { args: { heading: str(args.heading), refs: list.slice(0, 25) } } : missing("songs");
+  },
+);
+
+const musicCards = ui(
+  {
+    name: "render_music_cards",
+    description:
+      "Album, artist or playlist cards in a row; tapping one opens its page in Music. Use for album, artist or playlist recommendations. Pass refs from the music tools.",
+    parameters: { type: "object", properties: { heading: S.str(), refs: S.refs("Album, artist or playlist refs (s...).") }, required: ["refs"] },
+  },
+  (args, refs) => {
+    const list = strs(args.refs).filter((r) => isMusicCard(refs, r));
+    return list.length ? { args: { heading: str(args.heading), refs: list.slice(0, 16) } } : missing("albums, artists or playlists");
+  },
+);
+
 export const renderTools: AnswerTool[] = [
   titleList,
   carousel,
@@ -526,4 +560,6 @@ export const renderTools: AnswerTool[] = [
   matches,
   whereToWatch,
   channelCards,
+  songs,
+  musicCards,
 ];

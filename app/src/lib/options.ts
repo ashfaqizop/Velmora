@@ -10,6 +10,7 @@ const PROVIDER_NAMES: Record<string, string> = {
   hi_anime: "HiAnime",
   zoko_anime: "ZokoAnime",
   iptv_org: "Live TV",
+  youtube_music: "YouTube Music",
   movie_box: "MovieBox",
   four_k_hd_hub: "4KHDHub",
   dramachi: "Dramachi",

@@ -551,7 +551,8 @@ pub fn shelf(node: &ShelfNode<'_>, id: String, extra: &[Value]) -> Shelf {
     }
     // Drop repeats that later pages sometimes bring.
     let mut seen = std::collections::HashSet::new();
-    items.retain(|it| seen.insert((it.kind, it.id.clone())));
+    // Mood tiles share one browse ID and differ only by params.
+    items.retain(|it| seen.insert((it.kind, it.id.clone(), it.params.clone())));
 
     let display = if tiles && !two && !rows {
         ShelfDisplay::Grid
@@ -700,6 +701,27 @@ mod tests {
         let (items, token) = continuation_page(&page);
         assert_eq!(items.len(), 2);
         assert_eq!(token.as_deref(), Some("NEXT"));
+    }
+
+    #[test]
+    fn mood_tiles_with_one_browse_id_survive() {
+        let tile = |name: &str, p: &str| {
+            json!({ "musicNavigationButtonRenderer": {
+                "buttonText": { "runs": [{ "text": name }] },
+                "solid": { "leftStripeColor": 4288988671_u64 },
+                "clickCommand": { "browseEndpoint": { "browseId": "FEmusic_moods_and_genres_category", "params": p } }
+            } })
+        };
+        let grid = json!({ "gridRenderer": {
+            "header": { "gridHeaderRenderer": { "title": { "runs": [{ "text": "Moods & moments" }] } } },
+            "items": [tile("Chill", "a"), tile("Focus", "b"), tile("Party", "c")]
+        } });
+        let sections = vec![grid];
+        let nodes = shelf_nodes(&sections);
+        let s = shelf(&nodes[0], "x".into(), &[]);
+        assert_eq!(s.items.len(), 3);
+        assert_eq!(s.display, ShelfDisplay::Grid);
+        assert_eq!(s.title, "Moods & moments");
     }
 
     #[test]

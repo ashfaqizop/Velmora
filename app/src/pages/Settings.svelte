@@ -6,6 +6,7 @@
   import DownloadFolder from "../components/DownloadFolder.svelte";
   import AniKey from "../components/AniKey.svelte";
   import MaxLicense from "../components/MaxLicense.svelte";
+  import MusicSettings from "../components/music/MusicSettings.svelte";
   import PersonalizeDialog from "../components/PersonalizeDialog.svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import * as api from "../lib/api";
@@ -305,6 +306,13 @@
             <m3e-switch checked={p.seed_after_download} onchange={(e: Event) => set({ seed_after_download: checked(e) })}></m3e-switch>
           </label>
         </div>
+      </m3e-card>
+    </section>
+
+    <section>
+      <m3e-heading variant="title" size="large" level={2}>Music</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content"><MusicSettings /></div>
       </m3e-card>
     </section>
 

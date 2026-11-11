@@ -98,7 +98,7 @@ Eight steps, two per commit and push. No tag or release without the user's say-s
   - `chat.svelte.ts`: chats and sending.
   - `markdown.ts`: an escaping Markdown renderer.
   - `actions.ts`: what card buttons do.
-- `app/src/lib/ani/tools/`: `discovery.ts`, `links.ts`, `profile.ts` and `sports.ts` hold the 45 research tools, `render.ts` the 26 UI blocks, `index.ts` the registry and the note tools, and `shape.ts` the compact result shapes.
+- `app/src/lib/ani/tools/`: `discovery.ts`, `links.ts`, `profile.ts`, `sports.ts` and `music.ts` hold the 51 research tools, `render.ts` the 28 UI blocks, `index.ts` the registry and the note tools, and `shape.ts` the compact result shapes.
 - `app/src/lib/ani/skills/`: `humanizer/` (upstream, unchanged), `velmora-tools.md`.
 - `app/src/components/ani/`: the message, the steps list, the block switch, and `blocks/` with one component per block family.
 - `app/src/pages/Ani.svelte`: the chat page.

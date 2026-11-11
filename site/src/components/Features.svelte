@@ -43,6 +43,14 @@
       tone: "amber",
     },
     {
+      icon: "library_music",
+      shape: "soft-boom",
+      title: "Your music, too",
+      text: "Sign in with Google and your YouTube Music comes with you: mixes, playlists, likes, synced lyrics and music videos, in a player that moves with the song.",
+      span: true,
+      tone: "violet",
+    },
+    {
       icon: "graphic_eq",
       shape: "puffy-diamond",
       title: "Sound that fits the room",

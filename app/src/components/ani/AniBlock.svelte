@@ -21,6 +21,8 @@
   import Choices from "./blocks/Choices.svelte";
   import AboutCard from "./blocks/AboutCard.svelte";
   import MatchList from "./blocks/MatchList.svelte";
+  import MusicSongs from "./blocks/MusicSongs.svelte";
+  import MusicCards from "./blocks/MusicCards.svelte";
   import WhereToWatch from "./blocks/WhereToWatch.svelte";
   import Channels from "./blocks/Channels.svelte";
 
@@ -79,6 +81,10 @@
       <AboutCard {args} />
     {:else if name === "render_matches"}
       <MatchList {args} {refs} />
+    {:else if name === "render_songs"}
+      <MusicSongs {args} {refs} />
+    {:else if name === "render_music_cards"}
+      <MusicCards {args} {refs} />
     {:else if name === "render_where_to_watch"}
       <WhereToWatch {args} {refs} />
     {:else if name === "render_channels"}

@@ -20,6 +20,7 @@ The part that finds and resolves links is a separate Rust library, the [Universe
 
 - Search every source at once. Results stream in as each site answers, and the same title from different sites shows up once.
 - Play inside the app with libmpv, so MKV, HEVC, AC3 and 4K files play without extra codecs. If a link fails, the next one starts at the same spot.
+- Music: YouTube Music in Velmora (sign in with Google), with synced lyrics, music videos, offline songs and an immersive player.
 - Sports on Home and a Sports page: live scores, fixtures and results, with official "where to watch" for each match, and a Live TV page of free channels from a public playlist.
 - Sound options in the player and in Settings: Dialogue boost, Night mode, Even out volume, and volume up to 200%.
 - Pick up where you stopped. Continue Watching remembers the exact second, and the end of an episode offers the next one.
