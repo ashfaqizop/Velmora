@@ -45,3 +45,10 @@ app/src-tauri/lib/
 
 # Video work (launch videos etc.), kept local
 /video-work/
+
+# Max license vault, if VELMORA_LICENSE_HOME ever points inside the repo
+.velmora-license/
+vault.enc
+
+# Local developer tools (Max license admin), kept off GitHub
+/tools/
