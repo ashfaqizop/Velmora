@@ -1,7 +1,9 @@
 <script lang="ts">
   // Library: Liked songs, playlists, albums, artists and downloaded songs.
+  import { untrack } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
+  import { musicExports } from "../../lib/music/exports.svelte";
   import { cached } from "../../lib/music/cache";
   import MusicCard from "../../components/music/MusicCard.svelte";
   import TrackRow from "../../components/music/TrackRow.svelte";
@@ -23,6 +25,21 @@
 
   let items = $state<MusicItem[]>([]);
   let offline = $state<OfflineSong[]>([]);
+
+  // A song that finishes downloading shows up without leaving the tab.
+  $effect(() => {
+    const n = musicExports.landed;
+    if (!n || untrack(() => tab) !== "downloaded") return;
+    api
+      .musicDownloads()
+      .then((o) => {
+        offline = o;
+        items = o.map((x) => ({ ...x.item, localPath: x.path }));
+      })
+      .catch(() => {});
+  });
+
+  const STAGE: Record<string, string> = { waiting: "Waiting", downloading: "Downloading", converting: "Tagging" };
   let loading = $state(true);
   let error = $state<string | null>(null);
 
@@ -80,6 +97,19 @@
     {/each}
   </m3e-segmented-button>
 
+  {#if tab === "downloaded" && musicExports.active.length}
+    <div class="jobs" aria-live="polite">
+      <strong class="jobs-head">Downloading {musicExports.active.length} song{musicExports.active.length === 1 ? "" : "s"}</strong>
+      {#each musicExports.active as j (j.videoId)}
+        <div class="job">
+          <span class="jt"><strong>{j.title}</strong><span>{j.artist}</span></span>
+          <span class="js">{STAGE[j.stage] ?? ""} · {j.format.toUpperCase()}</span>
+          <span class="jbar"><span style:width="{Math.round((j.stage === "converting" ? 1 : j.progress) * 100)}%"></span></span>
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   {#if loading}
     <m3e-loading-indicator class="spin"></m3e-loading-indicator>
   {:else if error}
@@ -122,6 +152,53 @@
 </div>
 
 <style>
+  .jobs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 18px;
+    border-radius: 24px;
+    background: var(--md-sys-color-surface-container);
+  }
+  .jobs-head {
+    font-size: 14px;
+  }
+  .job {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 16px;
+  }
+  .jt {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .jt strong,
+  .jt span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .jt span,
+  .js {
+    font-size: 12.5px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .jbar {
+    grid-column: 1 / -1;
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--md-sys-color-surface-container-highest);
+  }
+  .jbar span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--md-sys-color-primary);
+    transition: width 300ms ease;
+  }
   .library {
     display: flex;
     flex-direction: column;

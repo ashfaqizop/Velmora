@@ -11,6 +11,7 @@
   import MusicStorage from "../components/music/MusicStorage.svelte";
   import MusicOutput from "../components/music/MusicOutput.svelte";
   import EqEditor from "../components/music/EqEditor.svelte";
+  import { musicExports, type DownloadFormat } from "../lib/music/exports.svelte";
   import { musicPlayer } from "../lib/music/player.svelte";
   import { tick } from "svelte";
   import { SETTINGS_GROUPS, SETTINGS_PAGES, findSettings, isSettingsPage, type SettingsPage } from "../lib/settings-pages";
@@ -545,6 +546,30 @@
       </m3e-card>
       <m3e-card variant="filled" data-setting="eq">
         <div slot="content"><EqEditor /></div>
+      </m3e-card>
+      <m3e-heading variant="title" size="medium" level={3}>Downloads</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content" class="rows">
+          <div class="row" data-setting="music-format">
+            <div class="text">
+              <strong>Download as</strong>
+              <span>
+                {#if musicExports.format === "vault"}Velmora only: protected files that play in Velmora and nowhere else.
+                {:else if musicExports.format === "mp3"}MP3 (V0, about 245 kbps): plays everywhere, from old car stereos to phones.
+                {:else if musicExports.format === "opus"}Opus: YouTube's own audio, untouched. Smallest files, newer players.
+                {:else}M4A (AAC): plays on phones, iTunes and most players, at 256 kbps.{/if}
+                Title, artist, album, track number and the cover are in every file.
+              </span>
+            </div>
+            <m3e-segmented-button aria-label="Download format">
+              {#each [["m4a", "M4A"], ["mp3", "MP3"], ["opus", "Opus"], ["vault", "Velmora only"]] as [f, name] (f)}
+                <m3e-button-segment checked={musicExports.format === f} onclick={() => musicExports.setFormat(f as DownloadFormat)}
+                  >{name}</m3e-button-segment
+                >
+              {/each}
+            </m3e-segmented-button>
+          </div>
+        </div>
       </m3e-card>
       <m3e-heading variant="title" size="medium" level={3}>Account</m3e-heading>
       <m3e-card variant="filled">

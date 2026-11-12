@@ -688,9 +688,9 @@ pub async fn music_ytdlp_update(state: State<'_, AppState>) -> Result<YtDlpStatu
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct IndexEntry {
-    file_title: String,
-    item: MusicItem,
+pub(crate) struct IndexEntry {
+    pub(crate) file_title: String,
+    pub(crate) item: MusicItem,
 }
 
 #[derive(Serialize)]
@@ -705,23 +705,23 @@ fn index_file(store: &MusicStore) -> PathBuf {
     store.dir.join("downloads.json")
 }
 
-fn read_index(store: &MusicStore) -> Vec<IndexEntry> {
+pub(crate) fn read_index(store: &MusicStore) -> Vec<IndexEntry> {
     std::fs::read(index_file(store)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
 }
 
-fn write_index(store: &MusicStore, list: &[IndexEntry]) {
+pub(crate) fn write_index(store: &MusicStore, list: &[IndexEntry]) {
     if let Ok(text) = serde_json::to_vec(list) {
         let _ = std::fs::create_dir_all(&store.dir);
         let _ = std::fs::write(index_file(store), text);
     }
 }
 
-fn music_dir(state: &AppState) -> PathBuf {
+pub(crate) fn music_dir(state: &AppState) -> PathBuf {
     state.engine.download_dir().join("Music")
 }
 
 /// "Daft Punk - Get Lucky", safe for a file name.
-fn file_title(item: &MusicItem) -> String {
+pub(crate) fn file_title(item: &MusicItem) -> String {
     let by = item.artist_names();
     let raw = if by.is_empty() { item.title.clone() } else { format!("{by} - {}", item.title) };
     raw.chars().map(|c| if r#"<>:"/\|?*"#.contains(c) || c.is_control() { ' ' } else { c }).collect::<String>().trim().to_string()

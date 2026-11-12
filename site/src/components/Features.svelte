@@ -46,7 +46,7 @@
       icon: "library_music",
       shape: "soft-boom",
       title: "Your music, too",
-      text: "Sign in with Google and your YouTube Music comes with you: mixes, playlists, likes, synced lyrics and music videos, in a player that moves with the song.",
+      text: "Sign in with Google and your YouTube Music comes with you: mixes, playlists, likes, synced lyrics and music videos. Gapless or crossfaded, with a 10-band EQ, even volume, and downloads as MP3, M4A or Opus.",
       span: true,
       tone: "violet",
     },

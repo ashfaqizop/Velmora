@@ -97,6 +97,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { id: "precache", page: "music", label: "Save the next songs ahead", hint: "Next songs start at once", words: "cache preload buffer offline" },
   { id: "speed", page: "music", label: "Speed", hint: "0.5x to 2x", words: "tempo faster slower playback rate" },
   { id: "pitch", page: "music", label: "Keep pitch", hint: "Natural voices at any speed", words: "chipmunk tempo nightcore" },
+  { id: "music-format", page: "music", label: "Download as", hint: "M4A, MP3, Opus or Velmora only", words: "format mp3 m4a aac opus export tags cover" },
   { id: "ytdlp", page: "music", label: "yt-dlp", hint: "Update if songs stop playing", words: "update songs not playing" },
 
   { id: "music-cache", page: "music-storage", label: "Saved pages", hint: "Home, library and albums kept on this PC", words: "cache offline clear" },

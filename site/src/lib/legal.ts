@@ -21,7 +21,7 @@ export const PRIVACY: LegalDoc = {
     {
       heading: "What stays on your PC",
       paragraphs: [
-        "Your watch history, Continue Watching, My List, settings, downloads, and the taste profile Ani builds are stored on your PC only. Velmora has no server that collects them, and nobody else can see them.",
+        "Your watch history, Continue Watching, My List, settings, downloads, the songs you play and search for in Music, and the taste profile Ani builds are stored on your PC only. Velmora has no server that collects them, and nobody else can see them.",
       ],
     },
     {
@@ -42,7 +42,7 @@ export const PRIVACY: LegalDoc = {
       paragraphs: [
         "Music is optional and is the only part of Velmora that needs a Google account. You sign in on Google's own page, in a separate window; Velmora never sees your password. Velmora keeps the YouTube cookies that window receives, encrypted with Windows so only your Windows account on this PC can read them, and uses them to talk to YouTube Music directly from your PC. They never reach us.",
         "With them, Velmora shows your YouTube Music home, library and playlists, and sends your likes and playlist changes to your account. A hidden window refreshes the session every 20 minutes so Google doesn't sign you out.",
-        "Songs play through yt-dlp, a separate open-source program Velmora downloads and keeps updated. It fetches each song from YouTube without your cookies. Lyrics come from YouTube Music and LRCLIB.",
+        "Songs play through yt-dlp, a separate open-source program Velmora downloads and keeps updated. It fetches each song from YouTube without your cookies. Lyrics come from YouTube Music and LRCLIB. To even out volume, Velmora asks YouTube Music for each song's loudness level, signed in as you when you are; you can turn that off in Settings, under Music.",
         "Signing out in Settings, under Music, deletes the cookies and the sign-in window's data from this PC.",
       ],
     },
@@ -73,6 +73,7 @@ export const PRIVACY: LegalDoc = {
       paragraphs: [
         "The website is hosted on Vercel, which keeps standard server logs, including IP addresses. Pages show ads from Adsterra, including banners, a social bar and a pop-under once per visit. Adsterra may use cookies and receives your IP address and browser details.",
         "Download counts come from GitHub, and fonts from Google Fonts. Your browser contacts both directly.",
+        "In the app, fonts for Chinese, Japanese and Korean text load from jsDelivr the first time such text is on screen.",
         "To limit abuse, the license and ad-count services keep a short counter per IP address that expires within two minutes.",
       ],
     },

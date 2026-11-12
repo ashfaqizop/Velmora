@@ -4,6 +4,7 @@
   import { fade, scale } from "svelte/transition";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
+  import { musicExports } from "../../lib/music/exports.svelte";
   import { likes, musicUi, shareLink, artists } from "../../lib/music/ui.svelte";
   import { musicPlayer } from "../../lib/music/player.svelte";
   import { ani, downloads, nav } from "../../lib/state.svelte";
@@ -33,8 +34,7 @@
   async function download() {
     if (!it) return;
     try {
-      await api.musicDownload($state.snapshot(it));
-      downloads.refresh();
+      await musicExports.download([it]);
       M3eSnackbar.open(`Downloading ${it.title}. Find it in Library, under Downloaded.`);
     } catch (e) {
       M3eSnackbar.open(`Couldn't download: ${e}`);

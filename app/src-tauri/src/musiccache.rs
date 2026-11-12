@@ -11,6 +11,8 @@
 //! time, and they never show in the library.
 
 use std::collections::HashSet;
+
+use futures::StreamExt;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
@@ -18,7 +20,7 @@ use std::time::{Duration, SystemTime};
 use serde::Serialize;
 use tauri::State;
 use tokio::io::AsyncWriteExt;
-use universeapi::music::{AudioQuality, StreamMode};
+use universeapi::music::{AudioQuality, Resolved, StreamMode};
 
 use crate::AppState;
 
@@ -49,7 +51,7 @@ impl MusicCache {
     }
 
     /// The cached file for a song, at any quality, best first.
-    fn find(&self, video_id: &str) -> Option<PathBuf> {
+    pub(crate) fn find(&self, video_id: &str) -> Option<PathBuf> {
         let prefix = format!("{video_id}.");
         let mut found: Vec<PathBuf> = std::fs::read_dir(&self.dir)
             .ok()?
@@ -110,6 +112,56 @@ impl MusicCache {
             }
         }
     }
+}
+
+/// Download a resolved song to `part`, in 8 MB ranges (googlevideo slows a
+/// whole-file request to playback speed). `progress` gets (bytes so far,
+/// total if known). Removes nothing on failure; the caller owns `part`.
+pub(crate) async fn fetch(
+    state: &AppState,
+    r: &Resolved,
+    part: &Path,
+    progress: &(dyn Fn(u64, Option<u64>) + Send + Sync),
+) -> Result<u64, String> {
+    let client = state.engine.ctx().http.client().clone();
+    let mut file = tokio::fs::File::create(part).await.map_err(|e| e.to_string())?;
+    let mut have: u64 = 0;
+    loop {
+        let end = have + CHUNK - 1;
+        let mut req = client.get(&r.audio_url).timeout(REQUEST_TIMEOUT).header("Range", format!("bytes={have}-{end}"));
+        for (k, v) in &r.headers {
+            req = req.header(k.as_str(), v.as_str());
+        }
+        let resp = req.send().await.map_err(|e| e.to_string())?;
+        let status = resp.status().as_u16();
+        if status == 416 {
+            break; // Asked past the end: done.
+        }
+        if !(200..300).contains(&status) {
+            return Err(format!("googlevideo answered {status}"));
+        }
+        let whole = status == 200; // The range was ignored: this is everything.
+        let mut got: u64 = 0;
+        let mut body = resp.bytes_stream();
+        while let Some(chunk) = body.next().await {
+            let chunk = chunk.map_err(|e| e.to_string())?;
+            file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+            got += chunk.len() as u64;
+            have += chunk.len() as u64;
+            if have > MAX_FILE {
+                return Err("too big".into());
+            }
+            progress(have, r.filesize);
+        }
+        if whole || got < CHUNK {
+            break;
+        }
+    }
+    file.flush().await.map_err(|e| e.to_string())?;
+    if have == 0 {
+        return Err("nothing came back".into());
+    }
+    Ok(have)
 }
 
 /// Mark a file as just used, so the size cap keeps it longest.
@@ -177,46 +229,9 @@ pub async fn music_precache(
     let path = cache.dir.join(format!("{video_id}.{q}.{ext}"));
     let part = cache.dir.join(format!("{video_id}.{q}.{ext}.part"));
 
-    let client = state.engine.ctx().http.client().clone();
-    let mut file = tokio::fs::File::create(&part).await.map_err(|e| e.to_string())?;
-    let mut have: u64 = 0;
-    let result: Result<(), String> = async {
-        loop {
-            let end = have + CHUNK - 1;
-            let mut req = client.get(&r.audio_url).timeout(REQUEST_TIMEOUT).header("Range", format!("bytes={have}-{end}"));
-            for (k, v) in &r.headers {
-                req = req.header(k.as_str(), v.as_str());
-            }
-            let resp = req.send().await.map_err(|e| e.to_string())?;
-            let status = resp.status().as_u16();
-            if status == 416 {
-                break; // Asked past the end: done.
-            }
-            if !(200..300).contains(&status) {
-                return Err(format!("googlevideo answered {status}"));
-            }
-            let whole = status == 200; // The range was ignored: this is everything.
-            let body = resp.bytes().await.map_err(|e| e.to_string())?;
-            file.write_all(&body).await.map_err(|e| e.to_string())?;
-            have += body.len() as u64;
-            if have > MAX_FILE {
-                return Err("too big to cache".into());
-            }
-            if whole || (body.len() as u64) < CHUNK {
-                break;
-            }
-        }
-        file.flush().await.map_err(|e| e.to_string())
-    }
-    .await;
-    drop(file);
-    if let Err(e) = result {
+    if let Err(e) = fetch(&state, &r, &part, &|_, _| {}).await {
         let _ = tokio::fs::remove_file(&part).await;
         return Err(e);
-    }
-    if have == 0 {
-        let _ = tokio::fs::remove_file(&part).await;
-        return Err("nothing came back".into());
     }
     tokio::fs::rename(&part, &path).await.map_err(|e| e.to_string())?;
     cache.trim(cap_mb.max(50) * 1024 * 1024, &path);

@@ -352,6 +352,8 @@ class MusicPlayer {
   autoplay = $state(readAutoplay());
   /** Songs autoplay added. Up next lists them under their own heading. */
   readonly auto = new SvelteSet<string>();
+  /** A movie or show has the window's mpv; Music is parked until played again. */
+  yielded = $state(false);
   /** Crossfade, quality, pre-cache, speed. */
   prefs = $state<PlaybackPrefs>(readPrefs());
   /** Live loudness for the visualizer, written ~30 times a second. Not reactive on purpose. */
@@ -479,8 +481,9 @@ class MusicPlayer {
     if (d === "a") {
       options.vo = "gpu-next";
       options.hwdec = "auto-safe";
-      // Media keys and the Windows media overlay, on mpv builds that have them.
-      if (withControls) options["media-controls"] = "yes";
+      // Windows' media controls come from media.rs, so mpv's own stay off
+      // (they'd be a second tile). The flag is kept for the init retry.
+      void withControls;
     } else {
       // Audio only: the plugin then needs no window for it.
       options.vid = "no";
@@ -602,6 +605,7 @@ class MusicPlayer {
     this.resumeAt = this.position;
     this.playing = false;
     this.videoShown = false;
+    this.yielded = true;
     if (this.ready.b) command("stop", [], DECK_B).catch(() => {});
     // Movies and shows share the device with the rest of Windows.
     if (this.prefs.exclusive && this.ready.a) {
@@ -804,6 +808,7 @@ class MusicPlayer {
     const item = this.current;
     if (!item) return;
     const seq = ++this.loadSeq;
+    this.yielded = false;
     this.endFade();
     this.clearPending();
     this.ahead = null;
@@ -1253,7 +1258,11 @@ class MusicPlayer {
 
   private save() {
     this.savedAt = Date.now();
-    const saved: SavedQueue = {
+    api.musicQueueSave(this.snapshot()).catch(() => {});
+  }
+
+  private snapshot(): SavedQueue {
+    return {
       queue: $state.snapshot(this.queue) as MusicItem[],
       index: this.index,
       position: Math.floor(this.position),
@@ -1265,13 +1274,17 @@ class MusicPlayer {
       listNext: this.listNext,
       radioNext: this.radioNext,
     };
-    api.musicQueueSave(saved).catch(() => {});
   }
 
   /** At launch: put back the last queue, paused where it stopped. */
   async restore() {
     const s = await api.musicQueueLoad<SavedQueue>().catch(() => null);
-    if (!s || !Array.isArray(s.queue) || !s.queue.length || this.active) return;
+    if (s) this.applySaved(s);
+  }
+
+  /** Put a saved queue in place, paused. Does nothing while something plays. */
+  private applySaved(s: SavedQueue) {
+    if (!Array.isArray(s.queue) || !s.queue.length || this.active) return;
     const index = Math.min(Math.max(0, Math.floor(s.index) || 0), s.queue.length - 1);
     const byId = new Map(s.queue.map((q) => [q.id, q]));
     this.queue = s.queue;
@@ -1396,6 +1409,17 @@ class MusicPlayer {
     this.video = on;
     if (!on) this.videoShown = false;
     if (this.active) await this.load(this.position);
+  }
+
+  /** The mini player's ×: stop and clear, but hand back an undo that puts
+   *  the queue back, paused at the same spot. */
+  async dismiss(): Promise<() => void> {
+    const snap = this.snapshot();
+    await this.close();
+    return () => {
+      this.applySaved(snap);
+      this.persist();
+    };
   }
 
   /** Stop and clear everything. */

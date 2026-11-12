@@ -5,8 +5,10 @@ mod ads;
 mod ani;
 mod commands;
 mod license;
+mod media;
 mod music;
 mod musiccache;
+mod musicdl;
 mod musicdb;
 mod prefs;
 mod runtime;
@@ -75,6 +77,8 @@ pub fn run() {
     builder
         .setup(|app| {
             create_main_window(app)?;
+            // Windows media controls, bound to the main window (needs it to exist).
+            media::init(app.handle());
             let paths = app.path();
             let config_dir = paths.app_config_dir()?;
             let prefs_file = prefs::path(&config_dir);
@@ -109,6 +113,7 @@ pub fn run() {
             let music_store = music::setup(app.handle(), &state, &paths.app_local_data_dir()?);
             app.manage(musicdb::MusicDb::open(&paths.app_local_data_dir()?.join("music")));
             app.manage(musiccache::MusicCache::new(paths.app_local_data_dir()?.join("music").join("cache")));
+            app.manage(musicdl::MusicExports::new());
             app.manage(state);
             app.manage(music_store);
 
@@ -225,16 +230,22 @@ pub fn run() {
             music::music_download,
             music::music_downloads,
             music::music_download_delete,
+            media::media_update,
+            media::media_clear,
             musicdb::music_cache_get,
             musicdb::music_cache_put,
             musicdb::music_searches,
             musicdb::music_search_add,
             musicdb::music_search_remove,
             musicdb::music_play_log,
+            musicdb::music_personal,
             musicdb::music_queue_save,
             musicdb::music_queue_load,
             musicdb::music_storage,
             musicdb::music_storage_clear,
+            musicdl::music_export,
+            musicdl::music_exports,
+            musicdl::music_exports_clear,
             musiccache::music_cached,
             musiccache::music_precache,
             musiccache::music_precache_size,

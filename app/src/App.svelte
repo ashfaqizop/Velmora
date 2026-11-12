@@ -14,6 +14,8 @@
   import { musicPlayer } from "./lib/music/player.svelte";
   import { likes, musicUi } from "./lib/music/ui.svelte";
   import { sound } from "./lib/audio.svelte";
+  import { startMediaControls } from "./lib/music/media.svelte";
+  import { musicExports } from "./lib/music/exports.svelte";
   import NowPlaying from "./components/music/NowPlaying.svelte";
   import FullPlayer from "./components/music/FullPlayer.svelte";
   import SongMenu from "./components/music/SongMenu.svelte";
@@ -67,6 +69,8 @@
   onMount(() => {
     // The last queue comes back paused, where it stopped.
     musicPlayer.restore();
+    startMediaControls();
+    musicExports.init();
     registerOverlays({
       torrentNotice: () => notice.ask(),
       download: (title, target) => downloadDialog.open(title, target),

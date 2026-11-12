@@ -258,6 +258,44 @@ export interface MusicStorage {
 }
 export const musicStorage = () => invoke<MusicStorage>("music_storage");
 export const musicStorageClear = (what: "cache" | "history") => invoke<void>("music_storage_clear", { what });
+// Music downloads as MP3, M4A or Opus files (musicdl.rs).
+export type ExportFormat = "mp3" | "m4a" | "opus";
+export interface ExportJob {
+  videoId: string;
+  title: string;
+  artist: string;
+  format: ExportFormat;
+  stage: "waiting" | "downloading" | "converting" | "done" | "failed";
+  progress: number;
+  error: string | null;
+}
+export const musicExport = (items: MusicItem[], format: ExportFormat, album?: string | null, tracks?: number[] | null) =>
+  invoke<number>("music_export", { items, format, album: album ?? null, tracks: tracks ?? null });
+export const musicExports = () => invoke<ExportJob[]>("music_exports");
+export const musicExportsClear = () => invoke<void>("music_exports_clear");
+
+// Rows from this PC's play history (musicdb.rs).
+export interface MusicPersonal {
+  recent: MusicItem[];
+  onRepeat: MusicItem[];
+  forgotten: MusicItem[];
+  mixes: { title: string; subtitle: string; seed: MusicItem }[];
+}
+export const musicPersonal = () => invoke<MusicPersonal>("music_personal");
+
+// Windows media controls (media.rs).
+export interface NowPlayingInfo {
+  title: string;
+  artist: string;
+  album: string;
+  cover: string;
+  duration: number;
+  position: number;
+  paused: boolean;
+}
+export const mediaUpdate = (now: NowPlayingInfo) => invoke<void>("media_update", { now });
+export const mediaClear = () => invoke<void>("media_clear");
+
 // Songs saved ahead of time (musiccache.rs).
 export const musicCached = (videoId: string) => invoke<string | null>("music_cached", { videoId });
 export const musicPrecache = (videoId: string, quality: "low" | "normal" | "high", capMb: number) =>

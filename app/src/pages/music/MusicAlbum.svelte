@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
+  import { musicExports } from "../../lib/music/exports.svelte";
   import { cached } from "../../lib/music/cache";
   import MusicBanner from "../../components/music/MusicBanner.svelte";
   import TrackRow from "../../components/music/TrackRow.svelte";
@@ -34,9 +35,12 @@
 
   async function downloadAll() {
     if (!album) return;
-    for (const t of album.tracks) await api.musicDownload($state.snapshot(t)).catch(() => {});
-    downloads.refresh();
-    M3eSnackbar.open(`Downloading ${album.tracks.length} songs from ${album.title}.`);
+    try {
+      const n = await musicExports.download(album.tracks, { title: album.title, thumbnails: album.thumbnails });
+      M3eSnackbar.open(`Downloading ${n} song${n === 1 ? "" : "s"} from ${album.title}.`);
+    } catch (e) {
+      M3eSnackbar.open(`Couldn't download: ${e}`);
+    }
   }
 
   async function copy() {

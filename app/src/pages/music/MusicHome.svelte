@@ -1,11 +1,12 @@
 <script lang="ts">
-  // Music Home: a greeting, mood chips, then YouTube Music's own shelves
-  // (Quick picks first), with more loading as you scroll.
+  // Music Home: a greeting, mood chips, your own rows (mixes, recently
+  // played...), then YouTube Music's shelves, with more as you scroll.
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import * as api from "../../lib/api";
   import ShelfView from "../../components/music/ShelfView.svelte";
+  import PersonalRows from "../../components/music/PersonalRows.svelte";
   import AdSlot from "../../components/AdSlot.svelte";
   import { greeting, openItem } from "../../lib/music/ui.svelte";
   import { musicHome } from "../../lib/music/feeds.svelte";
@@ -59,6 +60,8 @@
       <m3e-button variant="tonal" onclick={() => musicHome.load(true)}>Try again</m3e-button>
     </div>
   {:else}
+    <!-- Ours first: built from this PC's own listening. -->
+    <PersonalRows />
     {#each musicHome.shelves as shelf, i (shelf.id)}
       <ShelfView {shelf} />
       {#if i === 2}<AdSlot id="music" />{/if}

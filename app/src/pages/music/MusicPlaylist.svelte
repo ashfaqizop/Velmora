@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
+  import { musicExports } from "../../lib/music/exports.svelte";
   import { cached } from "../../lib/music/cache";
   import MusicBanner from "../../components/music/MusicBanner.svelte";
   import TrackRow from "../../components/music/TrackRow.svelte";
@@ -62,9 +63,19 @@
 
   async function downloadAll() {
     if (!list) return;
-    for (const t of list.tracks) await api.musicDownload($state.snapshot(t)).catch(() => {});
-    downloads.refresh();
-    M3eSnackbar.open(`Downloading ${list.tracks.length} songs.`);
+    // The whole playlist, not just the part that has scrolled into view.
+    M3eSnackbar.open("Getting the whole playlist…");
+    while (list.next && list.tracks.length < 1000) {
+      const before = list.tracks.length;
+      await loadMore();
+      if (list.tracks.length === before) break;
+    }
+    try {
+      const n = await musicExports.download(list.tracks);
+      M3eSnackbar.open(`Downloading ${n} song${n === 1 ? "" : "s"}.`);
+    } catch (e) {
+      M3eSnackbar.open(`Couldn't download: ${e}`);
+    }
   }
 </script>
 

@@ -223,6 +223,114 @@ pub async fn music_play_log(db: State<'_, MusicDb>, item: Value, seconds: u32) -
     })
 }
 
+// ── Personal rows (Music Home) ──────────────────────────────────────
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Mix {
+    title: String,
+    subtitle: String,
+    /// The song the mix grows from (YouTube's radio for it).
+    seed: Value,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Personal {
+    recent: Vec<Value>,
+    on_repeat: Vec<Value>,
+    forgotten: Vec<Value>,
+    mixes: Vec<Mix>,
+}
+
+fn items(c: &Connection, sql: &str, args: impl rusqlite::Params) -> rusqlite::Result<Vec<Value>> {
+    let mut stmt = c.prepare(sql)?;
+    let rows: Vec<String> = stmt.query_map(args, |r| r.get(0))?.filter_map(Result::ok).collect();
+    Ok(rows.iter().filter_map(|t| serde_json::from_str(t).ok()).collect())
+}
+
+/// The latest copy of each song's details, by how it was last played.
+const LATEST: &str = "(SELECT q.item FROM plays q WHERE q.video_id = p.video_id ORDER BY q.id DESC LIMIT 1)";
+
+/// Rows built from what this PC played: recently played, on repeat,
+/// forgotten favorites, and mixes from the top artists and this time of day.
+#[tauri::command]
+pub async fn music_personal(db: State<'_, MusicDb>) -> Result<Personal, String> {
+    let t = now();
+    db.with(|c| {
+        let recent = items(
+            c,
+            "SELECT item FROM plays WHERE id IN (SELECT MAX(id) FROM plays GROUP BY video_id) ORDER BY id DESC LIMIT 20",
+            [],
+        )?;
+        let on_repeat = items(
+            c,
+            &format!(
+                "SELECT {LATEST} FROM plays p WHERE p.at > ?1 GROUP BY p.video_id
+                 HAVING COUNT(*) >= 3 ORDER BY COUNT(*) DESC, MAX(p.at) DESC LIMIT 20"
+            ),
+            params![t - 30 * 86_400],
+        )?;
+        let forgotten = items(
+            c,
+            &format!(
+                "SELECT {LATEST} FROM plays p GROUP BY p.video_id
+                 HAVING COUNT(*) >= 4 AND MAX(p.at) < ?1 ORDER BY COUNT(*) DESC LIMIT 20"
+            ),
+            params![t - 60 * 86_400],
+        )?;
+
+        let mut mixes = Vec::new();
+        // Now's part of the day, and the songs played around this time before.
+        let (name, from, to) = match chrono_hour(c)? {
+            5..=11 => ("morning", 5, 11),
+            12..=17 => ("afternoon", 12, 17),
+            18..=22 => ("evening", 18, 22),
+            _ => ("late night", 23, 4),
+        };
+        let hour = "CAST(strftime('%H', p.at, 'unixepoch', 'localtime') AS INTEGER)";
+        let in_part = if from <= to { format!("{hour} BETWEEN {from} AND {to}") } else { format!("({hour} >= {from} OR {hour} <= {to})") };
+        let total: i64 = c.query_row(&format!("SELECT COUNT(*) FROM plays p WHERE {in_part}"), [], |r| r.get(0))?;
+        if total >= 8 {
+            if let Some(seed) = items(
+                c,
+                &format!("SELECT {LATEST} FROM plays p WHERE {in_part} GROUP BY p.video_id ORDER BY COUNT(*) DESC LIMIT 1"),
+                [],
+            )?
+            .into_iter()
+            .next()
+            {
+                mixes.push(Mix { title: format!("Your {name} mix"), subtitle: format!("What you play in the {name}"), seed });
+            }
+        }
+        // The artists played most lately, each from their most played song.
+        let artist = "json_extract(p.item, '$.artists[0].name')";
+        let mut stmt = c.prepare(&format!(
+            "SELECT {artist} AS a FROM plays p WHERE p.at > ?1 AND a IS NOT NULL AND a != ''
+             GROUP BY a HAVING COUNT(*) >= 5 ORDER BY COUNT(*) DESC LIMIT 4"
+        ))?;
+        let artists: Vec<String> = stmt.query_map(params![t - 90 * 86_400], |r| r.get(0))?.filter_map(Result::ok).collect();
+        for a in artists {
+            if let Some(seed) = items(
+                c,
+                &format!("SELECT {LATEST} FROM plays p WHERE {artist} = ?1 GROUP BY p.video_id ORDER BY COUNT(*) DESC LIMIT 1"),
+                params![a],
+            )?
+            .into_iter()
+            .next()
+            {
+                mixes.push(Mix { title: format!("{a} Mix"), subtitle: format!("{a} and artists like them"), seed });
+            }
+        }
+        Ok(Personal { recent, on_repeat, forgotten, mixes })
+    })
+}
+
+/// The local hour, from SQLite (so no time zone crate is needed).
+fn chrono_hour(c: &Connection) -> rusqlite::Result<i64> {
+    c.query_row("SELECT CAST(strftime('%H', 'now', 'localtime') AS INTEGER)", [], |r| r.get(0))
+}
+
 // ── Queue ───────────────────────────────────────────────────────────
 
 #[tauri::command]

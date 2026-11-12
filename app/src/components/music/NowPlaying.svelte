@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { M3eSnackbar } from "@m3e/web/snackbar";
   // The floating now-playing pill, across the whole app while music is
   // loaded. It shrinks to a round cover-and-play button while a page scrolls
   // down, and opens the full player on click. Tinted by the artwork.
@@ -32,6 +33,12 @@
     musicUi.fullTab = tab;
     musicUi.full = true;
   };
+
+  /** Stop the music and hide the bar, with a way back for a slip of the mouse. */
+  async function dismiss() {
+    const undo = await musicPlayer.dismiss();
+    M3eSnackbar.open("Music stopped", "Undo", { actionCallback: undo });
+  }
 </script>
 
 {#if shown && cur}
@@ -74,6 +81,7 @@
         </button>
         <button class="ctl small" aria-label="Queue" onclick={() => openFull("queue")}><m3e-icon name="queue_music"></m3e-icon></button>
         <button class="ctl small" aria-label="Open the player" onclick={() => openFull()}><m3e-icon name="open_in_full"></m3e-icon></button>
+        <button class="ctl small close" aria-label="Close the player" title="Stop and close" onclick={dismiss}><m3e-icon name="close"></m3e-icon></button>
       </div>
       <button class="bar" aria-label="Seek" onclick={seek}>
         <span class="fill" style:width={`${progress * 100}%`}></span>
@@ -194,6 +202,9 @@
   }
   .busy {
     --m3e-loading-indicator-size: 30px;
+  }
+  .ctl.close:hover {
+    color: var(--md-sys-color-error);
   }
   .ctl.small {
     width: 36px;
