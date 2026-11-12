@@ -4,6 +4,7 @@
 mod ads;
 mod ani;
 mod commands;
+mod discord;
 mod license;
 mod music;
 mod prefs;
@@ -94,6 +95,9 @@ pub fn run() {
             tauri::async_runtime::spawn(async move { downloads.remove_orphaned_parts().await });
             app.manage(ani::AniStore::load(&paths.app_local_data_dir()?));
             app.manage(license::LicenseStore::load(&paths.app_local_data_dir()?));
+            let discord = discord::Discord::new();
+            discord::start(app.handle().clone(), discord.clone());
+            app.manage(discord);
             let state = AppState {
                 engine,
                 stream_port,
@@ -220,6 +224,9 @@ pub fn run() {
             music::music_download,
             music::music_downloads,
             music::music_download_delete,
+            discord::discord_configure,
+            discord::discord_set,
+            discord::discord_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");

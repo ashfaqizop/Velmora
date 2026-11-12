@@ -24,6 +24,7 @@
   import { slider } from "../lib/slider";
   import type { AudioMode, OpenedStream, Source, SourcesReport, Target, TitleDetail, TitleSummary, TvChannel } from "../lib/types";
   import { formatTime, library, nav, nextEpisode, targetLabel } from "../lib/state.svelte";
+  import { clearDiscord, reportPlayer } from "../lib/discord.svelte";
 
   let {
     title,
@@ -106,6 +107,18 @@
   /** mpv is up and takes property changes. */
   let ready = $state(false);
 
+  // Discord: report while playing, re-checked every 5 s and on pause or a new
+  // length. Loading keeps whatever was showing, so the status doesn't flicker.
+  const openedAt = Math.floor(Date.now() / 1000);
+  const discordTick = $derived(Math.floor(time / 5));
+  $effect(() => {
+    if (phase !== "playing") return;
+    void discordTick;
+    void paused;
+    void duration;
+    untrack(() => reportPlayer({ title, target, detail, channel, mode, time, duration, paused, started: openedAt }));
+  });
+
   const episode = $derived<[number, number] | null>(target.type === "episode" ? [target.season, target.episode] : null);
   const next = $derived(nextEpisode(detail, target));
   const source = $derived(report && current >= 0 ? report.sources[current] : null);
@@ -132,6 +145,7 @@
 
   onDestroy(() => {
     alive = false;
+    clearDiscord("player");
     saveProgress();
     clearTimeout(hideTimer);
     clearInterval(saveTimer);

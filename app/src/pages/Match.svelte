@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import * as api from "../lib/api";
   import WatchList from "../components/WatchList.svelte";
   import { hasScore, statusText, whenText } from "../lib/sports";
   import type { SportsMatch } from "../lib/types";
+  import { clearDiscord, reportMatch } from "../lib/discord.svelte";
 
   let { match: initial }: { match: SportsMatch } = $props();
 
@@ -12,6 +13,10 @@
   const m = $derived(fresh ?? initial);
   const score = $derived(hasScore(m));
   const isLive = $derived(m.status === "live");
+
+  // Discord: a live match shows its score; anything else clears it.
+  $effect(() => reportMatch(m));
+  onDestroy(() => clearDiscord("match"));
 
   onMount(() => {
     api
