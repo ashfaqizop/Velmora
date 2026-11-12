@@ -14,7 +14,6 @@
   import { musicPlayer } from "./lib/music/player.svelte";
   import { likes, musicUi } from "./lib/music/ui.svelte";
   import { sound } from "./lib/audio.svelte";
-  import { discord } from "./lib/discord.svelte";
   import NowPlaying from "./components/music/NowPlaying.svelte";
   import FullPlayer from "./components/music/FullPlayer.svelte";
   import SongMenu from "./components/music/SongMenu.svelte";
@@ -66,7 +65,6 @@
   }
 
   onMount(() => {
-    discord.init();
     registerOverlays({
       torrentNotice: () => notice.ask(),
       download: (title, target) => downloadDialog.open(title, target),

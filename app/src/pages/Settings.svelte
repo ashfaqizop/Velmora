@@ -14,7 +14,6 @@
   import { ani, ANI_CHAT_MODEL, ANI_TOOL_MODEL, settings } from "../lib/state.svelte";
   import { slider } from "../lib/slider";
   import { sound, type SoundOption } from "../lib/audio.svelte";
-  import { discord, type DiscordConfig } from "../lib/discord.svelte";
   import type { AniModel, AppInfo, MediaKind, Preferences, ProviderId } from "../lib/types";
 
   let info = $state<AppInfo | null>(null);
@@ -81,16 +80,6 @@
   const set = (patch: Partial<Preferences>) => settings.update(patch);
   const checked = (e: Event) => (e.currentTarget as HTMLElement & { checked: boolean }).checked;
   const selectValue = (e: Event) => (e.currentTarget as HTMLElement & { value: string }).value;
-
-  const DISCORD_KINDS: [keyof DiscordConfig, string, string][] = [
-    ["movies", "Movies", ""],
-    ["series", "Series", ""],
-    ["anime", "Anime", ""],
-    ["music", "Music", ""],
-    ["sports", "Live matches", ""],
-    ["liveTv", "Live TV", ""],
-    ["browsing", "Browsing", "When nothing is playing, show which part of Velmora you're in."],
-  ];
 
   const SOUND: [SoundOption, string, string][] = [
     ["dialogue", "Dialogue boost", "Makes voices clearer over music and effects. Works best on 5.1 and 7.1 audio."],
@@ -426,47 +415,6 @@
               </m3e-button>
             {/if}
           </div>
-        </div>
-      </m3e-card>
-    </section>
-
-    <section>
-      <m3e-heading variant="title" size="large" level={2}>Discord</m3e-heading>
-      <m3e-card variant="filled">
-        <div slot="content" class="rows">
-          <label class="row">
-            <div class="text">
-              <strong>Show activity on Discord</strong>
-              <span>
-                {#if discord.state === "unavailable"}Not set up in this build.
-                {:else if !discord.config.enabled}Let friends see what you're watching or listening to.
-                {:else if discord.state === "connected"}On. Showing on your Discord profile.
-                {:else}On. Waiting for the Discord app to open.{/if}
-              </span>
-            </div>
-            <m3e-switch
-              checked={discord.config.enabled}
-              disabled={discord.state === "unavailable"}
-              onchange={(e: Event) => discord.set({ enabled: checked(e) })}
-            ></m3e-switch>
-          </label>
-          {#if discord.config.enabled}
-            <m3e-divider></m3e-divider>
-            <label class="row">
-              <div class="text">
-                <strong>Show titles and pictures</strong>
-                <span>Off: friends only see "Watching on Velmora". 18+ titles are never shown.</span>
-              </div>
-              <m3e-switch checked={discord.config.showDetails} onchange={(e: Event) => discord.set({ showDetails: checked(e) })}></m3e-switch>
-            </label>
-            {#each DISCORD_KINDS as [key, name, hint] (key)}
-              <m3e-divider></m3e-divider>
-              <label class="row">
-                <div class="text"><strong>{name}</strong>{#if hint}<span>{hint}</span>{/if}</div>
-                <m3e-switch checked={discord.config[key]} onchange={(e: Event) => discord.set({ [key]: checked(e) })}></m3e-switch>
-              </label>
-            {/each}
-          {/if}
         </div>
       </m3e-card>
     </section>
