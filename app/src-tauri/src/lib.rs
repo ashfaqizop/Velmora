@@ -219,6 +219,7 @@ pub fn run() {
             music::music_playlist_create,
             music::music_subscribe,
             music::music_stream,
+            music::music_loudness,
             music::music_ytdlp_status,
             music::music_ytdlp_update,
             music::music_download,

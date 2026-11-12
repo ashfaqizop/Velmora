@@ -48,10 +48,26 @@ export interface PlaybackPrefs {
   speed: number;
   /** Keep voices at their pitch when the speed changes. */
   keepPitch: boolean;
+  /** Even songs out with YouTube's own loudness figures. */
+  normalize: boolean;
+  /** mpv's audio-device name; "auto" follows Windows. */
+  device: string;
+  /** WASAPI exclusive: Velmora takes the device, past the Windows mixer. */
+  exclusive: boolean;
 }
 
 const PREFS_KEY = "velmora.music.playback";
-const PREFS_DEFAULTS: PlaybackPrefs = { crossfade: 0, quality: "high", precache: true, cacheMb: 500, speed: 1, keepPitch: true };
+const PREFS_DEFAULTS: PlaybackPrefs = {
+  crossfade: 0,
+  quality: "high",
+  precache: true,
+  cacheMb: 500,
+  speed: 1,
+  keepPitch: true,
+  normalize: true,
+  device: "auto",
+  exclusive: false,
+};
 
 function cleanPrefs(p: Partial<PlaybackPrefs>): PlaybackPrefs {
   const n = { ...PREFS_DEFAULTS, ...p };
@@ -62,7 +78,20 @@ function cleanPrefs(p: Partial<PlaybackPrefs>): PlaybackPrefs {
     cacheMb: Math.min(4000, Math.max(100, Math.round(Number(n.cacheMb) || 500))),
     speed: Math.min(2, Math.max(0.5, Math.round((Number(n.speed) || 1) * 100) / 100)),
     keepPitch: n.keepPitch !== false,
+    normalize: n.normalize !== false,
+    device: typeof n.device === "string" && n.device ? n.device.slice(0, 300) : "auto",
+    exclusive: !!n.exclusive,
   };
+}
+
+/** Normalization never lifts a quiet song by more than this, to stay clear of clipping. */
+const LIFT_MAX_DB = 4;
+const CUT_MAX_DB = 15;
+
+/** An output device as mpv lists it. */
+export interface AudioDevice {
+  name: string;
+  description: string;
 }
 
 function readPrefs(): PlaybackPrefs {
@@ -110,32 +139,107 @@ const OBSERVED = [
   ["af-metadata/viz", "node", "none"],
 ] as const satisfies MpvObservableProperty[];
 
-/** Equalizer presets: [frequency Hz, gain dB] per band. */
-export const EQ_PRESETS: Record<string, { label: string; bands: [number, number][] }> = {
-  flat: { label: "Flat", bands: [] },
-  bass: { label: "Bass boost", bands: [[60, 6], [150, 4], [400, 0]] },
-  vshape: { label: "Bass and treble", bands: [[60, 5], [250, 1], [1000, -2], [4000, 2], [12000, 5]] },
-  vocal: { label: "Vocals", bands: [[100, -2], [400, 0], [1500, 3], [3500, 4], [8000, 1]] },
-  treble: { label: "Treble boost", bands: [[4000, 3], [8000, 5], [14000, 5]] },
-  acoustic: { label: "Acoustic", bands: [[80, 3], [250, 1], [1000, 1], [3000, 2], [10000, 2]] },
-  electronic: { label: "Electronic", bands: [[60, 5], [150, 3], [1000, -1], [5000, 2], [12000, 4]] },
-  late: { label: "Late night", bands: [[60, -3], [250, 0], [2500, 2], [8000, -2]] },
-};
-const EQ_KEY = "velmora.music.eq";
+// ── Equalizer ────────────────────────────────────────────────────
+//
+// Ten bands, an octave apart. Each can be moved (frequency), raised or cut
+// (gain, ±12 dB) and narrowed or widened (Q). The lowest is a low shelf and
+// the highest a high shelf, so a bass or treble boost lifts everything past
+// it rather than one hump; the rest are peaks. Built as mpv lavfi filters
+// with the same RBJ biquads the curve in Settings is drawn from.
 
-function eqFilter(preset: string): string {
-  const bands = EQ_PRESETS[preset]?.bands ?? [];
-  if (!bands.length) return "";
-  return `@eq:lavfi=[${bands.map(([f, g]) => `equalizer=f=${f}:t=q:w=1:g=${g}`).join(",")}]`;
+export const EQ_FREQS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+export const EQ_RANGE = 12;
+const EQ_Q = 1.1;
+
+export interface EqBand {
+  /** Centre (or corner, for the shelves) in Hz. */
+  f: number;
+  /** dB. */
+  g: number;
+  q: number;
 }
 
-function readEq(): string {
+const flatBands = (): EqBand[] => EQ_FREQS.map((f) => ({ f, g: 0, q: EQ_Q }));
+const bandsOf = (gains: number[]): EqBand[] => EQ_FREQS.map((f, i) => ({ f, g: gains[i] ?? 0, q: EQ_Q }));
+
+/** Built-in curves. The keys are the ones saved before, so a saved choice still loads. */
+export const EQ_PRESETS: Record<string, { label: string; gains: number[] }> = {
+  flat: { label: "Flat", gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+  bass: { label: "Bass boost", gains: [7, 6, 4.5, 2, 0, 0, 0, 0, 0, 0] },
+  vshape: { label: "Bass and treble", gains: [5, 4.5, 3, 0.5, -1.5, -2, -0.5, 2, 4, 5] },
+  vocal: { label: "Vocals", gains: [-3, -2.5, -1.5, 0, 2, 3.5, 4, 2.5, 0.5, -1] },
+  treble: { label: "Treble boost", gains: [0, 0, 0, 0, 0, 0.5, 2, 4, 5.5, 6] },
+  acoustic: { label: "Acoustic", gains: [3, 3, 2, 1, 1, 1, 2, 2.5, 2, 1.5] },
+  electronic: { label: "Electronic", gains: [5, 4.5, 3, 0.5, -1, -0.5, 1, 2.5, 3.5, 4] },
+  late: { label: "Late night", gains: [-3, -3, -2, 0, 0, 1, 2, 1.5, -1, -2] },
+};
+
+const EQ_KEY = "velmora.music.eq";
+const EQ_STATE_KEY = "velmora.music.eq.v2";
+
+interface EqState {
+  /** A preset key, "custom", or "user:<name>". */
+  key: string;
+  bands: EqBand[];
+  /** dB before the bands. */
+  preamp: number;
+  /** Lower the preamp by the biggest boost, so a boost can't clip. */
+  autoPreamp: boolean;
+  /** The user's own saved curves. */
+  saved: { name: string; bands: EqBand[] }[];
+}
+
+function cleanBands(list: unknown): EqBand[] {
+  if (!Array.isArray(list) || list.length !== EQ_FREQS.length) return flatBands();
+  return list.map((b, i) => {
+    const o = (b ?? {}) as Partial<EqBand>;
+    return {
+      f: Math.min(20000, Math.max(20, Number(o.f) || EQ_FREQS[i])),
+      g: Math.min(EQ_RANGE, Math.max(-EQ_RANGE, Number(o.g) || 0)),
+      q: Math.min(8, Math.max(0.2, Number(o.q) || EQ_Q)),
+    };
+  });
+}
+
+function readEqState(): EqState {
   try {
-    const v = localStorage.getItem(EQ_KEY) ?? "flat";
-    return EQ_PRESETS[v] ? v : "flat";
+    const raw = JSON.parse(localStorage.getItem(EQ_STATE_KEY) ?? "null") as Partial<EqState> | null;
+    if (raw) {
+      return {
+        key: typeof raw.key === "string" ? raw.key : "custom",
+        bands: cleanBands(raw.bands),
+        preamp: Math.min(12, Math.max(-12, Number(raw.preamp) || 0)),
+        autoPreamp: raw.autoPreamp !== false,
+        saved: Array.isArray(raw.saved)
+          ? raw.saved.filter((x) => x && typeof x.name === "string").map((x) => ({ name: x.name.slice(0, 40), bands: cleanBands(x.bands) }))
+          : [],
+      };
+    }
+    // The preset picked before parametric bands existed.
+    const old = localStorage.getItem(EQ_KEY) ?? "flat";
+    const key = EQ_PRESETS[old] ? old : "flat";
+    return { key, bands: bandsOf(EQ_PRESETS[key].gains), preamp: 0, autoPreamp: true, saved: [] };
   } catch {
-    return "flat";
+    return { key: "flat", bands: flatBands(), preamp: 0, autoPreamp: true, saved: [] };
   }
+}
+
+/** The preamp in force: the user's, or less the biggest boost when automatic. */
+export function eqPreamp(e: { bands: EqBand[]; preamp: number; autoPreamp: boolean }): number {
+  const boost = Math.max(0, ...e.bands.map((b) => b.g));
+  return e.autoPreamp ? e.preamp - boost : e.preamp;
+}
+
+function eqFilter(e: EqState): string {
+  const parts: string[] = [];
+  const pre = eqPreamp(e);
+  if (Math.abs(pre) >= 0.05) parts.push(`volume=${pre.toFixed(2)}dB`);
+  e.bands.forEach((b, i) => {
+    if (Math.abs(b.g) < 0.05) return;
+    const kind = i === 0 ? "bass" : i === e.bands.length - 1 ? "treble" : "equalizer";
+    parts.push(`${kind}=f=${Math.round(b.f)}:t=q:w=${b.q.toFixed(2)}:g=${b.g.toFixed(2)}`);
+  });
+  return parts.length ? `@eq:lavfi=[${parts.join(",")}]` : "";
 }
 
 /** dB ("-23.4", "-inf") to 0..1. */
@@ -238,8 +342,12 @@ class MusicPlayer {
   error = $state<string | null>(null);
   /** Where the queue came from, for the "Playing from" line. */
   source = $state<string | null>(null);
-  /** Equalizer preset name (EQ_PRESETS). */
-  eq = $state(readEq());
+  /** The equalizer: bands, preamp, which curve, and saved curves. */
+  eqState = $state<EqState>(readEqState());
+  /** Which curve is in use: a preset key, "custom" or "user:<name>". */
+  get eq(): string {
+    return this.eqState.key;
+  }
   /** When the queue runs out, keep going with songs like the last few. */
   autoplay = $state(readAutoplay());
   /** Songs autoplay added. Up next lists them under their own heading. */
@@ -272,6 +380,9 @@ class MusicPlayer {
   private pending: { id: string; deck: Deck; ready: boolean } | null = null;
   private fade: { from: Deck; to: Deck; timer: ReturnType<typeof setInterval> } | null = null;
   private precacheRun = 0;
+  /** Each deck's normalization gain (amplitude, 1 = none) for the song on it. */
+  private gain: Record<Deck, number> = { a: 1, b: 1 };
+  private loud = new Map<string, number | null>();
   private streams = new Map<string, { s: MusicStream; at: number }>();
   private loadSeq = 0;
   private loadedId: string | null = null;
@@ -305,6 +416,42 @@ class MusicPlayer {
     return d === "a" ? "b" : "a";
   }
 
+  /** mpv's volume for a deck: the slider, with that song's normalization.
+   *  mpv's volume is cubic, so a gain goes in as its cube root. */
+  private levelFor(d: Deck, amount = 1): number {
+    return Math.min(sound.maxVolume, this.volume * Math.cbrt(Math.max(0, this.gain[d] * amount)));
+  }
+
+  /** Normalization gain for a song, from YouTube's loudness figure. Loud
+   *  songs come down to YouTube's level; quiet ones come up a little. */
+  private async gainFor(item: MusicItem): Promise<number> {
+    if (!this.prefs.normalize) return 1;
+    let db = this.loud.get(item.id);
+    if (db === undefined) {
+      const key = `loud:${item.id}`;
+      const saved = await api.musicCacheGet<{ db: number | null }>(key).catch(() => null);
+      if (saved) db = saved.db;
+      else {
+        db = await Promise.race([
+          api.musicLoudness(item.id).catch(() => null),
+          new Promise<null>((r) => setTimeout(() => r(null), 4000)),
+        ]);
+        if (db !== null) api.musicCachePut(key, { db }).catch(() => {});
+      }
+      this.loud.set(item.id, db ?? null);
+    }
+    if (db == null) return 1;
+    const change = Math.min(LIFT_MAX_DB, Math.max(-CUT_MAX_DB, -db));
+    return 10 ** (change / 20);
+  }
+
+  /** Put a song's gain on a deck and set its volume to match. */
+  private async applyGain(d: Deck, item: MusicItem) {
+    const g = await this.gainFor(item);
+    this.gain[d] = g;
+    if (this.ready[d] && !this.fade && d === this.deck) setProperty("volume", this.levelFor(d), this.label(d)).catch(() => {});
+  }
+
   private config(d: Deck, withControls: boolean): MpvConfig {
     const options: Record<string, string | number | boolean> = {
       "force-window": "no",
@@ -326,6 +473,8 @@ class MusicPlayer {
       af: this.filters(),
       speed: this.prefs.speed,
       "audio-pitch-correction": this.prefs.keepPitch ? "yes" : "no",
+      "audio-device": this.prefs.device,
+      "audio-exclusive": this.prefs.exclusive ? "yes" : "no",
     };
     if (d === "a") {
       options.vo = "gpu-next";
@@ -454,6 +603,12 @@ class MusicPlayer {
     this.playing = false;
     this.videoShown = false;
     if (this.ready.b) command("stop", [], DECK_B).catch(() => {});
+    // Movies and shows share the device with the rest of Windows.
+    if (this.prefs.exclusive && this.ready.a) {
+      setProperty("audio-exclusive", "no")
+        .then(() => command("ao-reload"))
+        .catch(() => {});
+    }
     this.deck = "a";
     this.release("a");
   }
@@ -474,7 +629,7 @@ class MusicPlayer {
   /** The audio filter chain: equalizer, the shared sound options, and the
    *  visualizer's loudness meter while the full view is open. */
   private filters(): string {
-    return [eqFilter(this.eq), sound.filters(), this.viz ? "@viz:lavfi=[astats=metadata=1:reset=1]" : ""]
+    return [eqFilter(this.eqState), sound.filters(), this.viz ? "@viz:lavfi=[astats=metadata=1:reset=1]" : ""]
       .filter(Boolean)
       .join(",");
   }
@@ -485,15 +640,63 @@ class MusicPlayer {
     for (const l of this.running()) setProperty("af", af, l).catch(() => {});
   }
 
-  setEq(preset: string) {
-    if (!EQ_PRESETS[preset]) return;
-    this.eq = preset;
+  private saveEq() {
     try {
-      localStorage.setItem(EQ_KEY, preset);
+      localStorage.setItem(EQ_STATE_KEY, JSON.stringify($state.snapshot(this.eqState)));
     } catch {
       // Not remembered.
     }
+  }
+
+  /** Dragging a band re-applies at most this often; mpv rebuilds the filter each time. */
+  private eqTimer: ReturnType<typeof setTimeout> | undefined;
+  private applyEqSoon() {
+    if (this.eqTimer) return;
+    this.eqTimer = setTimeout(() => {
+      this.eqTimer = undefined;
+      this.applyFilters();
+    }, 90);
+  }
+
+  /** Pick a built-in curve ("bass") or a saved one ("user:Car"). */
+  setEq(key: string) {
+    let bands: EqBand[] | null = null;
+    if (EQ_PRESETS[key]) bands = bandsOf(EQ_PRESETS[key].gains);
+    else if (key.startsWith("user:")) bands = this.eqState.saved.find((x) => `user:${x.name}` === key)?.bands ?? null;
+    if (!bands) return;
+    this.eqState = { ...this.eqState, key, bands: bands.map((b) => ({ ...b })) };
+    this.saveEq();
     this.applyFilters();
+  }
+
+  /** Move one band. Any change makes the curve "custom". */
+  setBand(i: number, patch: Partial<EqBand>) {
+    const bands = cleanBands(this.eqState.bands.map((b, j) => (j === i ? { ...b, ...patch } : b)));
+    this.eqState = { ...this.eqState, key: "custom", bands };
+    this.saveEq();
+    this.applyEqSoon();
+  }
+
+  setPreamp(db: number, auto = this.eqState.autoPreamp) {
+    this.eqState = { ...this.eqState, preamp: Math.min(12, Math.max(-12, db)), autoPreamp: auto };
+    this.saveEq();
+    this.applyEqSoon();
+  }
+
+  /** Keep the current curve under a name. The same name replaces it. */
+  saveEqAs(name: string) {
+    const n = name.trim().slice(0, 40);
+    if (!n) return;
+    const saved = [...this.eqState.saved.filter((x) => x.name !== n), { name: n, bands: this.eqState.bands.map((b) => ({ ...b })) }];
+    this.eqState = { ...this.eqState, saved, key: `user:${n}` };
+    this.saveEq();
+  }
+
+  deleteEq(name: string) {
+    const saved = this.eqState.saved.filter((x) => x.name !== name);
+    const key = this.eqState.key === `user:${name}` ? "custom" : this.eqState.key;
+    this.eqState = { ...this.eqState, saved, key };
+    this.saveEq();
   }
 
   /** The full view turns the loudness meter on while it's open. */
@@ -519,6 +722,25 @@ class MusicPlayer {
     }
   }
 
+  /** Output devices, from mpv. Starts the audio-only player if nothing is running. */
+  async devices(): Promise<AudioDevice[]> {
+    const d: Deck = this.ready.a ? "a" : "b";
+    await this.ensureDeck(d);
+    const list = (await getProperty<AudioDevice[]>("audio-device-list", "node", this.label(d)).catch(() => null)) ?? [];
+    return list.filter((x) => x && typeof x.name === "string");
+  }
+
+  /** Switch off everything that changes the sound, so exclusive mode is bit-perfect. */
+  bitPerfect() {
+    this.setEq("flat");
+    this.eqState = { ...this.eqState, preamp: 0 };
+    this.saveEq();
+    for (const o of ["dialogue", "night", "normalize"] as const) if (sound[o]) sound.set(o, false);
+    this.setPrefs({ normalize: false, speed: 1 });
+    this.setVolume(100);
+    this.applyFilters();
+  }
+
   /** Change Music → Playback settings; they apply straight away. */
   setPrefs(patch: Partial<PlaybackPrefs>) {
     const before = this.prefs;
@@ -536,6 +758,23 @@ class MusicPlayer {
       this.prefetching = false;
     }
     if (this.prefs.quality !== before.quality) this.streams.clear();
+    if (this.prefs.device !== before.device) {
+      for (const l of this.running()) setProperty("audio-device", this.prefs.device, l).catch(() => {});
+    }
+    if (this.prefs.exclusive !== before.exclusive) {
+      this.clearPending();
+      this.prefetching = false;
+      for (const l of this.running()) {
+        setProperty("audio-exclusive", this.prefs.exclusive ? "yes" : "no", l)
+          .then(() => command("ao-reload", [], l))
+          .catch(() => {});
+      }
+    }
+    if (this.prefs.normalize !== before.normalize) {
+      const cur = this.current;
+      if (cur) this.applyGain(this.deck, cur);
+      else this.gain = { a: 1, b: 1 };
+    }
     if (this.prefs.precache && !before.precache) this.schedulePrecache();
     if (!this.prefs.precache) this.precacheRun++;
   }
@@ -590,9 +829,14 @@ class MusicPlayer {
     }
     const d = this.deck;
     const l = this.label(d);
+    // The loudness lookup runs alongside yt-dlp; the song waits only for the slower.
+    const gain = this.gainFor(item);
+    const setLevel = async () => {
+      this.gain[d] = await gain;
+      await setProperty("volume", this.levelFor(d), l).catch(() => {});
+    };
     try {
       await this.ensureDeck(d);
-      await setProperty("volume", this.volume, l).catch(() => {});
       if (item.localPath) {
         // A downloaded song plays from this PC, no network needed.
         const local = await api.openLocal(item.localPath);
@@ -601,6 +845,8 @@ class MusicPlayer {
         await setProperty("audio-files", "", l).catch(() => {});
         await setProperty("vid", "no", l).catch(() => {});
         await setProperty("start", startAt > 0 ? String(startAt) : "none", l);
+        await setLevel();
+        if (seq !== this.loadSeq) return;
         await command("loadfile", [local.url], l);
         await setProperty("pause", false, l);
         this.playing = true;
@@ -619,6 +865,8 @@ class MusicPlayer {
       }
       await setProperty("vid", withVideo ? "auto" : "no", l).catch(() => {});
       if (d === "a") await setProperty("force-window", withVideo ? "yes" : "no", l).catch(() => {});
+      await setLevel();
+      if (seq !== this.loadSeq) return;
       if (withVideo && s.videoUrl && s.videoUrl !== s.audioUrl) {
         await setProperty("audio-files", s.audioUrl, l).catch(() => {});
         await command("loadfile", [s.videoUrl], l);
@@ -657,7 +905,7 @@ class MusicPlayer {
    *  and moves on with no silence; `onEnded` then just follows along. */
   private async appendNext() {
     const next = this.queue[this.index + 1];
-    if (!next || this.ahead || this.video || this.repeat === "one" || this.prefs.crossfade > 0 || !this.owned) return;
+    if (!next || this.ahead || this.video || this.repeat === "one" || (this.prefs.crossfade > 0 && !this.prefs.exclusive) || !this.owned) return;
     const d = this.deck;
     const seq = this.loadSeq;
     const mark = { id: next.id, deck: d, queued: false };
@@ -690,7 +938,8 @@ class MusicPlayer {
    *  it's ready, fade the two against each other. */
   private maybeCrossfade() {
     const cf = this.prefs.crossfade;
-    if (cf <= 0 || this.fade || this.video || !this.playing || this.repeat === "one" || !this.duration) return;
+    // Exclusive mode gives the device to one player, so there's no second one to fade in.
+    if (cf <= 0 || this.prefs.exclusive || this.fade || this.video || !this.playing || this.repeat === "one" || !this.duration) return;
     const next = this.queue[this.index + 1];
     if (!next) return;
     const left = (this.duration - this.position) / this.prefs.speed;
@@ -709,6 +958,7 @@ class MusicPlayer {
     try {
       await this.ensureDeck(d);
       const s = next.localPath ? localStream(next, (await api.openLocal(next.localPath)).url) : await this.sourceFor(next, false);
+      this.gain[d] = await this.gainFor(next);
       if (this.pending !== p) return;
       const l = this.label(d);
       const { ua, fields } = headerOptions(s);
@@ -725,11 +975,6 @@ class MusicPlayer {
     }
   }
 
-  /** mpv's volume is cubic, so take the cube root of an equal-power curve:
-   *  the two songs together stay at a steady loudness. */
-  private fadeLevel(x: number): number {
-    return this.volume * Math.cbrt(Math.max(0, x));
-  }
 
   private startFade(seconds: number) {
     const p = this.pending;
@@ -754,8 +999,9 @@ class MusicPlayer {
     const ms = seconds * 1000;
     const timer = setInterval(() => {
       const t = Math.min(1, (performance.now() - started) / ms);
-      setProperty("volume", this.fadeLevel(Math.cos((t * Math.PI) / 2)), lf).catch(() => {});
-      setProperty("volume", this.fadeLevel(Math.sin((t * Math.PI) / 2)), lt).catch(() => {});
+      // Equal power: together the two stay at a steady loudness.
+      setProperty("volume", this.levelFor(from, Math.cos((t * Math.PI) / 2)), lf).catch(() => {});
+      setProperty("volume", this.levelFor(to, Math.sin((t * Math.PI) / 2)), lt).catch(() => {});
       if (t >= 1) this.endFade();
     }, FADE_TICK);
     this.fade = { from, to, timer };
@@ -770,7 +1016,7 @@ class MusicPlayer {
     clearInterval(f.timer);
     this.fade = null;
     command("stop", [], this.label(f.from)).catch(() => {});
-    setProperty("volume", this.volume, this.label(f.to)).catch(() => {});
+    setProperty("volume", this.levelFor(f.to), this.label(f.to)).catch(() => {});
   }
 
   private clearPending() {
@@ -794,6 +1040,8 @@ class MusicPlayer {
     this.error = null;
     this.prefetching = false;
     this.persist();
+    // Gapless: the next song is on the same deck, so its level changes here.
+    if (!this.fade) this.applyGain(this.deck, item);
   }
 
   // ── Saved ahead ──────────────────────────────────────────────────
@@ -1116,7 +1364,7 @@ class MusicPlayer {
       // Not remembered.
     }
     // During a crossfade the ramp sets both decks from this.volume.
-    if (this.owned && !this.fade) setProperty("volume", this.volume, this.label(this.deck)).catch(() => {});
+    if (this.owned && !this.fade) setProperty("volume", this.levelFor(this.deck), this.label(this.deck)).catch(() => {});
   }
 
   toggleShuffle() {

@@ -88,7 +88,10 @@ export const SETTINGS_INDEX: SettingEntry[] = [
 
   { id: "music-account", page: "music", label: "YouTube Music account", hint: "Sign in or out", words: "google sign in login youtube" },
   { id: "autoplay", page: "music", label: "Autoplay", hint: "Similar songs when the queue ends", words: "radio continue similar" },
-  { id: "eq", page: "music", label: "Equalizer", hint: "Bass, vocals and more", words: "eq bass treble preset" },
+  { id: "eq", page: "music", label: "Equalizer", hint: "10 bands, presets and your own curves", words: "eq bass treble preset parametric preamp curve" },
+  { id: "music-normalize", page: "music", label: "Volume normalization", hint: "Even out loud and quiet songs", words: "loudness replaygain level leveler" },
+  { id: "output-device", page: "music", label: "Output device", hint: "Headphones, speakers or a DAC", words: "speaker headphones dac audio device output" },
+  { id: "exclusive", page: "music", label: "Exclusive mode", hint: "Bit-perfect, past the Windows mixer", words: "wasapi bit perfect audiophile exclusive" },
   { id: "crossfade", page: "music", label: "Crossfade", hint: "Fade songs into each other, or gapless", words: "gapless fade transition mix dj" },
   { id: "music-quality", page: "music", label: "Audio quality", hint: "Low, Normal or High", words: "bitrate data saver kbps opus aac" },
   { id: "precache", page: "music", label: "Save the next songs ahead", hint: "Next songs start at once", words: "cache preload buffer offline" },

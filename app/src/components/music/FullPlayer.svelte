@@ -244,6 +244,20 @@
                 {p.label}{#if musicPlayer.eq === id}<m3e-icon name="check"></m3e-icon>{/if}
               </button>
             {/each}
+            {#each musicPlayer.eqState.saved as c (c.name)}
+              <button class:sel={musicPlayer.eq === `user:${c.name}`} onclick={() => musicPlayer.setEq(`user:${c.name}`)}>
+                {c.name}{#if musicPlayer.eq === `user:${c.name}`}<m3e-icon name="check"></m3e-icon>{/if}
+              </button>
+            {/each}
+            {#if musicPlayer.eq === "custom"}<button class="sel">Custom<m3e-icon name="check"></m3e-icon></button>{/if}
+            <button
+              class="edit"
+              onclick={() => {
+                eqOpen = false;
+                musicUi.full = false;
+                nav.go({ name: "settings", page: "music", setting: "eq" });
+              }}><m3e-icon name="tune"></m3e-icon>Edit the curve</button
+            >
             <span class="hint">Night mode, even volume and 200% are in Settings, under Sound.</span>
           </div>
         {/if}
@@ -509,6 +523,14 @@
   }
   .eq-wrap {
     position: relative;
+  }
+  .eq .edit {
+    margin-top: 4px;
+    justify-content: flex-start;
+    gap: 8px;
+    color: var(--np);
+    font-weight: 700;
+    --m3e-icon-size: 18px;
   }
   .speed-now {
     font-size: 13px;

@@ -1,10 +1,10 @@
 <script lang="ts">
-  // Settings → Music: the YouTube Music account, the equalizer, and the
-  // yt-dlp copy that plays the songs.
+  // Settings → Music: the YouTube Music account and the yt-dlp copy that
+  // plays the songs.
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
-  import { EQ_PRESETS, musicPlayer } from "../../lib/music/player.svelte";
+  import { musicPlayer } from "../../lib/music/player.svelte";
   import { musicSession } from "../../lib/music/session.svelte";
   import { musicHome } from "../../lib/music/feeds.svelte";
   import type { YtDlpStatus } from "../../lib/types";
@@ -70,20 +70,6 @@
     {/if}
   </div>
   <m3e-divider></m3e-divider>
-  <div class="row" data-setting="eq">
-    <div class="text">
-      <strong>Equalizer</strong>
-      <span>Shapes the sound of music. Night mode and even volume above apply too.</span>
-    </div>
-    <m3e-form-field variant="outlined" class="eq">
-      <m3e-select aria-label="Equalizer" onchange={(e: Event) => musicPlayer.setEq((e.currentTarget as HTMLElement & { value: string }).value)}>
-        {#each Object.entries(EQ_PRESETS) as [id, p] (id)}
-          <m3e-option value={id} selected={musicPlayer.eq === id}>{p.label}</m3e-option>
-        {/each}
-      </m3e-select>
-    </m3e-form-field>
-  </div>
-  <m3e-divider></m3e-divider>
   <div class="row" data-setting="ytdlp">
     <div class="text">
       <strong>yt-dlp</strong>
@@ -131,8 +117,5 @@
   .text span {
     font-size: 13px;
     color: var(--md-sys-color-on-surface-variant);
-  }
-  .eq {
-    width: 200px;
   }
 </style>

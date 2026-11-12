@@ -9,6 +9,8 @@
   import MaxLicense from "../components/MaxLicense.svelte";
   import MusicSettings from "../components/music/MusicSettings.svelte";
   import MusicStorage from "../components/music/MusicStorage.svelte";
+  import MusicOutput from "../components/music/MusicOutput.svelte";
+  import EqEditor from "../components/music/EqEditor.svelte";
   import { musicPlayer } from "../lib/music/player.svelte";
   import { tick } from "svelte";
   import { SETTINGS_GROUPS, SETTINGS_PAGES, findSettings, isSettingsPage, type SettingsPage } from "../lib/settings-pages";
@@ -524,6 +526,27 @@
           </label>
         </div>
       </m3e-card>
+      <m3e-heading variant="title" size="medium" level={3}>Sound</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content" class="rows">
+          <label class="row" data-setting="music-normalize">
+            <div class="text">
+              <strong>Volume normalization</strong>
+              <span>
+                Uses YouTube's own loudness figure for each song, so loud masters come down and quiet ones come up a little.
+                The level changes between songs, never inside one.
+              </span>
+            </div>
+            <m3e-switch checked={musicPlayer.prefs.normalize} onchange={(e: Event) => musicPlayer.setPrefs({ normalize: checked(e) })}></m3e-switch>
+          </label>
+          <m3e-divider></m3e-divider>
+          <MusicOutput />
+        </div>
+      </m3e-card>
+      <m3e-card variant="filled" data-setting="eq">
+        <div slot="content"><EqEditor /></div>
+      </m3e-card>
+      <m3e-heading variant="title" size="medium" level={3}>Account</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content"><MusicSettings /></div>
       </m3e-card>

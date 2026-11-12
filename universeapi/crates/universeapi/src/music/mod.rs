@@ -941,6 +941,14 @@ impl Music {
         self.ytdlp.resolve(video_id, mode, max_height).await
     }
 
+    /// How loud YouTube measured a song, in dB against the level it plays
+    /// songs at (`playerConfig.audioConfig.loudnessDb`): +4 means 4 dB louder
+    /// than that, -6 means quieter. `None` when the answer has no figure.
+    pub async fn loudness(&self, video_id: &str) -> Result<Option<f64>> {
+        let json = self.post("player", json!({ "videoId": video_id })).await?;
+        Ok(json.pointer("/playerConfig/audioConfig/loudnessDb").and_then(Value::as_f64).filter(|v| v.is_finite()))
+    }
+
     /// `resolve` at a chosen audio quality.
     pub async fn resolve_with(&self, video_id: &str, mode: StreamMode, max_height: u32, quality: AudioQuality) -> Result<Resolved> {
         self.ytdlp.resolve_with(video_id, mode, max_height, quality).await

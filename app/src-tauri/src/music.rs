@@ -656,6 +656,12 @@ pub async fn music_stream(
         .map_err(err)
 }
 
+/// A song's loudness from YouTube, for volume normalization.
+#[tauri::command]
+pub async fn music_loudness(state: State<'_, AppState>, video_id: String) -> Result<Option<f64>, String> {
+    state.engine.music().loudness(&video_id).await.map_err(err)
+}
+
 #[tauri::command]
 pub async fn music_ytdlp_status(state: State<'_, AppState>) -> Result<YtDlpStatus, String> {
     Ok(state.engine.music().ytdlp().status().await)

@@ -230,6 +230,8 @@ export const musicSubscribe = (channelId: string, on: boolean) => invoke<void>("
 /** Stream URLs, resolved by yt-dlp without the user's cookies. */
 export const musicStream = (videoId: string, video = false, maxHeight?: number, quality?: "low" | "normal" | "high") =>
   invoke<MusicStream>("music_stream", { videoId, video, maxHeight: maxHeight ?? null, quality: quality ?? null });
+/** YouTube's loudness for a song (dB against its playback level), or null. */
+export const musicLoudness = (videoId: string) => invoke<number | null>("music_loudness", { videoId });
 export const musicYtdlpStatus = () => invoke<YtDlpStatus>("music_ytdlp_status");
 export const musicYtdlpUpdate = () => invoke<YtDlpStatus>("music_ytdlp_update");
 /** Download a song as a Velmora-only file in the Music folder. */
