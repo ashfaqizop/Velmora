@@ -30,6 +30,8 @@
   let stage = $state<HTMLElement>();
   let stageSize = $state(420);
   let eqOpen = $state(false);
+  let speedOpen = $state(false);
+  const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
   let seeking = $state<number | null>(null);
   let adShown = $state(false);
   let winH = $state(innerHeight);
@@ -192,7 +194,46 @@
         </m3e-button-segment>
       </m3e-segmented-button>
       <div class="eq-wrap">
-        <button class="icon" class:on={musicPlayer.eq !== "flat"} aria-label="Equalizer" onclick={() => (eqOpen = !eqOpen)}>
+        <button
+          class="icon"
+          class:on={musicPlayer.prefs.speed !== 1}
+          aria-label="Speed"
+          onclick={() => {
+            speedOpen = !speedOpen;
+            eqOpen = false;
+          }}
+        >
+          {#if musicPlayer.prefs.speed === 1}<m3e-icon name="speed"></m3e-icon>{:else}<span class="speed-now">{musicPlayer.prefs.speed}×</span>{/if}
+        </button>
+        {#if speedOpen}
+          <div class="eq" transition:fly={{ y: -8, duration: 180 }}>
+            <strong>Speed</strong>
+            {#each SPEEDS as v (v)}
+              <button class:sel={musicPlayer.prefs.speed === v} onclick={() => musicPlayer.setPrefs({ speed: v })}>
+                {v === 1 ? "Normal" : `${v}×`}{#if musicPlayer.prefs.speed === v}<m3e-icon name="check"></m3e-icon>{/if}
+              </button>
+            {/each}
+            <label class="pitch">
+              <span>Keep pitch</span>
+              <m3e-switch
+                checked={musicPlayer.prefs.keepPitch}
+                onchange={(e: Event) => musicPlayer.setPrefs({ keepPitch: (e.currentTarget as HTMLElement & { checked: boolean }).checked })}
+              ></m3e-switch>
+            </label>
+            <span class="hint">Any speed from 0.5× to 2× is in Settings, under Music.</span>
+          </div>
+        {/if}
+      </div>
+      <div class="eq-wrap">
+        <button
+          class="icon"
+          class:on={musicPlayer.eq !== "flat"}
+          aria-label="Equalizer"
+          onclick={() => {
+            eqOpen = !eqOpen;
+            speedOpen = false;
+          }}
+        >
           <m3e-icon name="equalizer"></m3e-icon>
         </button>
         {#if eqOpen}
@@ -468,6 +509,19 @@
   }
   .eq-wrap {
     position: relative;
+  }
+  .speed-now {
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .pitch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px 4px;
+    font-size: 14px;
+    cursor: pointer;
   }
   .eq {
     position: absolute;

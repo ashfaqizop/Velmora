@@ -448,6 +448,80 @@
             </div>
             <m3e-switch checked={musicPlayer.autoplay} onchange={(e: Event) => musicPlayer.setAutoplay(checked(e))}></m3e-switch>
           </label>
+          <m3e-divider></m3e-divider>
+          <div class="row" data-setting="crossfade">
+            <div class="text">
+              <strong>Crossfade</strong>
+              <span>
+                {musicPlayer.prefs.crossfade
+                  ? `The next song fades in over the last ${musicPlayer.prefs.crossfade} s of this one.`
+                  : "Off: songs follow each other with no gap. Albums play as they were made."}
+              </span>
+            </div>
+            <m3e-slider class="slider" min="0" max="12" step="1" discrete labelled aria-label="Crossfade seconds" use:slider>
+              <m3e-slider-thumb
+                value={musicPlayer.prefs.crossfade}
+                onchange={(e: Event) => musicPlayer.setPrefs({ crossfade: Number((e.currentTarget as HTMLElement & { value: number }).value) })}
+              ></m3e-slider-thumb>
+            </m3e-slider>
+          </div>
+          <m3e-divider></m3e-divider>
+          <div class="row" data-setting="music-quality">
+            <div class="text">
+              <strong>Audio quality</strong>
+              <span>Low saves data (about 64 kbps). High is the best YouTube has, usually Opus at about 160 kbps.</span>
+            </div>
+            <m3e-segmented-button aria-label="Audio quality">
+              {#each [["low", "Low"], ["normal", "Normal"], ["high", "High"]] as [q, name] (q)}
+                <m3e-button-segment
+                  checked={musicPlayer.prefs.quality === q}
+                  onclick={() => musicPlayer.setPrefs({ quality: q as "low" | "normal" | "high" })}>{name}</m3e-button-segment
+                >
+              {/each}
+            </m3e-segmented-button>
+          </div>
+          <m3e-divider></m3e-divider>
+          <label class="row" data-setting="precache">
+            <div class="text">
+              <strong>Save the next songs ahead</strong>
+              <span>Keeps the next 3 songs on this PC so skipping starts at once. Old ones are cleared past the limit below.</span>
+            </div>
+            <m3e-switch checked={musicPlayer.prefs.precache} onchange={(e: Event) => musicPlayer.setPrefs({ precache: checked(e) })}></m3e-switch>
+          </label>
+          {#if musicPlayer.prefs.precache}
+            <m3e-divider></m3e-divider>
+            <div class="row">
+              <div class="text"><strong>Space for saved songs</strong><span>About 5 MB a song at High.</span></div>
+              <m3e-segmented-button aria-label="Space for saved songs">
+                {#each [250, 500, 1000, 2000] as mb (mb)}
+                  <m3e-button-segment checked={musicPlayer.prefs.cacheMb === mb} onclick={() => musicPlayer.setPrefs({ cacheMb: mb })}
+                    >{mb >= 1000 ? `${mb / 1000} GB` : `${mb} MB`}</m3e-button-segment
+                  >
+                {/each}
+              </m3e-segmented-button>
+            </div>
+          {/if}
+          <m3e-divider></m3e-divider>
+          <div class="row" data-setting="speed">
+            <div class="text">
+              <strong>Speed</strong>
+              <span>{musicPlayer.prefs.speed === 1 ? "Normal speed." : `${musicPlayer.prefs.speed}× for every song.`} Also in the full player.</span>
+            </div>
+            <m3e-slider class="slider" min="0.5" max="2" step="0.05" labelled aria-label="Speed" use:slider>
+              <m3e-slider-thumb
+                value={musicPlayer.prefs.speed}
+                onchange={(e: Event) => musicPlayer.setPrefs({ speed: Number((e.currentTarget as HTMLElement & { value: number }).value) })}
+              ></m3e-slider-thumb>
+            </m3e-slider>
+          </div>
+          <m3e-divider></m3e-divider>
+          <label class="row" data-setting="pitch">
+            <div class="text">
+              <strong>Keep pitch</strong>
+              <span>Voices sound natural at any speed. Off makes faster songs higher, like a sped-up track.</span>
+            </div>
+            <m3e-switch checked={musicPlayer.prefs.keepPitch} onchange={(e: Event) => musicPlayer.setPrefs({ keepPitch: checked(e) })}></m3e-switch>
+          </label>
         </div>
       </m3e-card>
       <m3e-card variant="filled">

@@ -228,8 +228,8 @@ export const musicPlaylistCreate = (title: string, videoIds: string[]) =>
   invoke<string>("music_playlist_create", { title, videoIds });
 export const musicSubscribe = (channelId: string, on: boolean) => invoke<void>("music_subscribe", { channelId, on });
 /** Stream URLs, resolved by yt-dlp without the user's cookies. */
-export const musicStream = (videoId: string, video = false, maxHeight?: number) =>
-  invoke<MusicStream>("music_stream", { videoId, video, maxHeight: maxHeight ?? null });
+export const musicStream = (videoId: string, video = false, maxHeight?: number, quality?: "low" | "normal" | "high") =>
+  invoke<MusicStream>("music_stream", { videoId, video, maxHeight: maxHeight ?? null, quality: quality ?? null });
 export const musicYtdlpStatus = () => invoke<YtDlpStatus>("music_ytdlp_status");
 export const musicYtdlpUpdate = () => invoke<YtDlpStatus>("music_ytdlp_update");
 /** Download a song as a Velmora-only file in the Music folder. */
@@ -256,3 +256,9 @@ export interface MusicStorage {
 }
 export const musicStorage = () => invoke<MusicStorage>("music_storage");
 export const musicStorageClear = (what: "cache" | "history") => invoke<void>("music_storage_clear", { what });
+// Songs saved ahead of time (musiccache.rs).
+export const musicCached = (videoId: string) => invoke<string | null>("music_cached", { videoId });
+export const musicPrecache = (videoId: string, quality: "low" | "normal" | "high", capMb: number) =>
+  invoke<string | null>("music_precache", { videoId, quality, capMb });
+export const musicPrecacheSize = () => invoke<{ songs: number; bytes: number }>("music_precache_size");
+export const musicPrecacheClear = () => invoke<void>("music_precache_clear");

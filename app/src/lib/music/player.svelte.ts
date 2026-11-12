@@ -8,15 +8,18 @@
 // yt-dlp hands back.
 import {
   command,
+  destroy,
   getProperty,
+  init,
   listenEvents,
-  observeProperties,
   setProperty,
   setVideoMarginRatio,
   type MpvConfig,
+  type MpvEvent,
   type MpvObservableProperty,
   type VideoMarginRatio,
 } from "tauri-plugin-libmpv-api";
+import { listen } from "@tauri-apps/api/event";
 import { SvelteSet } from "svelte/reactivity";
 import * as api from "../api";
 import { sound } from "../audio.svelte";
@@ -24,6 +27,77 @@ import { startMpv, stopMpv } from "../mpv";
 import type { MusicItem, MusicStream } from "../types";
 
 export type Repeat = "off" | "all" | "one";
+export type AudioQuality = "low" | "normal" | "high";
+
+/** Two mpv players. "a" is the window's own (shared with the video player,
+ *  and the only one that can show a music video); "b" is a second,
+ *  audio-only one with no window, used to crossfade. */
+type Deck = "a" | "b";
+const DECK_B = "music-b";
+
+/** Music → Playback settings. */
+export interface PlaybackPrefs {
+  /** Seconds the songs overlap. 0 = gapless. */
+  crossfade: number;
+  quality: AudioQuality;
+  /** Save the next few songs ahead of time. */
+  precache: boolean;
+  /** Size cap for those songs, in MB. */
+  cacheMb: number;
+  /** 0.5 to 2. */
+  speed: number;
+  /** Keep voices at their pitch when the speed changes. */
+  keepPitch: boolean;
+}
+
+const PREFS_KEY = "velmora.music.playback";
+const PREFS_DEFAULTS: PlaybackPrefs = { crossfade: 0, quality: "high", precache: true, cacheMb: 500, speed: 1, keepPitch: true };
+
+function cleanPrefs(p: Partial<PlaybackPrefs>): PlaybackPrefs {
+  const n = { ...PREFS_DEFAULTS, ...p };
+  return {
+    crossfade: Math.min(12, Math.max(0, Math.round(Number(n.crossfade) || 0))),
+    quality: n.quality === "low" || n.quality === "normal" ? n.quality : "high",
+    precache: !!n.precache,
+    cacheMb: Math.min(4000, Math.max(100, Math.round(Number(n.cacheMb) || 500))),
+    speed: Math.min(2, Math.max(0.5, Math.round((Number(n.speed) || 1) * 100) / 100)),
+    keepPitch: n.keepPitch !== false,
+  };
+}
+
+function readPrefs(): PlaybackPrefs {
+  try {
+    return cleanPrefs(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}"));
+  } catch {
+    return { ...PREFS_DEFAULTS };
+  }
+}
+
+/** Start getting the next song ready this long before a crossfade begins. */
+const CROSSFADE_LEAD = 10;
+/** How often the crossfade ramp moves. */
+const FADE_TICK = 50;
+/** Pre-cache waits this long into a song, so skipping through costs nothing. */
+const PRECACHE_DELAY = 5000;
+/** How many songs ahead to keep saved. */
+const PRECACHE_AHEAD = 3;
+
+/** A song saved on this PC, shaped like a stream. */
+function localStream(item: MusicItem, path: string): MusicStream {
+  return {
+    videoId: item.id,
+    title: item.title,
+    duration: item.duration,
+    audioUrl: path,
+    videoUrl: null,
+    videoHeight: null,
+    headers: [],
+    audioCodec: null,
+    audioBitrate: null,
+    ext: null,
+    filesize: null,
+  };
+}
 
 const OBSERVED = [
   ["pause", "flag"],
@@ -170,6 +244,8 @@ class MusicPlayer {
   autoplay = $state(readAutoplay());
   /** Songs autoplay added. Up next lists them under their own heading. */
   readonly auto = new SvelteSet<string>();
+  /** Crossfade, quality, pre-cache, speed. */
+  prefs = $state<PlaybackPrefs>(readPrefs());
   /** Live loudness for the visualizer, written ~30 times a second. Not reactive on purpose. */
   readonly meter = { left: 0, right: 0, at: 0 };
   private viz = false;
@@ -186,9 +262,17 @@ class MusicPlayer {
   private lastPos = 0;
   private savedAt = 0;
   private saveTimer: ReturnType<typeof setTimeout> | undefined;
-  private owned = false;
-  private cleanups: (() => void)[] = [];
-  private streams = new Map<string, { s: MusicStream; at: number; video: boolean }>();
+  /** The deck playing now. */
+  private deck: Deck = "a";
+  private ready: Record<Deck, boolean> = { a: false, b: false };
+  private cleanups: Record<Deck, (() => void)[]> = { a: [], b: [] };
+  /** The next song, already in mpv's playlist for a gapless step. */
+  private ahead: { id: string; deck: Deck; queued: boolean } | null = null;
+  /** The next song, loading paused on the other deck for a crossfade. */
+  private pending: { id: string; deck: Deck; ready: boolean } | null = null;
+  private fade: { from: Deck; to: Deck; timer: ReturnType<typeof setInterval> } | null = null;
+  private precacheRun = 0;
+  private streams = new Map<string, { s: MusicStream; at: number }>();
   private loadSeq = 0;
   private loadedId: string | null = null;
   private resumeAt = 0;
@@ -206,12 +290,23 @@ class MusicPlayer {
     return this.queue.slice(this.index + 1);
   }
 
-  // ── mpv ──────────────────────────────────────────────────────────
+  /** The deck playing now has its mpv running. */
+  private get owned(): boolean {
+    return this.ready[this.deck];
+  }
 
-  private config(withControls: boolean): MpvConfig {
+  // ── mpv: two decks ───────────────────────────────────────────────
+
+  private label(d: Deck): string | undefined {
+    return d === "a" ? undefined : DECK_B;
+  }
+
+  private other(d: Deck): Deck {
+    return d === "a" ? "b" : "a";
+  }
+
+  private config(d: Deck, withControls: boolean): MpvConfig {
     const options: Record<string, string | number | boolean> = {
-      vo: "gpu-next",
-      hwdec: "auto-safe",
       "force-window": "no",
       idle: "yes",
       "keep-open": "no",
@@ -223,100 +318,155 @@ class MusicPlayer {
       "demuxer-max-bytes": "64MiB",
       "network-timeout": 20,
       ytdl: "no",
-      volume: this.volume,
+      // A song queued in mpv's own playlist follows with no gap.
+      "gapless-audio": "yes",
+      "prefetch-playlist": "yes",
+      volume: d === this.deck ? this.volume : 0,
       "volume-max": sound.maxVolume,
       af: this.filters(),
+      speed: this.prefs.speed,
+      "audio-pitch-correction": this.prefs.keepPitch ? "yes" : "no",
     };
-    // Media keys and the Windows media overlay, on mpv builds that have them.
-    if (withControls) options["media-controls"] = "yes";
+    if (d === "a") {
+      options.vo = "gpu-next";
+      options.hwdec = "auto-safe";
+      // Media keys and the Windows media overlay, on mpv builds that have them.
+      if (withControls) options["media-controls"] = "yes";
+    } else {
+      // Audio only: the plugin then needs no window for it.
+      options.vid = "no";
+    }
     return { initialOptions: options, observedProperties: OBSERVED };
   }
 
-  private async ensureMpv() {
-    if (this.owned) return;
+  /** Events from one deck. The plugin sends deck b's to the label "music-b";
+   *  listening with that target is how the main page hears them. */
+  private listenDeck(d: Deck, cb: (ev: MpvEvent) => void) {
+    if (d === "a") return listenEvents(cb);
+    return listen<MpvEvent>(`mpv-event-${DECK_B}`, (e) => cb(e.payload), { target: DECK_B });
+  }
+
+  private async ensureDeck(d: Deck) {
+    if (this.ready[d]) return;
     // Listen before mpv starts: it reports each observed property once right
     // after init, and a listener added later misses that first report (which
     // left the play button showing Play while a song played).
-    this.cleanups.push(
-      await observeProperties(OBSERVED, ({ name, data }) => {
-        switch (name) {
-          case "pause":
-            this.playing = !(data as boolean);
-            break;
-          case "vo-configured":
-            this.videoShown = this.video && !!data;
-            break;
-          case "time-pos": {
-            const t = (data as number | null) ?? 0;
-            // Only steady playback counts as listening, not a seek.
-            if (this.playing && t > this.lastPos && t - this.lastPos < 3) this.heardFor += t - this.lastPos;
-            this.lastPos = t;
-            this.position = t;
-            this.maybePrefetch();
-            if (this.playing && Date.now() - this.savedAt > SAVE_EVERY) this.persist(0);
-            break;
-          }
-          case "duration":
-            if (data) this.duration = data as number;
-            break;
-          case "paused-for-cache":
-            this.buffering = data as boolean;
-            break;
-          case "af-metadata/viz": {
-            const m = (data ?? {}) as Record<string, unknown>;
-            const overall = level(m["lavfi.astats.Overall.RMS_level"]);
-            this.meter.left = level(m["lavfi.astats.1.RMS_level"]) || overall;
-            this.meter.right = level(m["lavfi.astats.2.RMS_level"]) || overall;
-            this.meter.at = performance.now();
-            break;
-          }
-        }
-      }),
-    );
-    this.cleanups.push(
-      await listenEvents((ev) => {
-        if (ev.event === "file-loaded") this.failures = 0;
-        if (ev.event !== "end-file") return;
-        if (ev.reason === "eof") this.onEnded();
-        else if (ev.reason === "error") this.onFailed();
-      }),
-    );
+    this.cleanups[d].push(await this.listenDeck(d, (ev) => this.onDeckEvent(d, ev)));
     try {
-      try {
-        await startMpv(this.config(true));
-      } catch {
-        await startMpv(this.config(false));
+      if (d === "a") {
+        try {
+          await startMpv(this.config("a", true));
+        } catch {
+          await startMpv(this.config("a", false));
+        }
+      } else {
+        await init(this.config("b", false), DECK_B);
       }
     } catch (e) {
-      this.release();
+      this.release(d);
       throw e;
     }
-    this.owned = true;
+    this.ready[d] = true;
+  }
+
+  private onDeckEvent(d: Deck, ev: MpvEvent) {
+    if (d !== this.deck) {
+      // The other deck only matters while it gets the next song ready.
+      const p = this.pending;
+      if (p?.deck === d && ev.event === "file-loaded") p.ready = true;
+      else if (p?.deck === d && ev.event === "end-file" && (ev as { reason?: string }).reason === "error") this.pending = null;
+      return;
+    }
+    switch (ev.event) {
+      case "property-change": {
+        const { name, data } = ev as { name: string; data: unknown };
+        this.onProperty(d, name, data);
+        return;
+      }
+      case "file-loaded":
+        this.failures = 0;
+        // A resume point is for one song, not the ones queued after it.
+        setProperty("start", "none", this.label(d)).catch(() => {});
+        this.schedulePrecache();
+        return;
+      case "end-file": {
+        const reason = (ev as { reason?: string }).reason;
+        if (reason === "eof") this.onEnded();
+        else if (reason === "error") this.onFailed();
+        return;
+      }
+    }
+  }
+
+  private onProperty(d: Deck, name: string, data: unknown) {
+    switch (name) {
+      case "pause":
+        this.playing = !(data as boolean);
+        break;
+      case "vo-configured":
+        this.videoShown = d === "a" && this.video && !!data;
+        break;
+      case "time-pos": {
+        const t = (data as number | null) ?? 0;
+        // Only steady playback counts as listening, not a seek.
+        if (this.playing && t > this.lastPos && t - this.lastPos < 3) this.heardFor += t - this.lastPos;
+        this.lastPos = t;
+        this.position = t;
+        this.maybePrefetch();
+        this.maybeCrossfade();
+        if (this.playing && Date.now() - this.savedAt > SAVE_EVERY) this.persist(0);
+        break;
+      }
+      case "duration":
+        if (data) this.duration = data as number;
+        break;
+      case "paused-for-cache":
+        this.buffering = data as boolean;
+        break;
+      case "af-metadata/viz": {
+        const m = (data ?? {}) as Record<string, unknown>;
+        const overall = level(m["lavfi.astats.Overall.RMS_level"]);
+        this.meter.left = level(m["lavfi.astats.1.RMS_level"]) || overall;
+        this.meter.right = level(m["lavfi.astats.2.RMS_level"]) || overall;
+        this.meter.at = performance.now();
+        break;
+      }
+    }
   }
 
   /** Read the real pause state from mpv, in case an update was missed. */
   private async syncPause() {
     if (!this.owned) return;
     try {
-      this.playing = !(await getProperty("pause", "flag"));
+      this.playing = !(await getProperty("pause", "flag", this.label(this.deck)));
     } catch {
       // Keep what we have.
     }
   }
 
-  /** The video player is taking mpv over. Remember where we were. */
+  /** The video player is taking the window's mpv over. Remember where we were. */
   async yieldToVideo() {
-    if (!this.owned) return;
+    if (!this.ready.a && !this.ready.b) return;
+    this.endFade();
+    this.clearPending();
+    this.ahead = null;
     this.resumeAt = this.position;
     this.playing = false;
     this.videoShown = false;
-    this.release();
+    if (this.ready.b) command("stop", [], DECK_B).catch(() => {});
+    this.deck = "a";
+    this.release("a");
   }
 
-  private release() {
-    this.cleanups.forEach((f) => f());
-    this.cleanups = [];
-    this.owned = false;
+  private release(d: Deck) {
+    this.cleanups[d].forEach((f) => f());
+    this.cleanups[d] = [];
+    this.ready[d] = false;
+  }
+
+  /** Each deck that's running, with its label. */
+  private running(): (string | undefined)[] {
+    return (["a", "b"] as Deck[]).filter((d) => this.ready[d]).map((d) => this.label(d));
   }
 
   // ── Sound ────────────────────────────────────────────────────────
@@ -331,7 +481,8 @@ class MusicPlayer {
 
   /** Re-apply the chain after a sound setting changed. */
   applyFilters() {
-    if (this.owned) setProperty("af", this.filters()).catch(() => {});
+    const af = this.filters();
+    for (const l of this.running()) setProperty("af", af, l).catch(() => {});
   }
 
   setEq(preset: string) {
@@ -358,23 +509,65 @@ class MusicPlayer {
 
   /** Where the music video goes in the window, as margins (0..1). */
   placeVideo(margins: VideoMarginRatio) {
-    if (this.owned) setVideoMarginRatio(margins).catch(() => {});
+    if (this.ready.a) setVideoMarginRatio(margins).catch(() => {});
+  }
+
+  private applySpeed() {
+    for (const l of this.running()) {
+      setProperty("audio-pitch-correction", this.prefs.keepPitch ? "yes" : "no", l).catch(() => {});
+      setProperty("speed", this.prefs.speed, l).catch(() => {});
+    }
+  }
+
+  /** Change Music → Playback settings; they apply straight away. */
+  setPrefs(patch: Partial<PlaybackPrefs>) {
+    const before = this.prefs;
+    this.prefs = cleanPrefs({ ...before, ...patch });
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(this.prefs));
+    } catch {
+      // Not remembered.
+    }
+    if (this.prefs.speed !== before.speed || this.prefs.keepPitch !== before.keepPitch) this.applySpeed();
+    if (this.prefs.crossfade !== before.crossfade) {
+      this.clearPending();
+      this.dropAhead(true);
+      // Let the next song be got ready again the new way.
+      this.prefetching = false;
+    }
+    if (this.prefs.quality !== before.quality) this.streams.clear();
+    if (this.prefs.precache && !before.precache) this.schedulePrecache();
+    if (!this.prefs.precache) this.precacheRun++;
   }
 
   // ── Streams ──────────────────────────────────────────────────────
 
   private async stream(item: MusicItem, video: boolean): Promise<MusicStream> {
-    const hit = this.streams.get(item.id);
-    if (hit && hit.video === video && Date.now() - hit.at < STREAM_TTL) return hit.s;
-    const s = await api.musicStream(item.id, video);
-    this.streams.set(item.id, { s, at: Date.now(), video });
+    const key = `${item.id}|${video}|${this.prefs.quality}`;
+    const hit = this.streams.get(key);
+    if (hit && Date.now() - hit.at < STREAM_TTL) return hit.s;
+    const s = await api.musicStream(item.id, video, undefined, this.prefs.quality);
+    this.streams.set(key, { s, at: Date.now() });
     return s;
+  }
+
+  /** Where a song plays from: a copy saved ahead of time if there is one,
+   *  otherwise a fresh stream. Music videos always stream. */
+  private async sourceFor(item: MusicItem, video: boolean): Promise<MusicStream> {
+    if (!video) {
+      const saved = await api.musicCached(item.id).catch(() => null);
+      if (saved) return localStream(item, saved);
+    }
+    return this.stream(item, video);
   }
 
   private async load(startAt = 0) {
     const item = this.current;
     if (!item) return;
     const seq = ++this.loadSeq;
+    this.endFade();
+    this.clearPending();
+    this.ahead = null;
     if (this.heard?.id !== item.id) {
       this.logPlay();
       this.heard = item;
@@ -390,42 +583,50 @@ class MusicPlayer {
     this.videoShown = false;
     this.position = startAt;
     this.duration = item.duration ?? (same ? this.duration : 0);
+    // A music video needs the window's own mpv.
+    if (this.video && this.deck === "b") {
+      command("stop", [], DECK_B).catch(() => {});
+      this.deck = "a";
+    }
+    const d = this.deck;
+    const l = this.label(d);
     try {
-      await this.ensureMpv();
+      await this.ensureDeck(d);
+      await setProperty("volume", this.volume, l).catch(() => {});
       if (item.localPath) {
         // A downloaded song plays from this PC, no network needed.
         const local = await api.openLocal(item.localPath);
         if (seq !== this.loadSeq) return;
-        await setProperty("http-header-fields", "").catch(() => {});
-        await setProperty("audio-files", "").catch(() => {});
-        await setProperty("vid", "no").catch(() => {});
-        await setProperty("start", startAt > 0 ? String(startAt) : "none");
-        await command("loadfile", [local.url]);
-        await setProperty("pause", false);
+        await setProperty("http-header-fields", "", l).catch(() => {});
+        await setProperty("audio-files", "", l).catch(() => {});
+        await setProperty("vid", "no", l).catch(() => {});
+        await setProperty("start", startAt > 0 ? String(startAt) : "none", l);
+        await command("loadfile", [local.url], l);
+        await setProperty("pause", false, l);
         this.playing = true;
         return;
       }
-      const s = await this.stream(item, this.video);
+      const s = await this.sourceFor(item, this.video);
       if (seq !== this.loadSeq) return;
       const { ua, fields } = headerOptions(s);
-      if (ua) await setProperty("user-agent", ua).catch(() => {});
-      await setProperty("http-header-fields", fields).catch(() => {});
-      await setProperty("start", startAt > 0 ? String(startAt) : "none");
-      const withVideo = this.video && !!s.videoUrl;
+      if (ua) await setProperty("user-agent", ua, l).catch(() => {});
+      await setProperty("http-header-fields", fields, l).catch(() => {});
+      await setProperty("start", startAt > 0 ? String(startAt) : "none", l);
+      const withVideo = d === "a" && this.video && !!s.videoUrl;
       if (this.video && !s.videoUrl) {
         this.video = false;
         this.error = "This song has no video, so it plays as audio.";
       }
-      await setProperty("vid", withVideo ? "auto" : "no").catch(() => {});
-      await setProperty("force-window", withVideo ? "yes" : "no").catch(() => {});
+      await setProperty("vid", withVideo ? "auto" : "no", l).catch(() => {});
+      if (d === "a") await setProperty("force-window", withVideo ? "yes" : "no", l).catch(() => {});
       if (withVideo && s.videoUrl && s.videoUrl !== s.audioUrl) {
-        await setProperty("audio-files", s.audioUrl).catch(() => {});
-        await command("loadfile", [s.videoUrl]);
+        await setProperty("audio-files", s.audioUrl, l).catch(() => {});
+        await command("loadfile", [s.videoUrl], l);
       } else {
-        await setProperty("audio-files", "").catch(() => {});
-        await command("loadfile", [withVideo && s.videoUrl ? s.videoUrl : s.audioUrl]);
+        await setProperty("audio-files", "", l).catch(() => {});
+        await command("loadfile", [withVideo && s.videoUrl ? s.videoUrl : s.audioUrl], l);
       }
-      await setProperty("pause", false);
+      await setProperty("pause", false, l);
       this.playing = true;
       this.prefetching = false;
     } catch (e) {
@@ -438,9 +639,9 @@ class MusicPlayer {
     }
   }
 
-  /** Resolve the next song ahead of time, so it starts without a wait. */
+  /** Get the next song ready ahead of time: resolve it, and without
+   *  crossfade queue it in mpv so it follows with no gap. */
   private maybePrefetch() {
-    if (this.current?.localPath) return;
     if (this.prefetching || !this.duration || this.duration - this.position > PREFETCH_AT) return;
     const next = this.queue[this.index + 1];
     if (!next) {
@@ -448,7 +649,166 @@ class MusicPlayer {
       return;
     }
     this.prefetching = true;
-    this.stream(next, this.video).catch(() => {});
+    if (!next.localPath) this.stream(next, this.video).catch(() => {});
+    this.appendNext();
+  }
+
+  /** Gapless: put the next song in mpv's own playlist. mpv opens it early
+   *  and moves on with no silence; `onEnded` then just follows along. */
+  private async appendNext() {
+    const next = this.queue[this.index + 1];
+    if (!next || this.ahead || this.video || this.repeat === "one" || this.prefs.crossfade > 0 || !this.owned) return;
+    const d = this.deck;
+    const seq = this.loadSeq;
+    const mark = { id: next.id, deck: d, queued: false };
+    this.ahead = mark;
+    try {
+      const url = next.localPath ? (await api.openLocal(next.localPath)).url : (await this.sourceFor(next, false)).audioUrl;
+      if (seq !== this.loadSeq || this.ahead !== mark || this.queue[this.index + 1]?.id !== next.id) return;
+      await command("loadfile", [url, "append"], this.label(d));
+      mark.queued = true;
+    } catch {
+      if (this.ahead === mark) this.ahead = null;
+    }
+  }
+
+  /** The queue changed: take back a queued song that's no longer next. */
+  private dropAhead(force = false) {
+    const next = this.queue[this.index + 1]?.id;
+    const a = this.ahead;
+    if (a && (force || a.id !== next)) {
+      this.ahead = null;
+      if (a.queued) command("playlist-clear", [], this.label(a.deck)).catch(() => {});
+      this.prefetching = false;
+    }
+    if (this.pending && (force || this.pending.id !== next)) this.clearPending();
+  }
+
+  // ── Crossfade ────────────────────────────────────────────────────
+
+  /** Near the end: load the next song paused on the other deck, then, once
+   *  it's ready, fade the two against each other. */
+  private maybeCrossfade() {
+    const cf = this.prefs.crossfade;
+    if (cf <= 0 || this.fade || this.video || !this.playing || this.repeat === "one" || !this.duration) return;
+    const next = this.queue[this.index + 1];
+    if (!next) return;
+    const left = (this.duration - this.position) / this.prefs.speed;
+    if (!this.pending && left <= cf + CROSSFADE_LEAD) {
+      this.prepare(next);
+      return;
+    }
+    // A song shorter than the fade just fades for as long as it has.
+    if (this.pending?.ready && this.pending.id === next.id && left <= cf) this.startFade(Math.max(1, Math.min(cf, left)));
+  }
+
+  private async prepare(next: MusicItem) {
+    const d = this.other(this.deck);
+    const p = { id: next.id, deck: d, ready: false };
+    this.pending = p;
+    try {
+      await this.ensureDeck(d);
+      const s = next.localPath ? localStream(next, (await api.openLocal(next.localPath)).url) : await this.sourceFor(next, false);
+      if (this.pending !== p) return;
+      const l = this.label(d);
+      const { ua, fields } = headerOptions(s);
+      if (ua) await setProperty("user-agent", ua, l).catch(() => {});
+      await setProperty("http-header-fields", fields, l).catch(() => {});
+      await setProperty("volume", 0, l).catch(() => {});
+      await setProperty("pause", true, l).catch(() => {});
+      await setProperty("start", "none", l).catch(() => {});
+      await setProperty("audio-files", "", l).catch(() => {});
+      await setProperty("vid", "no", l).catch(() => {});
+      await command("loadfile", [s.audioUrl], l);
+    } catch {
+      if (this.pending === p) this.pending = null;
+    }
+  }
+
+  /** mpv's volume is cubic, so take the cube root of an equal-power curve:
+   *  the two songs together stay at a steady loudness. */
+  private fadeLevel(x: number): number {
+    return this.volume * Math.cbrt(Math.max(0, x));
+  }
+
+  private startFade(seconds: number) {
+    const p = this.pending;
+    if (!p) return;
+    this.pending = null;
+    const from = this.deck;
+    const to = p.deck;
+    const lf = this.label(from);
+    const lt = this.label(to);
+    this.logPlay();
+    this.deck = to;
+    this.adopt(this.index + 1);
+    this.playing = true;
+    setProperty("pause", false, lt).catch(() => {});
+    // The new deck reported its length while it waited; ask again.
+    getProperty("duration", "double", lt)
+      .then((v) => {
+        if (v && this.deck === to) this.duration = v as number;
+      })
+      .catch(() => {});
+    const started = performance.now();
+    const ms = seconds * 1000;
+    const timer = setInterval(() => {
+      const t = Math.min(1, (performance.now() - started) / ms);
+      setProperty("volume", this.fadeLevel(Math.cos((t * Math.PI) / 2)), lf).catch(() => {});
+      setProperty("volume", this.fadeLevel(Math.sin((t * Math.PI) / 2)), lt).catch(() => {});
+      if (t >= 1) this.endFade();
+    }, FADE_TICK);
+    this.fade = { from, to, timer };
+    // The new song loaded while its deck waited, so nothing saved the ones after it yet.
+    this.schedulePrecache();
+  }
+
+  /** Finish (or cut short) a fade: the old song stops, the new one is at full volume. */
+  private endFade() {
+    const f = this.fade;
+    if (!f) return;
+    clearInterval(f.timer);
+    this.fade = null;
+    command("stop", [], this.label(f.from)).catch(() => {});
+    setProperty("volume", this.volume, this.label(f.to)).catch(() => {});
+  }
+
+  private clearPending() {
+    const p = this.pending;
+    if (!p) return;
+    this.pending = null;
+    if (this.ready[p.deck]) command("stop", [], this.label(p.deck)).catch(() => {});
+  }
+
+  /** Playback moved to song `i` by itself (gapless or a crossfade). */
+  private adopt(i: number) {
+    const item = this.queue[i];
+    if (!item) return;
+    this.index = i;
+    this.heard = item;
+    this.heardFor = 0;
+    this.lastPos = 0;
+    this.loadedId = item.id;
+    this.position = 0;
+    this.duration = item.duration ?? 0;
+    this.error = null;
+    this.prefetching = false;
+    this.persist();
+  }
+
+  // ── Saved ahead ──────────────────────────────────────────────────
+
+  /** A few seconds into a song, save the next three on disk. */
+  private schedulePrecache() {
+    if (!this.prefs.precache) return;
+    const run = ++this.precacheRun;
+    setTimeout(async () => {
+      for (const item of this.queue.slice(this.index + 1, this.index + 1 + PRECACHE_AHEAD)) {
+        if (run !== this.precacheRun || !this.prefs.precache) return;
+        if (item.localPath) continue;
+        await api.musicPrecache(item.id, this.prefs.quality, this.prefs.cacheMb).catch(() => null);
+      }
+    }, PRECACHE_DELAY);
   }
 
   // ── Queue ────────────────────────────────────────────────────────
@@ -543,6 +903,7 @@ class MusicPlayer {
   private setQueue(q: MusicItem[]) {
     this.queue = q;
     if (!this.shuffle) this.ordered = [...q];
+    this.dropAhead();
     this.persist();
   }
 
@@ -699,14 +1060,17 @@ class MusicPlayer {
   async toggle() {
     if (!this.active) return;
     if (!this.owned) return this.load(this.resumeAt);
+    // Pausing mid-crossfade cuts the old song rather than leave it fading.
+    this.endFade();
+    const l = this.label(this.deck);
     // Ask mpv rather than trust our copy, so the button always does what it shows.
     let paused = !this.playing;
     try {
-      paused = (await getProperty("pause", "flag")) as boolean;
+      paused = (await getProperty("pause", "flag", l)) as boolean;
     } catch {
       // Use our copy.
     }
-    await setProperty("pause", !paused).catch(() => {});
+    await setProperty("pause", !paused, l).catch(() => {});
     this.playing = paused;
     this.syncPause();
     this.persist();
@@ -740,7 +1104,8 @@ class MusicPlayer {
       this.persist();
       return;
     }
-    return command("seek", [Math.max(0, to), "absolute+exact"]).catch(() => {});
+    this.endFade();
+    return command("seek", [Math.max(0, to), "absolute+exact"], this.label(this.deck)).catch(() => {});
   }
 
   setVolume(v: number) {
@@ -750,7 +1115,8 @@ class MusicPlayer {
     } catch {
       // Not remembered.
     }
-    if (this.owned) setProperty("volume", this.volume).catch(() => {});
+    // During a crossfade the ramp sets both decks from this.volume.
+    if (this.owned && !this.fade) setProperty("volume", this.volume, this.label(this.deck)).catch(() => {});
   }
 
   toggleShuffle() {
@@ -765,11 +1131,14 @@ class MusicPlayer {
       this.queue = [...this.ordered];
       this.index = Math.max(0, this.queue.findIndex((q) => q.id === cur.id));
     }
+    this.dropAhead();
     this.persist();
   }
 
   cycleRepeat() {
     this.repeat = this.repeat === "off" ? "all" : this.repeat === "all" ? "one" : "off";
+    // Repeat one replays the song, so nothing should follow it.
+    if (this.repeat === "one") this.dropAhead(true);
     this.persist();
   }
 
@@ -795,8 +1164,17 @@ class MusicPlayer {
     this.position = 0;
     this.duration = 0;
     this.persist(0);
-    if (this.owned) {
-      this.release();
+    this.endFade();
+    this.clearPending();
+    this.ahead = null;
+    this.precacheRun++;
+    this.deck = "a";
+    if (this.ready.b) {
+      this.release("b");
+      await destroy(DECK_B).catch(() => {});
+    }
+    if (this.ready.a) {
+      this.release("a");
       await stopMpv();
     }
   }
@@ -806,6 +1184,13 @@ class MusicPlayer {
     this.logPlay();
     if (this.repeat === "one") {
       this.load();
+      return;
+    }
+    // Gapless: mpv already moved on to the song queued in its playlist.
+    const a = this.ahead;
+    this.ahead = null;
+    if (a?.queued && a.deck === this.deck && this.queue[this.index + 1]?.id === a.id) {
+      this.adopt(this.index + 1);
       return;
     }
     this.next();

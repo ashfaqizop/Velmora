@@ -6,6 +6,7 @@ mod ani;
 mod commands;
 mod license;
 mod music;
+mod musiccache;
 mod musicdb;
 mod prefs;
 mod runtime;
@@ -107,6 +108,7 @@ pub fn run() {
             // YouTube Music: restore the saved session (Music needs sign-in; nothing else does).
             let music_store = music::setup(app.handle(), &state, &paths.app_local_data_dir()?);
             app.manage(musicdb::MusicDb::open(&paths.app_local_data_dir()?.join("music")));
+            app.manage(musiccache::MusicCache::new(paths.app_local_data_dir()?.join("music").join("cache")));
             app.manage(state);
             app.manage(music_store);
 
@@ -232,6 +234,10 @@ pub fn run() {
             musicdb::music_queue_load,
             musicdb::music_storage,
             musicdb::music_storage_clear,
+            musiccache::music_cached,
+            musiccache::music_precache,
+            musiccache::music_precache_size,
+            musiccache::music_precache_clear,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Velmora");

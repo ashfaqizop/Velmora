@@ -89,9 +89,15 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { id: "music-account", page: "music", label: "YouTube Music account", hint: "Sign in or out", words: "google sign in login youtube" },
   { id: "autoplay", page: "music", label: "Autoplay", hint: "Similar songs when the queue ends", words: "radio continue similar" },
   { id: "eq", page: "music", label: "Equalizer", hint: "Bass, vocals and more", words: "eq bass treble preset" },
+  { id: "crossfade", page: "music", label: "Crossfade", hint: "Fade songs into each other, or gapless", words: "gapless fade transition mix dj" },
+  { id: "music-quality", page: "music", label: "Audio quality", hint: "Low, Normal or High", words: "bitrate data saver kbps opus aac" },
+  { id: "precache", page: "music", label: "Save the next songs ahead", hint: "Next songs start at once", words: "cache preload buffer offline" },
+  { id: "speed", page: "music", label: "Speed", hint: "0.5x to 2x", words: "tempo faster slower playback rate" },
+  { id: "pitch", page: "music", label: "Keep pitch", hint: "Natural voices at any speed", words: "chipmunk tempo nightcore" },
   { id: "ytdlp", page: "music", label: "yt-dlp", hint: "Update if songs stop playing", words: "update songs not playing" },
 
   { id: "music-cache", page: "music-storage", label: "Saved pages", hint: "Home, library and albums kept on this PC", words: "cache offline clear" },
+  { id: "music-saved", page: "music-storage", label: "Saved songs", hint: "Songs kept ahead of time", words: "cache precache clear space" },
   { id: "music-history", page: "music-storage", label: "Search and play history", hint: "Recent searches and songs played", words: "history clear recent" },
 
   { id: "ani-use", page: "ani", label: "Use Ani", hint: "Velmora's assistant", words: "assistant ai chat gemini" },

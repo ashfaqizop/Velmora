@@ -31,7 +31,7 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri::{WebviewUrl, WebviewWindowBuilder};
 use universeapi::music::auth::Cookie;
 use universeapi::music::{
-    Account, Album, Artist, FeedPage, LibraryKind, Lyrics, MusicItem, Playlist, Rating, Resolved, SearchFilter,
+    Account, Album, Artist, AudioQuality, FeedPage, LibraryKind, Lyrics, MusicItem, Playlist, Rating, Resolved, SearchFilter,
     SearchResults, StreamMode, TrackPage, YtDlpStatus,
 };
 
@@ -645,9 +645,15 @@ pub async fn music_stream(
     video_id: String,
     video: bool,
     max_height: Option<u32>,
+    quality: Option<AudioQuality>,
 ) -> Result<Resolved, String> {
     let mode = if video { StreamMode::Video } else { StreamMode::Audio };
-    state.engine.music().resolve(&video_id, mode, max_height.unwrap_or(1080)).await.map_err(err)
+    state
+        .engine
+        .music()
+        .resolve_with(&video_id, mode, max_height.unwrap_or(1080), quality.unwrap_or_default())
+        .await
+        .map_err(err)
 }
 
 #[tauri::command]

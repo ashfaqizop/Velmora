@@ -34,7 +34,7 @@ use crate::error::{Error, Result};
 use self::auth::{Cookie, CookieJar, ORIGIN};
 pub use self::lyrics::{LyricLine, Lyrics};
 use self::parse::{arr, s, text};
-pub use self::ytdlp::{Resolved, StreamMode, YtDlp, YtDlpStatus};
+pub use self::ytdlp::{AudioQuality, Resolved, StreamMode, YtDlp, YtDlpStatus};
 
 const API: &str = "https://music.youtube.com/youtubei/v1";
 const CLIENT_VERSION: &str = "1.20260510.02.00";
@@ -939,6 +939,11 @@ impl Music {
     /// Stream URLs for a song or video. Never uses the user's cookies.
     pub async fn resolve(&self, video_id: &str, mode: StreamMode, max_height: u32) -> Result<Resolved> {
         self.ytdlp.resolve(video_id, mode, max_height).await
+    }
+
+    /// `resolve` at a chosen audio quality.
+    pub async fn resolve_with(&self, video_id: &str, mode: StreamMode, max_height: u32, quality: AudioQuality) -> Result<Resolved> {
+        self.ytdlp.resolve_with(video_id, mode, max_height, quality).await
     }
 }
 

@@ -65,6 +65,32 @@ pub enum StreamMode {
     Video,
 }
 
+/// How much audio to fetch. YouTube serves Opus around 160 kbps at best for
+/// most accounts (256 kbps AAC needs Premium).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioQuality {
+    /// About 50 to 70 kbps: data saver.
+    Low,
+    /// About 128 kbps.
+    Normal,
+    /// The best there is.
+    #[default]
+    High,
+}
+
+impl AudioQuality {
+    /// yt-dlp's format filter for the audio part. Each falls back to any
+    /// audio so a song never fails just for want of the exact bitrate.
+    fn audio_format(self) -> &'static str {
+        match self {
+            AudioQuality::Low => "bestaudio[abr<=72][protocol^=http]/worstaudio[protocol^=http]/bestaudio",
+            AudioQuality::Normal => "bestaudio[abr<=136][protocol^=http]/bestaudio[protocol^=http]/bestaudio",
+            AudioQuality::High => "bestaudio[protocol^=http]/bestaudio",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct YtDlpStatus {
@@ -208,15 +234,30 @@ impl YtDlp {
         mode: StreamMode,
         max_height: u32,
     ) -> Result<Resolved> {
+        self.resolve_with(video_id, mode, max_height, AudioQuality::High).await
+    }
+
+    /// `resolve` at a chosen audio quality.
+    pub async fn resolve_with(
+        self: &std::sync::Arc<Self>,
+        video_id: &str,
+        mode: StreamMode,
+        max_height: u32,
+        quality: AudioQuality,
+    ) -> Result<Resolved> {
         if !valid_video_id(video_id) {
             return Err(Error::NotFound(format!("not a YouTube video ID: {video_id}")));
         }
         let program = self.ensure().await?;
         let format = match mode {
-            StreamMode::Audio => "bestaudio[protocol^=http]/bestaudio".to_string(),
-            StreamMode::Video => format!(
-                "bestvideo[height<={max_height}][protocol^=http]+bestaudio[protocol^=http]/best[height<={max_height}][protocol^=http]/best"
-            ),
+            StreamMode::Audio => quality.audio_format().to_string(),
+            StreamMode::Video => {
+                // The first audio alternative, joined to the video.
+                let audio = quality.audio_format().split('/').next().unwrap_or("bestaudio");
+                format!(
+                    "bestvideo[height<={max_height}][protocol^=http]+{audio}/bestvideo[height<={max_height}][protocol^=http]+bestaudio[protocol^=http]/best[height<={max_height}][protocol^=http]/best"
+                )
+            }
         };
         let url = format!("https://www.youtube.com/watch?v={video_id}");
         let run = command(&program).args(["-j", "-f", &format, "--no-playlist", "--no-warnings", &url]).output();
