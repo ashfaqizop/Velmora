@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
+  import { cached } from "../../lib/music/cache";
   import MusicBanner from "../../components/music/MusicBanner.svelte";
   import TrackRow from "../../components/music/TrackRow.svelte";
   import AdSlot from "../../components/AdSlot.svelte";
@@ -17,7 +18,7 @@
 
   onMount(async () => {
     try {
-      album = await api.musicAlbum(id);
+      await cached(`album:${id}`, () => api.musicAlbum(id), (a) => (album = a));
     } catch (e) {
       error = typeof e === "string" ? e : "This album couldn't be loaded.";
     }

@@ -3,6 +3,7 @@
   import Logo from "./Logo.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { nav } from "../lib/state.svelte";
+  import * as api from "../lib/api";
 
   let { onabout }: { onabout: () => void } = $props();
 
@@ -35,6 +36,50 @@
   };
   const close = () => win.close();
 
+  // Recent Music searches, under the box while it's empty and focused.
+  let focused = $state(false);
+  let recent = $state<string[]>([]);
+  let active = $state(-1);
+  const showRecent = $derived(focused && nav.musicMode && !query.trim() && recent.length > 0);
+
+  function onFocus() {
+    focused = true;
+    active = -1;
+    if (nav.musicMode) api.musicSearches().then((r) => (recent = r)).catch(() => {});
+  }
+
+  function pick(q: string) {
+    query = q;
+    submit(true);
+    input.blur();
+  }
+
+  async function forget(q: string) {
+    recent = recent.filter((x) => x !== q);
+    await api.musicSearchRemove(q).catch(() => {});
+  }
+
+  async function forgetAll() {
+    recent = [];
+    await api.musicSearchRemove(null).catch(() => {});
+  }
+
+  function keys(e: KeyboardEvent) {
+    if (e.key === "Escape") return input.blur();
+    if (!showRecent) {
+      if (e.key === "Enter") submit(true);
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const n = recent.length;
+      active = e.key === "ArrowDown" ? (active + 1) % n : (active - 1 + n) % n;
+    } else if (e.key === "Enter" && active >= 0) {
+      e.preventDefault();
+      pick(recent[active]);
+    }
+  }
+
   onMount(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -64,10 +109,34 @@
         aria-label="Search"
         bind:value={query}
         oninput={() => submit()}
-        onkeydown={(e) => e.key === "Enter" && submit(true)}
+        onkeydown={keys}
+        onfocus={onFocus}
+        onblur={() => (focused = false)}
+        role="combobox"
+        aria-expanded={showRecent}
+        aria-controls="recent-searches"
       />
       <span slot="trailing" class="kbd">Ctrl K</span>
     </m3e-search-bar>
+    {#if showRecent}
+      <!-- mousedown is held off so clicking here doesn't blur the box first. -->
+      <div class="recent" id="recent-searches" role="listbox" tabindex="-1" onmousedown={(e) => e.preventDefault()}>
+        <div class="recent-head">
+          <span>Recent searches</span>
+          <button class="link" onclick={forgetAll}>Clear all</button>
+        </div>
+        {#each recent as r, i (r)}
+          <div class="recent-row" class:active={i === active} role="option" aria-selected={i === active}>
+            <button class="recent-pick" onclick={() => pick(r)}>
+              <m3e-icon name="history"></m3e-icon><span>{r}</span>
+            </button>
+            <button class="recent-x" aria-label="Remove {r} from history" onclick={() => forget(r)}>
+              <m3e-icon name="close"></m3e-icon>
+            </button>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <div class="actions">
@@ -135,8 +204,83 @@
     outline-offset: 4px;
   }
   .search {
+    position: relative;
     display: flex;
     justify-content: center;
+  }
+  .recent {
+    position: absolute;
+    top: calc(100% + 6px);
+    width: min(640px, 100%);
+    z-index: 900;
+    padding: 8px;
+    border-radius: 24px;
+    background: var(--md-sys-color-surface-container-high);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
+  }
+  .recent-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .link {
+    all: unset;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--md-sys-color-primary);
+  }
+  .recent-row {
+    display: flex;
+    align-items: center;
+    border-radius: 16px;
+  }
+  .recent-row:hover,
+  .recent-row.active {
+    background: var(--md-sys-color-surface-container-highest);
+  }
+  .recent-pick {
+    all: unset;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    --m3e-icon-size: 20px;
+    color: var(--md-sys-color-on-surface);
+  }
+  .recent-pick span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .recent-pick m3e-icon,
+  .recent-x {
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .recent-x {
+    all: unset;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    --m3e-icon-size: 18px;
+    opacity: 0;
+  }
+  .recent-row:hover .recent-x,
+  .recent-row.active .recent-x {
+    opacity: 1;
+  }
+  .recent-x:hover {
+    background: var(--md-sys-color-surface-container);
   }
   m3e-search-bar {
     width: min(640px, 100%);

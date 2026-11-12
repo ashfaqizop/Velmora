@@ -1,5 +1,6 @@
 // Music Home, kept between visits so going back to it is instant.
 import * as api from "../api";
+import { cached } from "./cache";
 import type { MusicShelf } from "../types";
 
 const STALE = 15 * 60 * 1000;
@@ -18,10 +19,13 @@ class HomeFeed {
     this.loading = true;
     this.error = null;
     try {
-      const page = await api.musicHome();
-      this.shelves = page.shelves;
-      this.next = page.next;
-      this.loadedAt = Date.now();
+      // The last Home shows at once (also offline); the fresh one replaces it.
+      await cached("home", () => api.musicHome(), (page, fresh) => {
+        if (!fresh && this.shelves.length) return;
+        this.shelves = page.shelves;
+        this.next = page.next;
+        if (fresh) this.loadedAt = Date.now();
+      });
     } catch (e) {
       this.error = typeof e === "string" ? e : "YouTube Music didn't answer.";
     } finally {

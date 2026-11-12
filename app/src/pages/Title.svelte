@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProviderLogo from "../components/ProviderLogo.svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import { fade } from "svelte/transition";
   import Poster from "../components/Poster.svelte";
@@ -380,7 +381,11 @@
               {/each}
               {#if availableOn.length}
                 <dt>Available on</dt>
-                <dd>{availableOn.map(providerLabel).join(", ")}</dd>
+                <dd class="on">
+                  {#each availableOn as id (id)}
+                    <span class="on-item"><ProviderLogo {id} size={18} />{providerLabel(id)}</span>
+                  {/each}
+                </dd>
               {/if}
             </dl>
             {#if links.length}
@@ -462,6 +467,16 @@
 </m3e-dialog>
 
 <style>
+  dd.on {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+  }
+  .on-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
   .bottom-ad {
     margin-top: 24px;
   }

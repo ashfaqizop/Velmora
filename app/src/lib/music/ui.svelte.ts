@@ -2,6 +2,7 @@
 // song menu, likes and playlists, and the player's on-screen state.
 import { M3eSnackbar } from "@m3e/web/snackbar";
 import * as api from "../api";
+import { cached } from "./cache";
 import { nav } from "../state.svelte";
 import type { MusicItem, MusicThumb } from "../types";
 import type { ArtColors } from "./color";
@@ -166,7 +167,7 @@ class MusicUi {
   async loadPlaylists() {
     this.playlistsLoaded = true;
     try {
-      this.playlists = await api.musicOwnPlaylists();
+      await cached("library:own-playlists", () => api.musicOwnPlaylists(), (list) => (this.playlists = list));
     } catch {
       // Keeps the last list.
     }

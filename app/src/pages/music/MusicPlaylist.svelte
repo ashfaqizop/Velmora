@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
+  import { cached } from "../../lib/music/cache";
   import MusicBanner from "../../components/music/MusicBanner.svelte";
   import TrackRow from "../../components/music/TrackRow.svelte";
   import AdSlot from "../../components/AdSlot.svelte";
@@ -20,8 +21,14 @@
 
   async function load() {
     try {
-      list = id === "LM" ? await api.musicLiked() : await api.musicPlaylist(id);
-      if (id === "LM") likes.seed(list.tracks.map((t) => t.id));
+      await cached(
+        `playlist:${id}`,
+        () => (id === "LM" ? api.musicLiked() : api.musicPlaylist(id)),
+        (l, fresh) => {
+          list = l;
+          if (id === "LM" && fresh) likes.seed(l.tracks.map((t) => t.id));
+        },
+      );
     } catch (e) {
       error = typeof e === "string" ? e : "This playlist couldn't be loaded.";
     }

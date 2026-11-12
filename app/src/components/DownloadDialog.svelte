@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProviderLogo from "./ProviderLogo.svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
@@ -104,7 +105,7 @@
         {#each downloadable as s, i (i)}
           <m3e-list-action disabled={busy} onclick={() => pick(i)}>
             <span slot="leading" class="res">{sourceChips(s)[0] ?? "SD"}</span>
-            {sourceTitle(s)}
+            <span class="src-name"><ProviderLogo id={s.provider} size={18} />{sourceTitle(s)}</span>
             <span slot="supporting-text">{sourceChips(s).slice(1).join(" · ") || s.label}</span>
             <m3e-icon slot="trailing" name={isTorrent(s) ? "hub" : "download"}></m3e-icon>
           </m3e-list-action>
@@ -115,6 +116,11 @@
 </m3e-dialog>
 
 <style>
+  .src-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
   .dl {
     --m3e-dialog-min-width: 480px;
     --m3e-dialog-max-width: 560px;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import AdSlot from "../components/AdSlot.svelte";
+  import ProviderLogo from "../components/ProviderLogo.svelte";
   import { ads } from "../lib/ads.svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import { onDestroy, onMount, untrack } from "svelte";
@@ -779,7 +780,7 @@
         {#each report.sources as s, i (i)}
           <m3e-list-action onclick={() => pickSource(i)}>
             <span slot="leading" class="res" class:active={i === current}>{sourceChips(s)[0] ?? "SD"}</span>
-            {sourceTitle(s)}
+            <span class="src-name"><ProviderLogo id={s.provider} size={18} />{sourceTitle(s)}</span>
             <span slot="supporting-text">{sourceChips(s).slice(1).join(" · ") || s.label}</span>
             {#if i === current}
               <m3e-icon slot="trailing" name="check_circle" filled class="ok"></m3e-icon>
@@ -800,6 +801,11 @@
 </div>
 
 <style>
+  .src-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
   .player {
     position: fixed;
     inset: 0;

@@ -31,6 +31,8 @@ futures = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 universeapi = { path = "../../universeapi/crates/universeapi" }
+# Music's local database (musicdb.rs). Bundled, so nothing to install.
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 # Desktop only: OTA updates, and the Chrome-fingerprint fallback (BoringSSL
 # doesn't build for Android yet).

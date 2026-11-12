@@ -236,3 +236,23 @@ export const musicYtdlpUpdate = () => invoke<YtDlpStatus>("music_ytdlp_update");
 export const musicDownload = (item: MusicItem) => invoke<number>("music_download", { item });
 export const musicDownloads = () => invoke<OfflineSong[]>("music_downloads");
 export const musicDownloadDelete = (path: string) => invoke<void>("music_download_delete", { path });
+
+// Music's local database (musicdb.rs): saved pages, searches, plays, the queue.
+export const musicCacheGet = <T>(key: string) => invoke<T | null>("music_cache_get", { key });
+export const musicCachePut = (key: string, value: unknown) => invoke<void>("music_cache_put", { key, value });
+export const musicSearches = () => invoke<string[]>("music_searches");
+export const musicSearchAdd = (query: string) => invoke<void>("music_search_add", { query });
+/** Remove one search, or every search with `null`. */
+export const musicSearchRemove = (query: string | null) => invoke<void>("music_search_remove", { query });
+export const musicPlayLog = (item: MusicItem, seconds: number) => invoke<void>("music_play_log", { item, seconds });
+export const musicQueueSave = (value: unknown) => invoke<void>("music_queue_save", { value });
+export const musicQueueLoad = <T>() => invoke<T | null>("music_queue_load");
+export interface MusicStorage {
+  fileBytes: number;
+  cachePages: number;
+  cacheBytes: number;
+  searches: number;
+  plays: number;
+}
+export const musicStorage = () => invoke<MusicStorage>("music_storage");
+export const musicStorageClear = (what: "cache" | "history") => invoke<void>("music_storage_clear", { what });

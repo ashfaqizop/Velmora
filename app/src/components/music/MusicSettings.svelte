@@ -38,13 +38,14 @@
     await musicSession.signOut();
     await musicPlayer.close();
     musicHome.reset();
+    await api.musicStorageClear("cache").catch(() => {});
     confirmOut = false;
     M3eSnackbar.open("Signed out of YouTube Music on this PC.");
   }
 </script>
 
 <div class="rows">
-  <div class="row">
+  <div class="row" data-setting="music-account">
     {#if musicSession.signedIn}
       <m3e-avatar class="face">
         {#if musicSession.account?.photo}<img src={musicSession.account.photo} alt="" />{:else}<m3e-icon name="person"></m3e-icon>{/if}
@@ -69,7 +70,7 @@
     {/if}
   </div>
   <m3e-divider></m3e-divider>
-  <div class="row">
+  <div class="row" data-setting="eq">
     <div class="text">
       <strong>Equalizer</strong>
       <span>Shapes the sound of music. Night mode and even volume above apply too.</span>
@@ -83,7 +84,7 @@
     </m3e-form-field>
   </div>
   <m3e-divider></m3e-divider>
-  <div class="row">
+  <div class="row" data-setting="ytdlp">
     <div class="text">
       <strong>yt-dlp</strong>
       <span>

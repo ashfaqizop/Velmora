@@ -17,6 +17,7 @@ import {
   type MpvObservableProperty,
   type VideoMarginRatio,
 } from "tauri-plugin-libmpv-api";
+import { SvelteSet } from "svelte/reactivity";
 import * as api from "../api";
 import { sound } from "../audio.svelte";
 import { startMpv, stopMpv } from "../mpv";
@@ -75,6 +76,43 @@ const STREAM_TTL = 5 * 60 * 60 * 1000;
 /** Resolve the next track this long before the current one ends. */
 const PREFETCH_AT = 25;
 const VOLUME_KEY = "velmora.music.volume";
+const AUTOPLAY_KEY = "velmora.music.autoplay";
+/** Save the playback position this often while playing. */
+const SAVE_EVERY = 30_000;
+/** A play counts once this much of the song was heard (or half of a short one). */
+const PLAY_COUNTS_AT = 30;
+
+/** The queue as saved between launches (musicdb.rs). */
+interface SavedQueue {
+  queue: MusicItem[];
+  index: number;
+  position: number;
+  source: string | null;
+  shuffle: boolean;
+  repeat: Repeat;
+  /** Songs autoplay added. */
+  auto: string[];
+  /** The queue before shuffle, as song IDs. */
+  ordered: string[];
+  listNext: string | null;
+  radioNext: string | null;
+}
+
+function readAutoplay(): boolean {
+  try {
+    return localStorage.getItem(AUTOPLAY_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+/** Take from each list in turn: a, b, c, a, b, c... */
+function interleave<T>(lists: T[][]): T[] {
+  const out: T[] = [];
+  const longest = Math.max(0, ...lists.map((l) => l.length));
+  for (let i = 0; i < longest; i++) for (const l of lists) if (i < l.length) out.push(l[i]);
+  return out;
+}
 
 function readVolume(): number {
   try {
@@ -128,14 +166,26 @@ class MusicPlayer {
   source = $state<string | null>(null);
   /** Equalizer preset name (EQ_PRESETS). */
   eq = $state(readEq());
+  /** When the queue runs out, keep going with songs like the last few. */
+  autoplay = $state(readAutoplay());
+  /** Songs autoplay added. Up next lists them under their own heading. */
+  readonly auto = new SvelteSet<string>();
   /** Live loudness for the visualizer, written ~30 times a second. Not reactive on purpose. */
   readonly meter = { left: 0, right: 0, at: 0 };
   private viz = false;
 
   /** The order before shuffle, to restore it. */
   private ordered: MusicItem[] = [];
-  /** Radio continuation, so the queue keeps going after the last song. */
+  /** More of the list the user picked (a long playlist), still to fetch. */
+  private listNext: string | null = null;
+  /** More of autoplay's radio. */
   private radioNext: string | null = null;
+  /** The song being listened to, and for how long, for the play history. */
+  private heard: MusicItem | null = null;
+  private heardFor = 0;
+  private lastPos = 0;
+  private savedAt = 0;
+  private saveTimer: ReturnType<typeof setTimeout> | undefined;
   private owned = false;
   private cleanups: (() => void)[] = [];
   private streams = new Map<string, { s: MusicStream; at: number; video: boolean }>();
@@ -196,10 +246,16 @@ class MusicPlayer {
           case "vo-configured":
             this.videoShown = this.video && !!data;
             break;
-          case "time-pos":
-            this.position = (data as number | null) ?? 0;
+          case "time-pos": {
+            const t = (data as number | null) ?? 0;
+            // Only steady playback counts as listening, not a seek.
+            if (this.playing && t > this.lastPos && t - this.lastPos < 3) this.heardFor += t - this.lastPos;
+            this.lastPos = t;
+            this.position = t;
             this.maybePrefetch();
+            if (this.playing && Date.now() - this.savedAt > SAVE_EVERY) this.persist(0);
             break;
+          }
           case "duration":
             if (data) this.duration = data as number;
             break;
@@ -319,6 +375,13 @@ class MusicPlayer {
     const item = this.current;
     if (!item) return;
     const seq = ++this.loadSeq;
+    if (this.heard?.id !== item.id) {
+      this.logPlay();
+      this.heard = item;
+      this.heardFor = 0;
+    }
+    this.lastPos = startAt;
+    this.persist();
     // Reloading the same song (a switch to or from video) keeps its length.
     const same = this.duration > 0 && this.loadedId === item.id;
     this.loadedId = item.id;
@@ -381,7 +444,7 @@ class MusicPlayer {
     if (this.prefetching || !this.duration || this.duration - this.position > PREFETCH_AT) return;
     const next = this.queue[this.index + 1];
     if (!next) {
-      this.extendRadio();
+      this.extend();
       return;
     }
     this.prefetching = true;
@@ -396,7 +459,9 @@ class MusicPlayer {
     if (!playable.length) return;
     const first = items[start] && playable.includes(items[start]) ? playable.indexOf(items[start]) : 0;
     this.ordered = playable;
+    this.listNext = null;
     this.radioNext = null;
+    this.auto.clear();
     this.source = source;
     if (this.shuffle) {
       const rest = shuffled(playable.filter((_, i) => i !== first));
@@ -409,65 +474,224 @@ class MusicPlayer {
     await this.load();
   }
 
-  /** Play one song, then a radio of songs like it. */
+  /** Play one song; autoplay carries on with songs like it. */
   async playSong(item: MusicItem, source: string | null = null) {
     await this.playList([item], 0, source);
-    this.extendRadio(item.id);
+    this.extend(item.id);
   }
 
   /** Start YouTube Music's own queue for a playlist, shuffle or radio button. */
   async playTarget(target: { videoId: string | null; playlistId: string | null; params: string | null }, source: string | null = null) {
     const page = await api.musicQueue(target.videoId, target.playlistId, target.params);
-    this.radioNext = page.next;
     await this.playList(page.tracks, 0, source);
-    this.radioNext = page.next;
+    this.listNext = page.next;
   }
 
-  /** Append more songs like the last one when the queue runs out. */
-  private radioBusy = false;
-  private async extendRadio(seed?: string) {
-    if (this.radioBusy || this.repeat !== "off") return;
-    this.radioBusy = true;
+  /** The last few songs the user picked (not autoplay's), newest first. */
+  private seeds(): string[] {
+    const upTo = this.queue.slice(0, this.index + 1);
+    const picked = upTo.filter((q) => !this.auto.has(q.id));
+    const from = picked.length ? picked : upTo;
+    return [...new Set(from.slice(-3).map((q) => q.id))].reverse();
+  }
+
+  private append(tracks: MusicItem[], auto: boolean) {
+    const have = new Set(this.queue.map((q) => q.id));
+    const fresh = tracks.filter((t) => (t.kind === "song" || t.kind === "video") && !have.has(t.id));
+    if (!fresh.length) return;
+    if (auto) for (const t of fresh) this.auto.add(t.id);
+    this.queue = [...this.queue, ...fresh];
+    this.ordered = [...this.ordered, ...fresh];
+    this.persist();
+  }
+
+  /** Add more when the queue runs out: the rest of the picked list first,
+   *  then (with autoplay on) a mix of radios from the last few songs. */
+  private extending = false;
+  private async extend(seed?: string) {
+    if (this.extending) return;
+    this.extending = true;
     try {
-      const page = this.radioNext
-        ? await api.musicQueueMore(this.radioNext)
-        : await api.musicRadio(seed ?? this.queue[this.queue.length - 1]?.id ?? "");
-      const have = new Set(this.queue.map((q) => q.id));
-      const fresh = page.tracks.filter((t) => !have.has(t.id));
-      this.queue = [...this.queue, ...fresh];
-      this.ordered = [...this.ordered, ...fresh];
-      this.radioNext = page.next;
+      if (this.listNext) {
+        const page = await api.musicQueueMore(this.listNext);
+        this.listNext = page.next;
+        this.append(page.tracks, false);
+        return;
+      }
+      if (!this.autoplay || this.repeat !== "off") return;
+      if (this.radioNext) {
+        const page = await api.musicQueueMore(this.radioNext);
+        this.radioNext = page.next;
+        this.append(page.tracks, true);
+        return;
+      }
+      const seeds = seed ? [seed] : this.seeds();
+      if (!seeds.length) return;
+      const pages = await Promise.allSettled(seeds.map((id) => api.musicRadio(id)));
+      const lists = pages.flatMap((p) => (p.status === "fulfilled" ? [p.value] : []));
+      if (!lists.length) return;
+      this.radioNext = lists[0].next;
+      this.append(interleave(lists.map((l) => l.tracks)), true);
     } catch {
       // The queue just ends.
     } finally {
-      this.radioBusy = false;
+      this.extending = false;
     }
+  }
+
+  /** Put the queue in place; without shuffle the play order is the queue. */
+  private setQueue(q: MusicItem[]) {
+    this.queue = q;
+    if (!this.shuffle) this.ordered = [...q];
+    this.persist();
   }
 
   playNext(item: MusicItem) {
     if (!this.active) return this.playSong(item);
     const q = [...this.queue];
     q.splice(this.index + 1, 0, item);
-    this.queue = q;
+    if (this.shuffle) this.ordered = [...this.ordered, item];
+    this.setQueue(q);
   }
 
+  /** Add to the end of what the user queued, ahead of autoplay's songs. */
   addToQueue(item: MusicItem) {
     if (!this.active) return this.playSong(item);
-    this.queue = [...this.queue, item];
+    const q = [...this.queue];
+    const firstAuto = q.findIndex((x, i) => i > this.index && this.auto.has(x.id));
+    q.splice(firstAuto < 0 ? q.length : firstAuto, 0, item);
+    if (this.shuffle) this.ordered = [...this.ordered, item];
+    this.setQueue(q);
   }
 
   removeAt(i: number) {
-    if (i === this.index) return;
+    if (i === this.index || i < 0 || i >= this.queue.length) return;
     const q = [...this.queue];
-    q.splice(i, 1);
-    this.queue = q;
+    const [gone] = q.splice(i, 1);
     if (i < this.index) this.index -= 1;
+    if (this.shuffle) this.ordered = this.ordered.filter((o) => o !== gone);
+    this.setQueue(q);
+  }
+
+  /** Drag-and-drop in Up next. A song dropped among the user's own songs
+   *  stops counting as autoplay's. */
+  move(from: number, to: number) {
+    const n = this.queue.length;
+    if (from === to || from < 0 || to < 0 || from >= n || to >= n) return;
+    const q = [...this.queue];
+    const [song] = q.splice(from, 1);
+    q.splice(to, 0, song);
+    let idx = this.index;
+    if (from === idx) idx = to;
+    else if (from < idx && to >= idx) idx -= 1;
+    else if (from > idx && to <= idx) idx += 1;
+    this.index = idx;
+    const before = q[to - 1];
+    if (!before || to - 1 <= idx || !this.auto.has(before.id)) this.auto.delete(song.id);
+    this.setQueue(q);
+  }
+
+  /** Empty Up next; the current song keeps playing. */
+  clearUpNext() {
+    const cur = this.current;
+    if (!cur) return;
+    this.listNext = null;
+    this.radioNext = null;
+    this.auto.clear();
+    this.index = 0;
+    this.ordered = [cur];
+    this.setQueue([cur]);
+  }
+
+  setAutoplay(on: boolean) {
+    this.autoplay = on;
+    try {
+      localStorage.setItem(AUTOPLAY_KEY, on ? "1" : "0");
+    } catch {
+      // Not remembered.
+    }
+    if (!on) {
+      // Take out autoplay's songs that haven't played yet.
+      const q = this.queue.filter((x, i) => i <= this.index || !this.auto.has(x.id));
+      this.radioNext = null;
+      this.auto.clear();
+      if (q.length !== this.queue.length) this.setQueue(q);
+    } else if (this.active && this.index + 1 >= this.queue.length) {
+      this.extend();
+    }
+  }
+
+  /** Save the current song and Up next as a new YouTube Music playlist. */
+  async saveAsPlaylist(title: string): Promise<string> {
+    const ids = [...new Set(this.queue.slice(Math.max(0, this.index)).map((q) => q.id))];
+    if (!ids.length) throw "The queue is empty.";
+    return api.musicPlaylistCreate(title, ids);
   }
 
   jump(i: number) {
     if (i < 0 || i >= this.queue.length) return;
     this.index = i;
     return this.load();
+  }
+
+  // ── Saved between launches ───────────────────────────────────────
+
+  /** Save the queue soon (several changes in a row save once). */
+  persist(delay = 1200) {
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => this.save(), delay);
+  }
+
+  private save() {
+    this.savedAt = Date.now();
+    const saved: SavedQueue = {
+      queue: $state.snapshot(this.queue) as MusicItem[],
+      index: this.index,
+      position: Math.floor(this.position),
+      source: this.source,
+      shuffle: this.shuffle,
+      repeat: this.repeat,
+      auto: [...this.auto],
+      ordered: this.ordered.map((o) => o.id),
+      listNext: this.listNext,
+      radioNext: this.radioNext,
+    };
+    api.musicQueueSave(saved).catch(() => {});
+  }
+
+  /** At launch: put back the last queue, paused where it stopped. */
+  async restore() {
+    const s = await api.musicQueueLoad<SavedQueue>().catch(() => null);
+    if (!s || !Array.isArray(s.queue) || !s.queue.length || this.active) return;
+    const index = Math.min(Math.max(0, Math.floor(s.index) || 0), s.queue.length - 1);
+    const byId = new Map(s.queue.map((q) => [q.id, q]));
+    this.queue = s.queue;
+    this.ordered = (s.ordered ?? []).map((id) => byId.get(id)).filter((q): q is MusicItem => !!q);
+    if (this.ordered.length !== s.queue.length) this.ordered = [...s.queue];
+    this.index = index;
+    this.source = s.source ?? null;
+    this.shuffle = !!s.shuffle;
+    this.repeat = s.repeat === "all" || s.repeat === "one" ? s.repeat : "off";
+    this.auto.clear();
+    for (const id of s.auto ?? []) this.auto.add(id);
+    this.listNext = s.listNext ?? null;
+    this.radioNext = s.radioNext ?? null;
+    this.position = this.resumeAt = Math.max(0, s.position || 0);
+    this.duration = s.queue[index].duration ?? 0;
+    this.playing = false;
+  }
+
+  /** Add the song that just stopped to the play history, if enough was heard. */
+  private logPlay() {
+    const item = this.heard;
+    const secs = Math.round(this.heardFor);
+    this.heard = null;
+    this.heardFor = 0;
+    if (!item) return;
+    const len = item.duration ?? 0;
+    if (secs >= PLAY_COUNTS_AT || (len > 0 && secs >= len / 2)) {
+      api.musicPlayLog($state.snapshot(item) as MusicItem, secs).catch(() => {});
+    }
   }
 
   // ── Controls ─────────────────────────────────────────────────────
@@ -485,6 +709,7 @@ class MusicPlayer {
     await setProperty("pause", !paused).catch(() => {});
     this.playing = paused;
     this.syncPause();
+    this.persist();
   }
 
   async next() {
@@ -496,7 +721,7 @@ class MusicPlayer {
       this.index = 0;
       return this.load();
     }
-    await this.extendRadio();
+    await this.extend();
     if (this.index + 1 < this.queue.length) {
       this.index += 1;
       return this.load();
@@ -511,7 +736,8 @@ class MusicPlayer {
 
   seek(to: number) {
     if (!this.owned) {
-      this.resumeAt = to;
+      this.resumeAt = this.position = Math.max(0, to);
+      this.persist();
       return;
     }
     return command("seek", [Math.max(0, to), "absolute+exact"]).catch(() => {});
@@ -539,10 +765,12 @@ class MusicPlayer {
       this.queue = [...this.ordered];
       this.index = Math.max(0, this.queue.findIndex((q) => q.id === cur.id));
     }
+    this.persist();
   }
 
   cycleRepeat() {
     this.repeat = this.repeat === "off" ? "all" : this.repeat === "all" ? "one" : "off";
+    this.persist();
   }
 
   /** Switch between audio and the music video, from the same spot. */
@@ -556,12 +784,17 @@ class MusicPlayer {
   /** Stop and clear everything. */
   async close() {
     this.loadSeq += 1;
+    this.logPlay();
+    this.auto.clear();
+    this.listNext = null;
+    this.radioNext = null;
     this.queue = [];
     this.index = -1;
     this.playing = false;
     this.videoShown = false;
     this.position = 0;
     this.duration = 0;
+    this.persist(0);
     if (this.owned) {
       this.release();
       await stopMpv();
@@ -569,6 +802,8 @@ class MusicPlayer {
   }
 
   private onEnded() {
+    // Each full play counts, also each time round on repeat.
+    this.logPlay();
     if (this.repeat === "one") {
       this.load();
       return;

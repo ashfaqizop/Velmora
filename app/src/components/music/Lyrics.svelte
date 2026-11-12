@@ -36,6 +36,16 @@
   });
 
   // The line being sung: the last one that has started (a little early, so it lands on the beat).
+  /** The lyrics' language from their characters, so CJK lines get the right
+   *  font (Japanese and Chinese share Han but draw it differently). */
+  const lang = $derived.by(() => {
+    const text = lyrics?.lines.map((l) => l.text).join("") ?? "";
+    if (/[぀-ヿ]/.test(text)) return "ja";
+    if (/[가-힯ᄀ-ᇿ]/.test(text)) return "ko";
+    if (/[一-鿿]/.test(text)) return "zh";
+    return undefined;
+  });
+
   const active = $derived.by(() => {
     if (!lyrics?.synced) return -1;
     const t = musicPlayer.position + 0.3;
@@ -59,7 +69,7 @@
   });
 </script>
 
-<div class="lyrics" bind:this={box} onwheel={() => (userScrolled = Date.now())}>
+<div class="lyrics" {lang} bind:this={box} onwheel={() => (userScrolled = Date.now())}>
   {#if loading}
     <p class="note">Finding lyrics…</p>
   {:else if !lyrics}
@@ -85,6 +95,8 @@
 
 <style>
   .lyrics {
+    /* Declared here so the lang attribute can reorder the CJK fonts. */
+    font-family: var(--app-font);
     position: absolute;
     inset: 0;
     overflow-y: auto;

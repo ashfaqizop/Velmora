@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
+  import { cached } from "../../lib/music/cache";
   import MusicBanner from "../../components/music/MusicBanner.svelte";
   import ShelfView from "../../components/music/ShelfView.svelte";
   import TrackRow from "../../components/music/TrackRow.svelte";
@@ -18,8 +19,10 @@
 
   onMount(async () => {
     try {
-      artist = await api.musicArtist(id);
-      subscribed = !!artist.subscribed;
+      await cached(`artist:${id}`, () => api.musicArtist(id), (a) => {
+        artist = a;
+        subscribed = !!a.subscribed;
+      });
     } catch (e) {
       error = typeof e === "string" ? e : "This artist couldn't be loaded.";
     }

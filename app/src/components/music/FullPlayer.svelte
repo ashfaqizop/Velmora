@@ -16,6 +16,7 @@
   import { sound } from "../../lib/audio.svelte";
   import { nav } from "../../lib/state.svelte";
   import { slider } from "../../lib/slider";
+  import { M3eSnackbar } from "@m3e/web/snackbar";
 
   const cur = $derived(musicPlayer.current);
   const cover = $derived(cur ? art(cur.thumbnails, 600) : null);
@@ -36,6 +37,69 @@
 
   function close() {
     musicUi.full = false;
+  }
+
+  // ── Up next ──
+  const firstAuto = $derived(musicPlayer.queue.findIndex((q, i) => i > musicPlayer.index && musicPlayer.auto.has(q.id)));
+  const hasUpNext = $derived(musicPlayer.queue.length > musicPlayer.index + 1);
+  let naming = $state(false);
+  let listName = $state("");
+  let saving = $state(false);
+
+  function startSave() {
+    listName = musicPlayer.source ? `${musicPlayer.source} mix` : "My queue";
+    naming = true;
+  }
+
+  async function save() {
+    const title = listName.trim();
+    if (!title || saving) return;
+    saving = true;
+    try {
+      await musicPlayer.saveAsPlaylist(title);
+      naming = false;
+      M3eSnackbar.open(`Saved as "${title}"`);
+      musicUi.loadPlaylists();
+    } catch (e) {
+      M3eSnackbar.open(typeof e === "string" ? e : "Couldn't save the playlist.");
+    } finally {
+      saving = false;
+    }
+  }
+
+  // Drag to reorder. Songs can't go above the one playing.
+  let dragFrom = $state<number | null>(null);
+  let dropAt = $state<{ i: number; after: boolean } | null>(null);
+
+  function dragStart(e: DragEvent, i: number) {
+    dragFrom = i;
+    e.dataTransfer?.setData("text/plain", String(i));
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+  }
+
+  function dragOver(e: DragEvent, i: number) {
+    if (dragFrom === null) return;
+    e.preventDefault();
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const after = i === musicPlayer.index || e.clientY > box.top + box.height / 2;
+    dropAt = { i, after };
+  }
+
+  function drop(e: DragEvent) {
+    e.preventDefault();
+    const from = dragFrom;
+    const at = dropAt;
+    dragEnd();
+    if (from === null || !at) return;
+    let to = from < at.i ? (at.after ? at.i : at.i - 1) : at.after ? at.i + 1 : at.i;
+    to = Math.max(musicPlayer.index + 1, Math.min(musicPlayer.queue.length - 1, to));
+    if (from === musicPlayer.index) return;
+    musicPlayer.move(from, to);
+  }
+
+  function dragEnd() {
+    dragFrom = null;
+    dropAt = null;
   }
 
   // The music video is drawn by mpv behind the page; this places it where the cover was.
@@ -232,9 +296,54 @@
             <Lyrics />
           {:else}
             <div class="queue">
+              <div class="q-tools">
+                <label class="autoplay">
+                  <m3e-switch
+                    checked={musicPlayer.autoplay}
+                    onchange={(e: Event) => musicPlayer.setAutoplay((e.currentTarget as HTMLElement & { checked: boolean }).checked)}
+                  ></m3e-switch>
+                  <span>Autoplay</span>
+                </label>
+                <span class="grow"></span>
+                <button class="chip" disabled={!musicPlayer.active} onclick={startSave}>
+                  <m3e-icon name="playlist_add"></m3e-icon>Save as playlist
+                </button>
+                <button class="chip" disabled={!hasUpNext} onclick={() => musicPlayer.clearUpNext()}>
+                  <m3e-icon name="clear_all"></m3e-icon>Clear
+                </button>
+              </div>
+              {#if naming}
+                <form class="q-name" onsubmit={(e) => (e.preventDefault(), save())}>
+                  <!-- svelte-ignore a11y_autofocus -->
+                  <input bind:value={listName} aria-label="Playlist name" maxlength="150" autofocus />
+                  <button type="submit" class="chip on" disabled={saving || !listName.trim()}>{saving ? "Saving…" : "Save"}</button>
+                  <button type="button" class="chip" onclick={() => (naming = false)}>Cancel</button>
+                </form>
+              {/if}
               {#each musicPlayer.queue as q, i (q.id + i)}
                 {#if i >= musicPlayer.index}
-                  <div class="q" class:now={i === musicPlayer.index}>
+                  {#if i === firstAuto}
+                    <div class="q-head">
+                      <m3e-icon name="all_inclusive"></m3e-icon>
+                      <span>Autoplay</span><small>Songs like the ones you played</small>
+                    </div>
+                  {/if}
+                  <div
+                    class="q"
+                    class:now={i === musicPlayer.index}
+                    class:dragging={dragFrom === i}
+                    class:drop-before={dropAt?.i === i && !dropAt.after}
+                    class:drop-after={dropAt?.i === i && dropAt.after}
+                    draggable={i !== musicPlayer.index}
+                    role="listitem"
+                    ondragstart={(e) => dragStart(e, i)}
+                    ondragover={(e) => dragOver(e, i)}
+                    ondrop={drop}
+                    ondragend={dragEnd}
+                  >
+                    {#if i !== musicPlayer.index}
+                      <span class="grip" aria-hidden="true"><m3e-icon name="drag_indicator"></m3e-icon></span>
+                    {/if}
                     <button class="q-main" onclick={() => musicPlayer.jump(i)}>
                       <Art thumbs={q.thumbnails} size={44} alt="" />
                       <span class="q-text">
@@ -537,6 +646,122 @@
   }
   .q.now {
     background: color-mix(in srgb, var(--np) 28%, rgb(255 255 255 / 8%));
+  }
+  .q {
+    position: relative;
+  }
+  .q.dragging {
+    opacity: 0.4;
+  }
+  .q.drop-before::before,
+  .q.drop-after::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--np);
+    pointer-events: none;
+  }
+  .q.drop-before::before {
+    top: -2px;
+  }
+  .q.drop-after::after {
+    bottom: -2px;
+  }
+  .grip {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    margin-left: 4px;
+    cursor: grab;
+    color: rgb(255 255 255 / 40%);
+    --m3e-icon-size: 18px;
+  }
+  .q:hover .grip {
+    color: rgb(255 255 255 / 75%);
+  }
+  .q-tools {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--np-deep) 55%, transparent);
+    backdrop-filter: blur(16px);
+  }
+  .grow {
+    flex: 1;
+  }
+  .autoplay {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: rgb(255 255 255 / 10%);
+    --m3e-icon-size: 18px;
+  }
+  .chip:hover:not(:disabled) {
+    background: rgb(255 255 255 / 18%);
+  }
+  .chip.on {
+    background: var(--np);
+  }
+  .chip:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+  .q-name {
+    display: flex;
+    gap: 8px;
+    padding: 0 4px 10px;
+  }
+  .q-name input {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 16px;
+    border: 1px solid rgb(255 255 255 / 25%);
+    background: rgb(0 0 0 / 25%);
+    color: #fff;
+    font: inherit;
+    font-size: 14px;
+  }
+  .q-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 16px 10px 6px;
+    font-weight: 700;
+    --m3e-icon-size: 18px;
+  }
+  .q-head m3e-icon {
+    align-self: center;
+    color: var(--np);
+  }
+  .q-head small {
+    font-size: 12.5px;
+    font-weight: 400;
+    color: rgb(255 255 255 / 55%);
   }
   .q-main {
     flex: 1;

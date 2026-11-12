@@ -3,18 +3,75 @@
   import { listen } from "@tauri-apps/api/event";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import PoweredBy from "../components/PoweredBy.svelte";
+  import ProviderLogo from "../components/ProviderLogo.svelte";
   import DownloadFolder from "../components/DownloadFolder.svelte";
   import AniKey from "../components/AniKey.svelte";
   import MaxLicense from "../components/MaxLicense.svelte";
   import MusicSettings from "../components/music/MusicSettings.svelte";
+  import MusicStorage from "../components/music/MusicStorage.svelte";
+  import { musicPlayer } from "../lib/music/player.svelte";
+  import { tick } from "svelte";
+  import { SETTINGS_GROUPS, SETTINGS_PAGES, findSettings, isSettingsPage, type SettingsPage } from "../lib/settings-pages";
   import PersonalizeDialog from "../components/PersonalizeDialog.svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
   import * as api from "../lib/api";
   import { LANGUAGES, PROVIDER_GROUPS, providerLabel } from "../lib/options";
-  import { ani, ANI_CHAT_MODEL, ANI_TOOL_MODEL, settings } from "../lib/state.svelte";
+  import { ani, ANI_CHAT_MODEL, ANI_TOOL_MODEL, nav, settings } from "../lib/state.svelte";
   import { slider } from "../lib/slider";
   import { sound, type SoundOption } from "../lib/audio.svelte";
   import type { AniModel, AppInfo, MediaKind, Preferences, ProviderId } from "../lib/types";
+
+  // ── Pages and search ──
+  const PAGE_KEY = "velmora.settings.page";
+  function lastPage(): SettingsPage {
+    try {
+      const v = localStorage.getItem(PAGE_KEY);
+      return isSettingsPage(v) ? v : "playback";
+    } catch {
+      return "playback";
+    }
+  }
+  let page = $state<SettingsPage>(lastPage());
+  let find = $state("");
+  let findInput: HTMLInputElement;
+  const searching = $derived(find.trim().length > 0);
+  const results = $derived(findSettings(find));
+  const pageLabel = (id: SettingsPage) => SETTINGS_PAGES.find((x) => x.id === id)?.label ?? "";
+
+  // A link straight to a page (nav.go({ name: "settings", page: "music" })).
+  $effect(() => {
+    const r = nav.route;
+    if (r.name === "settings" && r.page && isSettingsPage(r.page)) open(r.page, r.setting);
+  });
+
+  /** Show a page, and with `setting`, scroll to that row and flash it. */
+  async function open(to: SettingsPage, setting?: string) {
+    find = "";
+    page = to;
+    try {
+      localStorage.setItem(PAGE_KEY, to);
+    } catch {
+      // Not remembered.
+    }
+    await tick();
+    if (!setting) {
+      document.querySelector(".settings-content")?.scrollIntoView({ block: "start" });
+      return;
+    }
+    // The page's settings may still be loading; give them a moment.
+    for (let i = 0; i < 20; i++) {
+      const el = document.querySelector<HTMLElement>(`[data-setting="${setting}"]`);
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        el.classList.remove("flash");
+        void el.offsetWidth;
+        el.classList.add("flash");
+        setTimeout(() => el.classList.remove("flash"), 1800);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
 
   let info = $state<AppInfo | null>(null);
   const p = $derived(settings.prefs);
@@ -25,6 +82,15 @@
   const refreshSync = () => api.syncStatus().then((s) => (sync = s));
 
   onMount(() => {
+    // Ctrl+F finds a setting while Settings is open.
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        findInput?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    unlisten.push(() => window.removeEventListener("keydown", onKey));
     settings.load();
     api.appInfo().then((i) => (info = i));
     refreshSync();
@@ -111,16 +177,70 @@
 </script>
 
 <div class="page">
-  <m3e-heading variant="headline" size="large" level={1}>Settings</m3e-heading>
+  <header class="head">
+    <m3e-heading variant="headline" size="large" level={1}>Settings</m3e-heading>
+    <label class="find">
+      <m3e-icon name="search"></m3e-icon>
+      <input
+        bind:this={findInput}
+        bind:value={find}
+        placeholder="Find a setting"
+        aria-label="Find a setting"
+        onkeydown={(e) => {
+          if (e.key === "Escape") find = "";
+          else if (e.key === "Enter" && results[0]) open(results[0].page, results[0].id);
+        }}
+      />
+      {#if find}
+        <button class="find-x" aria-label="Clear search" onclick={() => (find = "")}><m3e-icon name="close"></m3e-icon></button>
+      {/if}
+    </label>
+  </header>
 
-  {#if !p}
+  <div class="layout">
+    <nav class="rail" aria-label="Settings pages">
+      {#each SETTINGS_GROUPS as g (g.label)}
+        <div class="rail-group">{g.label}</div>
+        {#each g.pages as pg (pg.id)}
+          <button class="rail-item" class:on={page === pg.id && !searching} aria-current={page === pg.id ? "page" : undefined} onclick={() => open(pg.id)}>
+            <m3e-icon name={pg.icon} filled={page === pg.id && !searching}></m3e-icon>{pg.label}
+          </button>
+        {/each}
+      {/each}
+    </nav>
+
+    <div class="settings-content">
+  {#if searching}
+    <section>
+      <m3e-heading variant="title" size="large" level={2}>Results</m3e-heading>
+      {#if results.length}
+        <m3e-card variant="filled">
+          <div slot="content" class="rows">
+            {#each results as r, i (r.id)}
+              {#if i}<m3e-divider></m3e-divider>{/if}
+              <button class="row result" onclick={() => open(r.page, r.id)}>
+                <div class="text">
+                  <strong>{r.label}</strong>
+                  <span>{pageLabel(r.page)} · {r.hint}</span>
+                </div>
+                <m3e-icon name="arrow_forward"></m3e-icon>
+              </button>
+            {/each}
+          </div>
+        </m3e-card>
+      {:else}
+        <p class="none">No setting matches "{find.trim()}".</p>
+      {/if}
+    </section>
+  {:else if !p}
     <m3e-skeleton animation="wave" shape="rounded" class="ghost"></m3e-skeleton>
   {:else}
+    {#if page === "playback"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>Playback</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
-          <div class="row">
+          <div class="row" data-setting="quality">
             <div class="text"><strong>Preferred quality</strong><span>Velmora picks the closest match first.</span></div>
             <m3e-segmented-button aria-label="Preferred quality">
               {#each [720, 1080, 2160] as r (r)}
@@ -134,7 +254,7 @@
             </m3e-segmented-button>
           </div>
           <m3e-divider></m3e-divider>
-          <label class="row">
+          <label class="row" data-setting="auto4k">
             <div class="text"><strong>Pick 4K automatically</strong><span>Off keeps 4K for when you choose it yourself; it uses a lot of data.</span></div>
             <m3e-switch
               checked={p.max_auto_resolution >= 2160}
@@ -142,7 +262,7 @@
             ></m3e-switch>
           </label>
           <m3e-divider></m3e-divider>
-          <div class="row">
+          <div class="row" data-setting="codec">
             <div class="text"><strong>Video codec</strong><span>HEVC and AV1 are smaller but need a newer GPU to decode smoothly.</span></div>
             <m3e-segmented-button aria-label="Video codec">
               {#each [["h264", "H.264"], ["h265", "HEVC"], ["av1", "AV1"]] as [value, name] (value)}
@@ -156,7 +276,7 @@
             </m3e-segmented-button>
           </div>
           <m3e-divider></m3e-divider>
-          <div class="row">
+          <div class="row" data-setting="audio-lang">
             <div class="text"><strong>Audio language</strong></div>
             <m3e-form-field class="field">
               <m3e-select
@@ -171,7 +291,7 @@
             </m3e-form-field>
           </div>
           <m3e-divider></m3e-divider>
-          <div class="row">
+          <div class="row" data-setting="sub-lang">
             <div class="text"><strong>Subtitle language</strong></div>
             <m3e-form-field class="field">
               <m3e-select
@@ -186,7 +306,7 @@
             </m3e-form-field>
           </div>
           <m3e-divider></m3e-divider>
-          <div class="row">
+          <div class="row" data-setting="anime-audio">
             <div class="text"><strong>Anime audio</strong><span>Subtitled Japanese or an English dub when there is one.</span></div>
             <m3e-segmented-button aria-label="Anime audio">
               <m3e-button-segment checked={settings.audioMode === "sub"} onclick={() => settings.setAudioMode("sub")}>Sub</m3e-button-segment>
@@ -196,14 +316,16 @@
         </div>
       </m3e-card>
     </section>
+    {/if}
 
+    {#if page === "sound"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>Sound</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
           {#each SOUND as [option, name, hint], i (option)}
             {#if i}<m3e-divider></m3e-divider>{/if}
-            <label class="row">
+            <label class="row" data-setting={option}>
               <div class="text"><strong>{name}</strong><span>{hint}</span></div>
               <m3e-switch checked={sound[option]} onchange={(e: Event) => sound.set(option, checked(e))}></m3e-switch>
             </label>
@@ -211,27 +333,29 @@
         </div>
       </m3e-card>
     </section>
+    {/if}
 
+    {#if page === "sources"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>Sources</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
-          <label class="row">
+          <label class="row" data-setting="torrents">
             <div class="text"><strong>Torrents</strong><span>Adds YTS, EZTV and Nyaa. Your IP is visible to peers, so a VPN is a good idea.</span></div>
             <m3e-switch checked={p.include_torrents} onchange={(e: Event) => set({ include_torrents: checked(e) })}></m3e-switch>
           </label>
           <m3e-divider></m3e-divider>
-          <label class="row">
+          <label class="row" data-setting="french">
             <div class="text"><strong>French sources</strong><span>VF and VOSTFR releases, labelled as such.</span></div>
             <m3e-switch checked={p.include_french} onchange={(e: Event) => set({ include_french: checked(e) })}></m3e-switch>
           </label>
           <m3e-divider></m3e-divider>
-          <label class="row">
+          <label class="row" data-setting="verify">
             <div class="text"><strong>Check links first</strong><span>Drops dead links and ad pages before you see them. Slightly slower.</span></div>
             <m3e-switch checked={p.verify_sources} onchange={(e: Event) => set({ verify_sources: checked(e) })}></m3e-switch>
           </label>
           <m3e-divider></m3e-divider>
-          <label class="row">
+          <label class="row" data-setting="adult">
             <div class="text"><strong>Show 18+ titles</strong></div>
             <m3e-switch checked={p.show_adult} onchange={(e: Event) => set({ show_adult: checked(e) })}></m3e-switch>
           </label>
@@ -239,7 +363,7 @@
       </m3e-card>
 
       <!-- Provider order per content type; closed by default to keep the page short. -->
-      <m3e-accordion multi class="providers">
+      <m3e-accordion multi class="providers" data-setting="providers">
         {#each PROVIDER_GROUPS as group (group.kind)}
           {@const order = p.provider_order[group.kind] ?? []}
           {@const on = order.filter((id) => !p.disabled_providers.includes(id))}
@@ -255,7 +379,7 @@
               {#each order as id, i (id)}
                 <m3e-list-item>
                   <span slot="leading" class="rank">{i + 1}</span>
-                  {providerLabel(id)}
+                  <span class="pname"><ProviderLogo {id} size={26} />{providerLabel(id)}</span>
                   <div slot="trailing" class="provider-actions">
                     <m3e-icon-button size="small" aria-label="Move up" disabled={i === 0} onclick={() => move(group.kind, id, -1)}>
                       <m3e-icon name="arrow_upward"></m3e-icon>
@@ -281,17 +405,19 @@
         {/each}
       </m3e-accordion>
     </section>
+    {/if}
 
+    {#if page === "downloads"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>Downloads</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
-          <div class="row folder-row">
+          <div class="row folder-row" data-setting="folder">
             <div class="text"><strong>Download folder</strong><span>Movies and episodes you download are saved here.</span></div>
             <DownloadFolder />
           </div>
           <m3e-divider></m3e-divider>
-          <div class="row">
+          <div class="row" data-setting="concurrent">
             <div class="text"><strong>Downloads at once</strong><span>{p.max_concurrent_downloads} at a time; the rest wait in line.</span></div>
             <m3e-slider class="slider" min="1" max="5" step="1" discrete labelled aria-label="Downloads at once" use:slider>
               <m3e-slider-thumb
@@ -301,26 +427,49 @@
             </m3e-slider>
           </div>
           <m3e-divider></m3e-divider>
-          <label class="row">
+          <label class="row" data-setting="seeding">
             <div class="text"><strong>Keep seeding finished torrents</strong><span>Off stops uploading as soon as a download completes.</span></div>
             <m3e-switch checked={p.seed_after_download} onchange={(e: Event) => set({ seed_after_download: checked(e) })}></m3e-switch>
           </label>
         </div>
       </m3e-card>
     </section>
+    {/if}
 
+    {#if page === "music"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>Music</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content" class="rows">
+          <label class="row" data-setting="autoplay">
+            <div class="text">
+              <strong>Autoplay</strong>
+              <span>When an album, playlist or your queue ends, keep going with songs like the last few you played.</span>
+            </div>
+            <m3e-switch checked={musicPlayer.autoplay} onchange={(e: Event) => musicPlayer.setAutoplay(checked(e))}></m3e-switch>
+          </label>
+        </div>
+      </m3e-card>
       <m3e-card variant="filled">
         <div slot="content"><MusicSettings /></div>
       </m3e-card>
     </section>
+    {/if}
+    {#if page === "music-storage"}
+    <section>
+      <m3e-heading variant="title" size="large" level={2}>Storage and history</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content"><MusicStorage /></div>
+      </m3e-card>
+    </section>
+    {/if}
 
+    {#if page === "ani"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>Ani</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
-          <label class="row">
+          <label class="row" data-setting="ani-use">
             <div class="text">
               <strong>Use Ani</strong>
               <span>Velmora's assistant, in the menu on the left. It runs on your own Gemini key.</span>
@@ -329,11 +478,11 @@
           </label>
           {#if ani.enabled}
             <m3e-divider></m3e-divider>
-            <div class="row key-row">
+            <div class="row key-row" data-setting="ani-key">
               <AniKey />
             </div>
             <m3e-divider></m3e-divider>
-            <label class="row">
+            <label class="row" data-setting="ani-learn">
               <div class="text">
                 <strong>Learn from what I watch</strong>
                 <span>Searches, titles you open, watch and download go into Personalize, so Ani's picks fit you.</span>
@@ -341,7 +490,7 @@
               <m3e-switch checked={personalize.learning} onchange={(e: Event) => personalize.setLearning(checked(e))}></m3e-switch>
             </label>
             <m3e-divider></m3e-divider>
-            <div class="row">
+            <div class="row" data-setting="ani-personalize">
               <div class="text"><strong>Personalize</strong><span>{learned}. Stays on this PC.</span></div>
               <m3e-button variant="tonal" onclick={() => personalizeDialog.open()}>
                 <m3e-icon slot="icon" name="person_heart"></m3e-icon>See what Ani knows
@@ -349,7 +498,7 @@
             </div>
             {#if ani.key?.set}
               <m3e-divider></m3e-divider>
-              <div class="row">
+              <div class="row" data-setting="ani-models">
                 <div class="text"><strong>Chat model</strong><span>Writes Ani's answers.</span></div>
                 <m3e-form-field class="field">
                   <m3e-select aria-label="Chat model" value={ani.chatModel} onchange={(e: Event) => ani.setChatModel(selectValue(e))}>
@@ -375,12 +524,14 @@
         </div>
       </m3e-card>
     </section>
+    {/if}
 
+    {#if page === "accounts"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>Accounts</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
-          <div class="row">
+          <div class="row" data-setting="anilist">
             <div class="text">
               <strong>AniList</strong>
               <span>
@@ -398,7 +549,7 @@
             {/if}
           </div>
           <m3e-divider></m3e-divider>
-          <div class="row">
+          <div class="row" data-setting="trakt">
             <div class="text">
               <strong>Trakt</strong>
               <span>
@@ -418,12 +569,14 @@
         </div>
       </m3e-card>
     </section>
+    {/if}
 
+    {#if page === "appearance"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>Appearance</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
-          <div class="row">
+          <div class="row" data-setting="accent">
             <div class="text"><strong>Accent colour</strong><span>The whole palette is generated from it.</span></div>
             <div class="swatches" role="radiogroup" aria-label="Accent colour">
               {#each ACCENTS as [color, name] (color)}
@@ -447,19 +600,23 @@
         </div>
       </m3e-card>
     </section>
+    {/if}
 
+    {#if page === "license"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>License</m3e-heading>
       <m3e-card variant="filled">
-        <div slot="content" class="rows"><MaxLicense /></div>
+        <div slot="content" class="rows" data-setting="license"><MaxLicense /></div>
       </m3e-card>
     </section>
+    {/if}
 
+    {#if page === "about"}
     <section>
       <m3e-heading variant="title" size="large" level={2}>About</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
-          <div class="row">
+          <div class="row" data-setting="version">
             <div class="text">
               <strong>Velmora {info?.version ?? ""}</strong>
               <span>Updates install by themselves when Velmora starts.</span>
@@ -475,7 +632,10 @@
         </div>
       </m3e-card>
     </section>
+    {/if}
   {/if}
+    </div>
+  </div>
 </div>
 
 <PersonalizeDialog bind:this={personalizeDialog} />
@@ -484,9 +644,162 @@
   .page {
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: 20px;
     padding-bottom: 40px;
-    max-width: 860px;
+    max-width: 1100px;
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .find {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(360px, 50%);
+    height: 48px;
+    padding: 0 8px 0 16px;
+    border-radius: 24px;
+    background: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface-variant);
+    --m3e-icon-size: 22px;
+  }
+  .find:focus-within {
+    outline: 2px solid var(--md-sys-color-primary);
+  }
+  .find input {
+    all: unset;
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    color: var(--md-sys-color-on-surface);
+  }
+  .find input::placeholder {
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .find-x {
+    all: unset;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    --m3e-icon-size: 18px;
+  }
+  .find-x:hover {
+    background: var(--md-sys-color-surface-container-highest);
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+  .rail {
+    position: sticky;
+    top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .rail-group {
+    padding: 14px 16px 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .rail-group:first-child {
+    padding-top: 0;
+  }
+  .rail-item {
+    all: unset;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 22px;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface-variant);
+    --m3e-icon-size: 22px;
+    transition: background 150ms;
+  }
+  .rail-item:hover {
+    background: var(--md-sys-color-surface-container-high);
+  }
+  .rail-item:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+  }
+  .rail-item.on {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+  .settings-content {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    min-width: 0;
+    scroll-margin-top: 12px;
+  }
+  .result {
+    all: unset;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 14px 8px;
+    border-radius: 12px;
+  }
+  .result:hover {
+    background: var(--md-sys-color-surface-container-high);
+  }
+  .none {
+    margin: 0;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  /* A row found by search flashes once. */
+  :global([data-setting].flash) {
+    animation: flash 1.8s ease-out;
+    border-radius: 12px;
+  }
+  @keyframes flash {
+    0%,
+    30% {
+      background: color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+    }
+    100% {
+      background: transparent;
+    }
+  }
+  /* Narrow windows: the pages become a row of tabs along the top. */
+  @media (max-width: 1180px) {
+    .layout {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 16px;
+    }
+    .rail {
+      position: static;
+      flex-direction: row;
+      overflow-x: auto;
+      scrollbar-width: none;
+      gap: 6px;
+    }
+    .rail-group {
+      display: none;
+    }
+    .rail-item {
+      flex: none;
+      height: 40px;
+      background: var(--md-sys-color-surface-container);
+    }
   }
   section {
     display: flex;
@@ -564,6 +877,11 @@
     font-weight: 700;
     background: var(--md-sys-color-secondary-container);
     color: var(--md-sys-color-on-secondary-container);
+  }
+  .pname {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
   }
   .provider-actions {
     display: flex;

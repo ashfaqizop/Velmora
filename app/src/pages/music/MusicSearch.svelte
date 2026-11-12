@@ -27,6 +27,16 @@
   let error = $state<string | null>(null);
   let seq = 0;
 
+  /** Keep a search in the history once it has stood for a moment, so the
+   *  half-typed queries on the way to it aren't saved. */
+  let rememberTimer: ReturnType<typeof setTimeout> | undefined;
+  function remember(q: string, mine: number) {
+    clearTimeout(rememberTimer);
+    rememberTimer = setTimeout(() => {
+      if (mine === seq) api.musicSearchAdd(q).catch(() => {});
+    }, 2000);
+  }
+
   $effect(() => {
     const q = query.trim();
     const f = filter;
@@ -37,7 +47,10 @@
     const timer = setTimeout(async () => {
       try {
         const r = await api.musicSearch(q, f);
-        if (mine === seq) results = r;
+        if (mine === seq) {
+          results = r;
+          remember(q, mine);
+        }
       } catch (e) {
         if (mine === seq) error = typeof e === "string" ? e : "Search didn't work.";
       } finally {

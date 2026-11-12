@@ -65,6 +65,8 @@
   }
 
   onMount(() => {
+    // The last queue comes back paused, where it stopped.
+    musicPlayer.restore();
     registerOverlays({
       torrentNotice: () => notice.ask(),
       download: (title, target) => downloadDialog.open(title, target),

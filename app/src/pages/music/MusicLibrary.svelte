@@ -2,6 +2,7 @@
   // Library: Liked songs, playlists, albums, artists and downloaded songs.
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../../lib/api";
+  import { cached } from "../../lib/music/cache";
   import MusicCard from "../../components/music/MusicCard.svelte";
   import TrackRow from "../../components/music/TrackRow.svelte";
   import { musicPlayer } from "../../lib/music/player.svelte";
@@ -33,14 +34,21 @@
     (async () => {
       try {
         if (t === "liked") {
-          const p = await api.musicLiked();
-          items = p.tracks;
-          likes.seed(items.map((i) => i.id));
+          await cached("library:liked", () => api.musicLiked(), (p, fresh) => {
+            if (tab !== t) return;
+            items = p.tracks;
+            loading = false;
+            if (fresh) likes.seed(p.tracks.map((i) => i.id));
+          });
         } else if (t === "downloaded") {
           offline = await api.musicDownloads();
           items = offline.map((o) => ({ ...o.item, localPath: o.path }));
         } else {
-          items = await api.musicLibrary(t as MusicLibraryKind);
+          await cached(`library:${t}`, () => api.musicLibrary(t as MusicLibraryKind), (list) => {
+            if (tab !== t) return;
+            items = list;
+            loading = false;
+          });
         }
       } catch (e) {
         error = typeof e === "string" ? e : "Your library couldn't be loaded.";

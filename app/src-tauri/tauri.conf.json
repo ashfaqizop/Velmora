@@ -34,7 +34,7 @@
         "default-src": "'self'",
         "img-src": "'self' data: blob: https: http:",
         "style-src": "'self' 'unsafe-inline'",
-        "font-src": "'self' data:",
+        "font-src": "'self' data: https://cdn.jsdelivr.net",
         "script-src": "'self'",
         "frame-src": "https://www.youtube-nocookie.com https://www.youtube.com https://getvelmora.dpdns.org",
         "connect-src": "'self' ipc: http://ipc.localhost http://127.0.0.1:*"

@@ -26,7 +26,8 @@ export type Route =
   | { name: "downloads" }
   | { name: "search"; query: string }
   | { name: "title"; title: TitleSummary }
-  | { name: "settings" }
+  /** `page` and `setting` open Settings on one page, at one row. */
+  | { name: "settings"; page?: string; setting?: string }
   | { name: "ani" }
   | { name: "live" }
   | { name: "sports" }

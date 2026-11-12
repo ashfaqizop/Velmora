@@ -1,7 +1,13 @@
 :root {
-  /* Bricolage Grotesque for text, Instrument Serif for headings and titles (both OFL, bundled). */
-  --app-font: "Bricolage Grotesque Variable", "Segoe UI Variable Text", system-ui, sans-serif;
-  --app-display-font: "Instrument Serif", Georgia, serif;
+  /* Bricolage Grotesque for text, Instrument Serif for headings and titles (both OFL, bundled).
+     Text in any other script falls back to the matching Noto Sans (also bundled):
+     the browser picks per character, so Latin stays Bricolage. */
+  --noto-scripts: "Noto Sans Variable", "Noto Sans Bengali Variable", "Noto Sans Devanagari Variable", "Noto Sans Arabic Variable", "Noto Sans Hebrew Variable", "Noto Sans Thai Variable", "Noto Sans Tamil Variable", "Noto Sans Telugu Variable", "Noto Sans Kannada Variable", "Noto Sans Malayalam Variable", "Noto Sans Gujarati Variable", "Noto Sans Gurmukhi Variable", "Noto Sans Sinhala Variable", "Noto Sans Myanmar Variable", "Noto Sans Khmer Variable", "Noto Sans Lao Variable", "Noto Sans Georgian Variable", "Noto Sans Armenian Variable", "Noto Sans Ethiopic Variable", "Noto Sans Oriya Variable";
+  /* Han characters are shared; whichever comes first draws them. Japanese
+     leads by default, and Lyrics reorders it for Chinese and Korean songs. */
+  --noto-cjk: "Noto Sans JP Variable", "Noto Sans KR Variable", "Noto Sans SC Variable", "Noto Sans TC Variable";
+  --app-font: "Bricolage Grotesque Variable", var(--noto-scripts), var(--noto-cjk), "Segoe UI Variable Text", system-ui, sans-serif;
+  --app-display-font: "Instrument Serif", var(--noto-scripts), var(--noto-cjk), Georgia, serif;
   --app-titlebar-height: 72px;
   --app-sidebar-width: 256px;
   --app-panel-width: 320px;
@@ -9,6 +15,13 @@
   /* Brand accents from the Velmora mark. */
   --brand-coral: #ff5a5a;
   --brand-indigo: #7b6cff;
+}
+/* Set on text whose language is known (lyrics), so Han uses the right shapes. */
+[lang="zh"] {
+  --noto-cjk: "Noto Sans SC Variable", "Noto Sans TC Variable", "Noto Sans JP Variable", "Noto Sans KR Variable";
+}
+[lang="ko"] {
+  --noto-cjk: "Noto Sans KR Variable", "Noto Sans JP Variable", "Noto Sans SC Variable", "Noto Sans TC Variable";
 }
 
 html,

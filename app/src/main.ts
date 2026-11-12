@@ -1,6 +1,9 @@
 import "@fontsource-variable/bricolage-grotesque/wght.css";
 import "@fontsource/instrument-serif/400.css";
 import "@fontsource/instrument-serif/400-italic.css";
+// Noto Sans for every other script (lyrics, titles). Each family is split by
+// Unicode range, so a script's font only loads when its text is on screen.
+import "./lib/fonts/noto.css";
 import "material-symbols/outlined.css";
 import "./lib/m3e";
 import "./app.css";
