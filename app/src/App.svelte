@@ -62,7 +62,7 @@
     } else if (e.key.toLowerCase() === "r" && !e.ctrlKey) {
       musicPlayer.cycleRepeat();
     } else if (e.key.toLowerCase() === "f" && !e.ctrlKey) {
-      musicUi.full = !musicUi.full;
+      musicUi.setFull(!musicUi.full);
     }
   }
 
@@ -76,6 +76,32 @@
       download: (title, target) => downloadDialog.open(title, target),
     });
   });
+
+  // Back and forward like a browser: the mouse's side buttons, Alt+← and Alt+→.
+  // The video player has its own keys, and Escape there already goes back.
+  function navKeys(e: KeyboardEvent) {
+    if (!e.altKey || e.ctrlKey || e.metaKey || nav.route.name === "player" || splash) return;
+    if (e.key === "ArrowLeft" && nav.canGoBack) {
+      e.preventDefault();
+      nav.back();
+    } else if (e.key === "ArrowRight" && nav.canGoForward) {
+      e.preventDefault();
+      nav.forward();
+    }
+  }
+
+  function navMouse(e: MouseEvent) {
+    if (nav.route.name === "player" || splash) return;
+    if (e.button === 3 && (musicUi.full || nav.canGoBack)) {
+      e.preventDefault();
+      // Back closes the full music player first, like Escape does.
+      if (musicUi.full) musicUi.setFull(false);
+      else nav.back();
+    } else if (e.button === 4 && nav.canGoForward) {
+      e.preventDefault();
+      nav.forward();
+    }
+  }
 
   function splashDone() {
     splash = false;
@@ -101,7 +127,13 @@
   <Splash ondone={splashDone} />
 {/if}
 
-<svelte:window onkeydown={musicKeys} />
+<svelte:window
+  onkeydown={(e) => {
+    navKeys(e);
+    musicKeys(e);
+  }}
+  onmouseup={navMouse}
+/>
 
 {#if !splash}
   <NowPlaying />

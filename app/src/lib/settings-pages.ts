@@ -115,6 +115,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { id: "trakt", page: "accounts", label: "Trakt", hint: "Add what you finish to your history", words: "sync account movies" },
 
   { id: "accent", page: "appearance", label: "Accent colour", hint: "The app's colour", words: "color theme palette" },
+  { id: "motion", page: "appearance", label: "Motion", hint: "Animations: full, reduced or off", words: "animation animations transitions reduce reduced motion effects slide fade spring off"},
 
   { id: "license", page: "license", label: "Max license", hint: "Your key and the ads", words: "max key ads premium" },
 

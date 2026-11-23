@@ -113,3 +113,171 @@ m3e-heading:not([variant="label"]) {
     transition-duration: 1ms !important;
   }
 }
+
+/* ── View transitions (lib/vt.ts) ─────────────────────────────────────
+   The page area is its own picture; the rest of the window (top bar,
+   sidebar, mini player) stays live, so it doesn't fade for nothing.
+   <html data-vt> says which way the page is going. Durations and curves
+   are M3 Expressive springs from lib/motion.svelte.ts. */
+main.content {
+  view-transition-name: page;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(*) {
+  animation-duration: var(--spring-default-spatial-duration, 400ms);
+  animation-timing-function: var(--spring-default-spatial-easing, ease);
+}
+
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-to-left {
+  to {
+    transform: translateX(-56px);
+  }
+}
+@keyframes vt-from-right {
+  from {
+    transform: translateX(56px);
+  }
+}
+@keyframes vt-to-right {
+  to {
+    transform: translateX(56px);
+  }
+}
+@keyframes vt-from-left {
+  from {
+    transform: translateX(-56px);
+  }
+}
+@keyframes vt-settle {
+  from {
+    transform: scale(0.985);
+  }
+}
+@keyframes vt-drop {
+  from {
+    transform: translateY(-18px);
+  }
+}
+
+/* Deeper: the page slides left and the new one comes in from the right
+   (Material's shared axis). Back is the mirror. */
+:root[data-vt="forward"]::view-transition-old(page) {
+  animation:
+    vt-fade-out var(--spring-fast-effects) both,
+    vt-to-left var(--spring-default-spatial) both;
+}
+:root[data-vt="forward"]::view-transition-new(page) {
+  animation:
+    vt-fade-in var(--spring-default-effects) 50ms both,
+    vt-from-right var(--spring-default-spatial) both;
+}
+:root[data-vt="back"]::view-transition-old(page) {
+  animation:
+    vt-fade-out var(--spring-fast-effects) both,
+    vt-to-right var(--spring-default-spatial) both;
+}
+:root[data-vt="back"]::view-transition-new(page) {
+  animation:
+    vt-fade-in var(--spring-default-effects) 50ms both,
+    vt-from-left var(--spring-default-spatial) both;
+}
+/* Sideways (sidebar pages): fade through, the new page settling in. */
+:root[data-vt="switch"]::view-transition-old(page) {
+  animation: vt-fade-out var(--spring-fast-effects) both;
+}
+:root[data-vt="switch"]::view-transition-new(page) {
+  animation:
+    vt-fade-in var(--spring-default-effects) 70ms both,
+    vt-settle var(--spring-slow-spatial) both;
+}
+/* Into search: results drop in under the search box. */
+:root[data-vt="search"]::view-transition-old(page) {
+  animation: vt-fade-out var(--spring-fast-effects) both;
+}
+:root[data-vt="search"]::view-transition-new(page) {
+  animation:
+    vt-fade-in var(--spring-default-effects) 40ms both,
+    vt-drop var(--spring-default-spatial) both;
+}
+
+/* A card's artwork growing into the page it opens (and back). */
+::view-transition-image-pair(hero) {
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+  overflow: hidden;
+}
+::view-transition-old(hero),
+::view-transition-new(hero) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The mini player opening into the full player: the bar is the container
+   that grows, the cover moves on its own above it. */
+:root[data-vt="open"]::view-transition-group(np-surface),
+:root[data-vt="close"]::view-transition-group(np-surface),
+:root[data-vt="open"]::view-transition-group(np-cover),
+:root[data-vt="close"]::view-transition-group(np-cover) {
+  animation-duration: var(--spring-slow-spatial-duration, 500ms);
+  animation-timing-function: var(--spring-slow-spatial-easing, ease);
+}
+::view-transition-image-pair(np-surface) {
+  overflow: hidden;
+  border-radius: 28px;
+}
+::view-transition-old(np-surface),
+::view-transition-new(np-surface) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+:root[data-vt="open"]::view-transition-old(np-surface),
+:root[data-vt="close"]::view-transition-old(np-surface) {
+  animation: vt-fade-out var(--spring-fast-effects) both;
+}
+:root[data-vt="open"]::view-transition-new(np-surface),
+:root[data-vt="close"]::view-transition-new(np-surface) {
+  animation: vt-fade-in var(--spring-default-effects) 40ms both;
+}
+::view-transition-old(np-cover),
+::view-transition-new(np-cover) {
+  width: 100%;
+  height: 100%;
+}
+
+/* Reduced motion: pages cross-fade, nothing slides or grows. */
+:root[data-motion="reduced"]::view-transition-group(*) {
+  animation: none;
+}
+:root[data-motion="reduced"]::view-transition-old(*) {
+  animation: vt-fade-out var(--spring-default-effects) both;
+}
+:root[data-motion="reduced"]::view-transition-new(*) {
+  animation: vt-fade-in var(--spring-default-effects) both;
+}
+
+/* Motion off: nothing animates (Material components follow through their
+   own tokens, which are zeroed in lib/motion.svelte.ts). */
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before,
+:root[data-motion="off"] *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}

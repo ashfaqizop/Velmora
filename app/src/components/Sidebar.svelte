@@ -7,7 +7,8 @@
   import { ani, downloads, library, nav, type Route } from "../lib/state.svelte";
   import { musicSession } from "../lib/music/session.svelte";
   import { musicUi } from "../lib/music/ui.svelte";
-  import { reducedMotion } from "../lib/motion";
+  import { reducedMotion } from "../lib/motion.svelte";
+  import { indicator } from "../lib/indicator";
 
   const main: { label: string; icon: string; route: Route }[] = [
     { label: "Home", icon: "home", route: { name: "home" } },
@@ -72,7 +73,7 @@
 </script>
 
 <aside class="sidebar">
-  <div class="stack">
+  <div class="stack" use:indicator={{ selector: "m3e-nav-menu-item[selected]", color: "var(--md-sys-color-primary)" }}>
     {#key mode}
       {#if mode === "velmora"}
         <m3e-nav-menu class="menu layer">
@@ -266,7 +267,8 @@
     scrollbar-width: none;
     --m3e-nav-menu-item-height: 48px;
     --m3e-nav-menu-item-shape: 999px;
-    --m3e-nav-menu-item-selected-container-color: var(--md-sys-color-primary);
+    /* The selected background is a pill that slides between items (lib/indicator.ts). */
+    --m3e-nav-menu-item-selected-container-color: transparent;
     --m3e-nav-menu-item-selected-label-color: var(--md-sys-color-on-primary);
     --m3e-nav-menu-padding-left: 0;
     --m3e-nav-menu-padding-right: 0;

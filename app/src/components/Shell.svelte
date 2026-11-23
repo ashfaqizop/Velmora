@@ -1,6 +1,5 @@
 <script lang="ts">
   import { fade, fly, scale } from "svelte/transition";
-  import { cubicOut } from "svelte/easing";
   import TopBar from "./TopBar.svelte";
   import Sidebar from "./Sidebar.svelte";
   import SidePanel from "./SidePanel.svelte";
@@ -26,7 +25,7 @@
   import SignIn from "./music/SignIn.svelte";
   import { musicSession } from "../lib/music/session.svelte";
   import { musicUi } from "../lib/music/ui.svelte";
-  import { reducedMotion } from "../lib/motion";
+  import { spring, travel } from "../lib/motion.svelte";
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import { ani, feed, library, nav, network } from "../lib/state.svelte";
@@ -75,10 +74,13 @@
     lastTop = scroller.scrollTop;
   }
 
-  // Every navigation starts at the top of the page.
+  // Navigation scrolls this: to the top on a new page, back to where you
+  // were on Back (see Nav in state.svelte.ts).
   $effect(() => {
-    void nav.route;
-    scroller?.scrollTo({ top: 0 });
+    nav.scroller = scroller;
+    return () => {
+      if (nav.scroller === scroller) nav.scroller = null;
+    };
   });
 </script>
 
@@ -106,9 +108,9 @@
     {/if}
 
     {#key mode}
-    <div class="mode" in:scale={{ start: reducedMotion() ? 1 : 0.97, opacity: 0, duration: reducedMotion() ? 0 : 460, easing: cubicOut }}>
+    <div class="mode" in:scale={{ start: travel(1) ? 0.97 : 1, opacity: 0, ...spring("slow-spatial") }}>
     {#key nav.route}
-      <div class="page" in:fly={{ y: 12, duration: 380, easing: cubicOut }}>
+      <div class="page" in:fly={{ y: travel(12), opacity: 0, ...spring("default-spatial") }}>
         {#if mode === "music" && !musicSession.signedIn && !(nav.route.name === "music-library" && nav.route.tab === "downloaded")}
           <SignIn />
         {:else if nav.route.name === "music"}
@@ -173,7 +175,7 @@
         <m3e-icon name={panelOpen ? "right_panel_close" : "right_panel_open"}></m3e-icon>
       </button>
       {#if panelOpen}
-        <div class="panel-body" transition:fly={{ x: 40, duration: 320, easing: cubicOut }}><SidePanel /></div>
+        <div class="panel-body" transition:fly={{ x: travel(40), opacity: 0, ...spring("default-spatial") }}><SidePanel /></div>
       {/if}
     </div>
   {/if}

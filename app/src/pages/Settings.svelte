@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { indicator } from "../lib/indicator";
+  import { motion, type MotionPref } from "../lib/motion.svelte";
   import { onDestroy, onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { M3eSnackbar } from "@m3e/web/snackbar";
@@ -146,6 +148,12 @@
     ["#7B6CFF", "Iris"],
     ["#4E5D6C", "Slate"],
   ];
+  const MOTION_PREFS: [MotionPref, string][] = [
+    ["system", "System"],
+    ["full", "Full"],
+    ["reduced", "Reduced"],
+    ["off", "Off"],
+  ];
   const isAccent = (c: string) => settings.accent.toLowerCase() === c.toLowerCase();
 
   const set = (patch: Partial<Preferences>) => settings.update(patch);
@@ -203,7 +211,7 @@
   </header>
 
   <div class="layout">
-    <nav class="rail" aria-label="Settings pages">
+    <nav class="rail" aria-label="Settings pages" use:indicator={{ selector: ".rail-item.on", radius: "22px" }}>
       {#each SETTINGS_GROUPS as g (g.label)}
         <div class="rail-group">{g.label}</div>
         {#each g.pages as pg (pg.id)}
@@ -707,6 +715,28 @@
               {/each}
             </div>
           </div>
+          <m3e-divider></m3e-divider>
+          <div class="row" data-setting="motion">
+            <div class="text">
+              <strong>Motion</strong>
+              <span>
+                {#if motion.pref === "system"}
+                  Follows Windows' Animation effects{motion.level === "reduced" ? ", which are off, so pages fade without moving" : ""}.
+                {:else if motion.pref === "full"}
+                  Pages slide, artwork grows into the page it opens, and everything moves on springs.
+                {:else if motion.pref === "reduced"}
+                  Pages and panels fade; nothing slides, grows or bounces.
+                {:else}
+                  Nothing animates. Every change happens at once.
+                {/if}
+              </span>
+            </div>
+            <m3e-segmented-button aria-label="Motion">
+              {#each MOTION_PREFS as [m, name] (m)}
+                <m3e-button-segment checked={motion.pref === m} onclick={() => motion.set(m)}>{name}</m3e-button-segment>
+              {/each}
+            </m3e-segmented-button>
+          </div>
         </div>
       </m3e-card>
     </section>
@@ -842,14 +872,19 @@
     transition: background 150ms;
   }
   .rail-item:hover {
-    background: var(--md-sys-color-surface-container-high);
+    background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
   }
   .rail-item:focus-visible {
     outline: 2px solid var(--md-sys-color-primary);
   }
+  /* The selected background is the pill that slides between items (lib/indicator.ts). */
   .rail-item.on {
-    background: var(--md-sys-color-secondary-container);
+    background: transparent;
     color: var(--md-sys-color-on-secondary-container);
+    transition: color var(--spring-default-effects);
+  }
+  .rail-item.on:hover {
+    background: color-mix(in srgb, var(--md-sys-color-on-secondary-container) 8%, transparent);
   }
   .settings-content {
     display: flex;

@@ -7,6 +7,7 @@ import { nav } from "../state.svelte";
 import type { MusicItem, MusicThumb } from "../types";
 import type { ArtColors } from "./color";
 import { musicPlayer } from "./player.svelte";
+import { transition } from "../vt";
 
 /** The best artwork URL for a size. Google's image URLs can be asked for any
  *  size, so a small thumbnail is upgraded instead of stretched. */
@@ -37,14 +38,16 @@ export function clock(seconds: number | null | undefined): string {
 export const playable = (i: MusicItem) => i.kind === "song" || i.kind === "video";
 
 /** Open a card: pages for albums, artists and playlists; songs play. */
-export function openItem(i: MusicItem, list?: MusicItem[], source?: string) {
+export function openItem(i: MusicItem, list?: MusicItem[], source?: string, from?: Element | null) {
+  // The card's cover grows into the page's banner art (and back on Back).
+  const shared = { from, key: `music:${i.id}` };
   switch (i.kind) {
     case "album":
-      return nav.go({ name: "music-album", id: i.id });
+      return nav.go({ name: "music-album", id: i.id }, shared);
     case "artist":
-      return nav.go({ name: "music-artist", id: i.id });
+      return nav.go({ name: "music-artist", id: i.id }, shared);
     case "playlist":
-      return nav.go({ name: "music-playlist", id: i.id });
+      return nav.go({ name: "music-playlist", id: i.id }, shared);
     case "category":
       return nav.go({ name: "music-feed", browseId: i.id, params: i.params, title: i.title });
     default: {
@@ -146,6 +149,29 @@ class MusicUi {
   /** The user's playlists, for the sidebar and Add to playlist. */
   playlists = $state<MusicItem[]>([]);
   private compactTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Open or close the full player. The mini player's bar grows into it and
+   * its cover flies to the big one (and back). A music video plays under the
+   * window, which a view transition can't picture, so that just switches.
+   */
+  setFull(open: boolean) {
+    if (this.full === open) return;
+    const update = () => (this.full = open);
+    if (musicPlayer.videoShown) {
+      update();
+      return;
+    }
+    const mini = "[data-np-mini]";
+    const big = "[data-np-full]";
+    const q = (s: string) => () => document.querySelector(s);
+    transition(open ? "open" : "close", update, {
+      shared: [
+        { name: "np-surface", from: q(open ? mini : big), to: q(open ? big : mini) },
+        { name: "np-cover", from: q(open ? `${mini} [data-np-cover]` : `${big} [data-np-cover]`), to: q(open ? `${big} [data-np-cover]` : `${mini} [data-np-cover]`) },
+      ],
+    });
+  }
 
   openMenu(item: MusicItem, e: MouseEvent, ctx: MenuContext = {}) {
     e.preventDefault();

@@ -6,6 +6,7 @@
   import { onMount, tick } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
+  import { spring, travel } from "../../lib/motion.svelte";
   import MorphCover from "./MorphCover.svelte";
   import Visualizer from "./Visualizer.svelte";
   import Lyrics from "./Lyrics.svelte";
@@ -38,7 +39,7 @@
   const tall = $derived(winH >= 900);
 
   function close() {
-    musicUi.full = false;
+    musicUi.setFull(false);
   }
 
   // ── Up next ──
@@ -174,7 +175,8 @@
     class:video={showingVideo}
     style:--np={tint}
     style:--np-deep={deep}
-    transition:fly={{ y: 60, duration: 480, easing: cubicOut }}
+    transition:fly={{ y: travel(60), opacity: 0, ...spring("slow-spatial") }}
+    data-np-full
   >
     {#if !showingVideo}
       <div class="glow" style:background-image={cover ? `url("${cover}")` : undefined} transition:fade={{ duration: 400 }}></div>
@@ -254,7 +256,7 @@
               class="edit"
               onclick={() => {
                 eqOpen = false;
-                musicUi.full = false;
+                musicUi.setFull(false);
                 nav.go({ name: "settings", page: "music", setting: "eq" });
               }}><m3e-icon name="tune"></m3e-icon>Edit the curve</button
             >
@@ -269,7 +271,7 @@
         <div class="stage" bind:this={stage}>
           {#if !showingVideo}
             <Visualizer size={stageSize} color={tint} />
-            <div class="cover">
+            <div class="cover" data-np-cover>
               <MorphCover src={cover} size={Math.round(stageSize * 0.66)} playing={musicPlayer.playing} lobes={12} react />
             </div>
             {#if video}<span class="vid-wait">Loading the video…</span>{/if}

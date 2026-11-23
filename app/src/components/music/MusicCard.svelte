@@ -15,6 +15,7 @@
   const round = $derived(item.kind === "artist");
   const wide = $derived(item.kind === "video");
   const current = $derived(musicPlayer.current?.id === item.id);
+  let cover = $state<HTMLElement>();
 
   function play(e: MouseEvent) {
     e.stopPropagation();
@@ -29,11 +30,11 @@
   role="button"
   tabindex="0"
   style:--w={`${wide ? Math.round(size * 1.6) : size}px`}
-  onclick={() => openItem(item, list, source)}
-  onkeydown={(e) => e.key === "Enter" && openItem(item, list, source)}
+  onclick={() => openItem(item, list, source, cover)}
+  onkeydown={(e) => e.key === "Enter" && openItem(item, list, source, cover)}
   oncontextmenu={(e) => playable(item) && musicUi.openMenu(item, e)}
 >
-  <div class="cover">
+  <div class="cover" bind:this={cover} data-vt-key={`music:${item.id}`}>
     <Art thumbs={item.thumbnails} size={wide ? Math.round(size * 1.6) : size} {round} {wide} alt={item.title} />
     {#if item.kind !== "category"}
       <button class="play" class:on={current && musicPlayer.playing} aria-label={`Play ${item.title}`} onclick={play}>

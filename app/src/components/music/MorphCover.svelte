@@ -4,7 +4,7 @@
   // rounded square. Drawn as an SVG clip path updated each frame, and only
   // while something is changing.
   import { onMount } from "svelte";
-  import { reducedMotion } from "../../lib/motion";
+  import { reducedMotion } from "../../lib/motion.svelte";
   import { musicPlayer } from "../../lib/music/player.svelte";
 
   let {

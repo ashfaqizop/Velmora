@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { scale } from "svelte/transition";
+  import { spring, travel } from "../lib/motion.svelte";
   import { onMount } from "svelte";
   import Logo from "./Logo.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -100,7 +102,7 @@
   </button>
 
   <div class="search" data-tauri-drag-region>
-    <m3e-search-bar clearable onclear={() => (query = "")}>
+    <m3e-search-bar clearable class:open={focused || !!searching()} onclear={() => (query = "")}>
       <m3e-icon slot="leading" name="search"></m3e-icon>
       <input
         bind:this={input}
@@ -120,7 +122,14 @@
     </m3e-search-bar>
     {#if showRecent}
       <!-- mousedown is held off so clicking here doesn't blur the box first. -->
-      <div class="recent" id="recent-searches" role="listbox" tabindex="-1" onmousedown={(e) => e.preventDefault()}>
+      <div
+        class="recent"
+        id="recent-searches"
+        role="listbox"
+        tabindex="-1"
+        onmousedown={(e) => e.preventDefault()}
+        transition:scale={{ start: travel(1) ? 0.96 : 1, opacity: 0, ...spring("fast-spatial") }}
+      >
         <div class="recent-head">
           <span>Recent searches</span>
           <button class="link" onclick={forgetAll}>Clear all</button>
@@ -209,9 +218,10 @@
     justify-content: center;
   }
   .recent {
+    transform-origin: top center;
     position: absolute;
     top: calc(100% + 6px);
-    width: min(640px, 100%);
+    width: min(720px, 100%);
     z-index: 900;
     padding: 8px;
     border-radius: 24px;
@@ -282,10 +292,20 @@
   .recent-x:hover {
     background: var(--md-sys-color-surface-container);
   }
+  /* The box widens when you're in it, and stays wide on the results. */
   m3e-search-bar {
-    width: min(640px, 100%);
+    width: min(560px, 100%);
     --m3e-search-bar-container-height: 48px;
     --m3e-search-bar-container-color: var(--md-sys-color-surface-container-high);
+    border-radius: 999px;
+    transition:
+      width var(--spring-default-spatial),
+      box-shadow var(--spring-default-effects);
+  }
+  m3e-search-bar.open {
+    width: min(720px, 100%);
+    --m3e-search-bar-container-color: var(--md-sys-color-surface-container-highest);
+    box-shadow: 0 6px 24px -10px rgb(0 0 0 / 55%);
   }
   .kbd {
     font-size: 12px;

@@ -7,6 +7,8 @@ import "./lib/fonts/noto.css";
 import "material-symbols/outlined.css";
 import "./lib/m3e";
 import "./app.css";
+// Puts the motion springs and the Motion level on the page before anything draws.
+import "./lib/motion.svelte";
 
 import { mount } from "svelte";
 import App from "./App.svelte";

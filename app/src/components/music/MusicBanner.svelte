@@ -34,7 +34,7 @@
   {#if bg}<div class="glow" style:background-image={`url("${bg}")`}></div>{/if}
   <div class="fade"></div>
   <div class="inner" in:fly={{ y: 16, duration: 480, easing: cubicOut }}>
-    <div class="cover">
+    <div class="cover" data-vt-hero>
       <Art {thumbs} size={round ? 200 : 220} {round} alt={title} />
     </div>
     <div class="text">

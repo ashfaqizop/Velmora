@@ -5,6 +5,7 @@
   // down, and opens the full player on click. Tinted by the artwork.
   import { fly, scale } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
+  import { spring, travel } from "../../lib/motion.svelte";
   import MorphCover from "./MorphCover.svelte";
   import { musicPlayer } from "../../lib/music/player.svelte";
   import { art, artists, likes, musicUi } from "../../lib/music/ui.svelte";
@@ -31,7 +32,7 @@
 
   const openFull = (tab: "lyrics" | "queue" = "lyrics") => {
     musicUi.fullTab = tab;
-    musicUi.full = true;
+    musicUi.setFull(true);
   };
 
   /** Stop the music and hide the bar, with a way back for a slip of the mouse. */
@@ -47,9 +48,10 @@
     class:compact
     style:--np={musicUi.colors?.base ?? "var(--md-sys-color-primary)"}
     style:--np-deep={musicUi.colors?.deep ?? "var(--md-sys-color-surface-container-high)"}
-    transition:fly={{ y: 80, duration: 420, easing: cubicOut }}
+    transition:fly={{ y: travel(80), opacity: 0, ...spring("default-spatial") }}
+    data-np-mini
   >
-    <button class="cover" aria-label="Open the player" onclick={() => openFull()}>
+    <button class="cover" data-np-cover aria-label="Open the player" onclick={() => openFull()}>
       <MorphCover src={cover} size={compact ? 56 : 52} playing={musicPlayer.playing} lobes={8} />
       {#if compact}
         <span class="mini-play" transition:scale={{ duration: 180 }}>

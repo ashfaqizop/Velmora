@@ -192,7 +192,7 @@
   </div>
 
   <div class="head">
-    <div class="poster" style:background-image={s.poster ? `url("${s.poster}")` : undefined}></div>
+    <div class="poster" data-vt-hero style:background-image={s.poster ? `url("${s.poster}")` : undefined}></div>
     <div class="info">
       <h1 class="display">{s.name}</h1>
       {#if x?.tagline}<p class="tagline display">{x.tagline}</p>{/if}

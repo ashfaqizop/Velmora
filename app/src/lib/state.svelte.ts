@@ -1,6 +1,7 @@
 // App-wide state: navigation, the home feed, and the local library
 // (My List and watch history live in localStorage until sync lands).
 import * as api from "./api";
+import { transition } from "./vt";
 import type {
   AniKeyStatus,
   AudioMode,
@@ -58,11 +59,50 @@ export type Route =
 /** Music mode: the routes that belong to YouTube Music. */
 export const isMusic = (r: Route) => r.name.startsWith("music");
 
+/** Pages in the sidebar. Moving between them is a sideways step, not a deeper one. */
+function topLevel(r: Route): boolean {
+  switch (r.name) {
+    case "home":
+    case "browse":
+    case "mylist":
+    case "downloads":
+    case "settings":
+    case "ani":
+    case "live":
+    case "sports":
+    case "music":
+    case "music-explore":
+    case "music-library":
+      return true;
+    case "music-playlist":
+      return r.id === "LM";
+    default:
+      return false;
+  }
+}
+
+/** A page left behind: where it was scrolled to, and the card that was opened from it. */
+interface Visit {
+  route: Route;
+  scroll: number;
+  /** `data-vt-key` of the card that opened the next page, for the way back,
+   *  and which of the cards with that key it was (a title can be in two rows). */
+  key?: string;
+  index?: number;
+}
+
+/** Every card on the page with this `data-vt-key`, in page order. */
+const cardsWith = (key: string) => [...document.querySelectorAll(`[data-vt-key="${CSS.escape(key)}"]`)];
+
 class Nav {
   route = $state<Route>({ name: "home" });
-  private stack: Route[] = [];
+  private stack: Visit[] = [];
+  private ahead: Visit[] = [];
   /** Where to land when leaving Music mode. */
   private lastVelmora: Route = { name: "home" };
+  /** The scrolling page area (Shell sets it). */
+  scroller: HTMLElement | null = null;
+  canGoForward = $state(false);
 
   get musicMode() {
     return isMusic(this.route);
@@ -73,15 +113,60 @@ class Nav {
     this.go(this.lastVelmora);
   }
 
-  go(route: Route) {
+  private get scroll(): number {
+    return this.scroller?.scrollTop ?? 0;
+  }
+
+  /** Scroll to `top` now, and again as the page grows (rows that load). */
+  private restoreScroll(top: number) {
+    const el = this.scroller;
+    if (!el) return;
+    el.scrollTop = top;
+    if (top <= 0) return;
+    const until = performance.now() + 900;
+    const again = () => {
+      if (!this.scroller || this.scroller !== el) return;
+      if (Math.abs(el.scrollTop - top) > 2 && el.scrollHeight - el.clientHeight >= top - 2) el.scrollTop = top;
+      if (el.scrollTop < top - 2 && performance.now() < until) requestAnimationFrame(again);
+    };
+    requestAnimationFrame(again);
+  }
+
+  /**
+   * Open a page. `from` is the card that was clicked: its artwork grows into
+   * the new page's (marked `data-vt-hero`), and shrinks back to it on Back.
+   */
+  go(route: Route, opts: { from?: Element | null; key?: string } = {}) {
     if (JSON.stringify(route) === JSON.stringify(this.route)) return;
-    if (isMusic(route) && !isMusic(this.route) && this.route.name !== "player") this.lastVelmora = this.route;
+    const prev = this.route;
+    if (isMusic(route) && !isMusic(prev) && prev.name !== "player") this.lastVelmora = prev;
     // Typing in search refines the current search instead of stacking pages.
     const refining =
-      (route.name === "search" && this.route.name === "search") ||
-      (route.name === "music-search" && this.route.name === "music-search");
-    if (!refining) this.stack.push(this.route);
-    this.route = route;
+      (route.name === "search" && prev.name === "search") || (route.name === "music-search" && prev.name === "music-search");
+    const visit: Visit = {
+      route: prev,
+      scroll: this.scroll,
+      key: opts.key,
+      index: opts.key && opts.from ? Math.max(0, cardsWith(opts.key).indexOf(opts.from)) : undefined,
+    };
+    const apply = () => {
+      if (!refining) this.stack.push(visit);
+      this.ahead = [];
+      this.canGoForward = false;
+      this.route = route;
+    };
+    const player = route.name === "player" || prev.name === "player";
+    if (refining || player) {
+      apply();
+      if (!refining && !player) this.restoreScroll(0);
+      return;
+    }
+    const kind = route.name === "search" || route.name === "music-search" ? "search" : topLevel(route) && topLevel(prev) ? "switch" : "forward";
+    const from = opts.from;
+    transition(kind, apply, {
+      after: () => this.restoreScroll(0),
+      shared: from ? [{ name: "hero", from: () => from, to: () => document.querySelector("[data-vt-hero]") }] : [],
+    });
   }
 
   /** Swap the current page without adding a history step (next episode). */
@@ -90,7 +175,39 @@ class Nav {
   }
 
   back() {
-    this.route = this.stack.pop() ?? { name: "home" };
+    const visit = this.stack.pop() ?? { route: { name: "home" } as Route, scroll: 0 };
+    this.ahead.push({ route: this.route, scroll: this.scroll });
+    this.canGoForward = true;
+    this.travel("back", visit);
+  }
+
+  /** The mouse's forward button: undo a Back. */
+  forward() {
+    const visit = this.ahead.pop();
+    if (!visit) return;
+    this.stack.push({ route: this.route, scroll: this.scroll });
+    this.canGoForward = this.ahead.length > 0;
+    this.travel("forward", visit);
+  }
+
+  private travel(kind: "back" | "forward", visit: Visit) {
+    const prev = this.route;
+    const apply = () => (this.route = visit.route);
+    if (prev.name === "player" || visit.route.name === "player") {
+      apply();
+      return;
+    }
+    const key = visit.key;
+    const card = () => (key ? (cardsWith(key)[visit.index ?? 0] ?? cardsWith(key)[0]) : null);
+    const sideways = topLevel(prev) && topLevel(visit.route);
+    transition(sideways ? "switch" : kind, apply, {
+      after: () => {
+        this.restoreScroll(visit.scroll);
+        // The card this page was opened from, brought into view in its row.
+        card()?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      },
+      shared: key ? [{ name: "hero", from: () => document.querySelector("[data-vt-hero]"), to: card }] : [],
+    });
   }
 
   get canGoBack() {

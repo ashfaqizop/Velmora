@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TitleSummary } from "../lib/types";
-  import { library, meta, nav } from "../lib/state.svelte";
+  import { keyOf, library, meta, nav } from "../lib/state.svelte";
 
   // `width` fixes the card size in rails; grids leave it unset and stretch.
   let { title, width }: { title: TitleSummary; width?: number } = $props();
@@ -15,11 +15,14 @@
       .toUpperCase(),
   );
   const saved = $derived(library.has(title));
-  const open = () => nav.go({ name: "title", title });
+  let art = $state<HTMLElement>();
+  const key = $derived(`title:${keyOf(title)}`);
+  // The artwork grows into the title page (and back into this card).
+  const open = () => nav.go({ name: "title", title }, { from: art, key });
 </script>
 
 <m3e-card actionable variant="filled" class="poster" style:width={width ? `${width}px` : undefined} onclick={open} title={title.name}>
-  <div class="art">
+  <div class="art" bind:this={art} data-vt-key={key}>
     {#if title.poster && !failed}
       <img src={title.poster} alt="" loading="lazy" decoding="async" onerror={() => (failed = true)} />
     {:else}

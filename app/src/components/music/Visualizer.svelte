@@ -5,7 +5,7 @@
   // channel on one side, right on the other.
   import { onMount } from "svelte";
   import { musicPlayer } from "../../lib/music/player.svelte";
-  import { reducedMotion } from "../../lib/motion";
+  import { reducedMotion } from "../../lib/motion.svelte";
 
   let { size = 520, color = "#b69cff" }: { size?: number; color?: string } = $props();
 
