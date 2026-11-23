@@ -1,0 +1,18 @@
+<!--
+  Paste this into Supabase > Authentication > Emails > Templates, for BOTH
+  "Confirm sign up" and "Magic link", with the subject "Your Velmora code".
+  The site asks people to type the {{ .Token }} code, so it has to be in here.
+-->
+<div style="background:#0a0d16;padding:32px 16px;font-family:Segoe UI,Helvetica,Arial,sans-serif;">
+  <div style="max-width:440px;margin:0 auto;background:#121827;border-radius:20px;padding:32px;color:#f4f1fb;">
+    <p style="margin:0 0 8px;font-size:14px;letter-spacing:0.12em;text-transform:uppercase;color:#f8e8c8;">Velmora</p>
+    <h1 style="margin:0 0 16px;font-size:24px;font-weight:600;">Your sign-in code</h1>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#b2abc4;">
+      Type this code on the Velmora sign-in page. It works once and expires soon.
+    </p>
+    <p style="margin:0 0 24px;font-size:36px;font-weight:700;letter-spacing:0.28em;color:#6c9bff;">{{ .Token }}</p>
+    <p style="margin:0;font-size:13px;line-height:1.6;color:#8d86a0;">
+      If you didn't ask for this, ignore this email. Nobody can sign in without the code.
+    </p>
+  </div>
+</div>

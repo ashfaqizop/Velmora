@@ -10,6 +10,7 @@
   import DownloadFolder from "../components/DownloadFolder.svelte";
   import AniKey from "../components/AniKey.svelte";
   import MaxLicense from "../components/MaxLicense.svelte";
+  import AccountCard from "../components/AccountCard.svelte";
   import MusicSettings from "../components/music/MusicSettings.svelte";
   import MusicStorage from "../components/music/MusicStorage.svelte";
   import MusicOutput from "../components/music/MusicOutput.svelte";
@@ -656,9 +657,18 @@
     </section>
     {/if}
 
+    {#if page === "account"}
+    <section>
+      <m3e-heading variant="title" size="large" level={2}>Velmora account</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content" data-setting="account-profile"><AccountCard /></div>
+      </m3e-card>
+    </section>
+    {/if}
+
     {#if page === "accounts"}
     <section>
-      <m3e-heading variant="title" size="large" level={2}>Accounts</m3e-heading>
+      <m3e-heading variant="title" size="large" level={2}>Linked accounts</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
           <div class="row" data-setting="anilist">

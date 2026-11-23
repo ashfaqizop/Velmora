@@ -4,6 +4,7 @@
   import Sidebar from "./Sidebar.svelte";
   import SidePanel from "./SidePanel.svelte";
   import About from "./About.svelte";
+  import SignInDialog from "./SignInDialog.svelte";
   import Home from "../pages/Home.svelte";
   import Grid from "../pages/Grid.svelte";
   import Search from "../pages/Search.svelte";
@@ -185,6 +186,7 @@
 </div>
 
 <About bind:this={about} />
+<SignInDialog />
 
 <style>
   .shell {

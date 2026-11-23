@@ -9,6 +9,7 @@ export type SettingsPage =
   | "music"
   | "music-storage"
   | "ani"
+  | "account"
   | "accounts"
   | "appearance"
   | "license"
@@ -41,7 +42,8 @@ export const SETTINGS_GROUPS: { label: string; pages: PageInfo[] }[] = [
     label: "Velmora",
     pages: [
       { id: "ani", label: "Ani", icon: "auto_awesome" },
-      { id: "accounts", label: "Accounts", icon: "account_circle" },
+      { id: "account", label: "Velmora account", icon: "person" },
+      { id: "accounts", label: "Linked accounts", icon: "account_circle" },
       { id: "appearance", label: "Appearance", icon: "palette" },
       { id: "license", label: "License", icon: "workspace_premium" },
       { id: "about", label: "About", icon: "info" },
@@ -72,6 +74,9 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { id: "audio-lang", page: "playback", label: "Audio language", hint: "The language Velmora looks for first", words: "dub language" },
   { id: "sub-lang", page: "playback", label: "Subtitle language", hint: "Subtitles Velmora picks first", words: "subtitles captions cc" },
   { id: "anime-audio", page: "playback", label: "Anime audio", hint: "Sub or dub", words: "japanese english dub sub" },
+
+  { id: "account-profile", page: "account", label: "Velmora account", hint: "Sign in, your profile and username", words: "login log in sign in sign up register profile username avatar picture google discord email name logout sign out" },
+  { id: "account-data", page: "account", label: "Your data and deleting your account", hint: "Copy or delete what Velmora holds about you", words: "export delete remove privacy gdpr" },
 
   { id: "dialogue", page: "sound", label: "Dialogue boost", hint: "Clearer voices", words: "speech voice center" },
   { id: "night", page: "sound", label: "Night mode", hint: "Quieter loud parts", words: "compressor dynamic range" },

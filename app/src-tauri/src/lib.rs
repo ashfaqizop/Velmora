@@ -1,6 +1,7 @@
 //! Velmora desktop/mobile shell: owns the UniverseAPI engine and exposes it
 //! to the web UI as Tauri commands.
 
+mod account;
 mod ads;
 mod ani;
 mod commands;
@@ -106,6 +107,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move { downloads.remove_orphaned_parts().await });
             app.manage(ani::AniStore::load(&paths.app_local_data_dir()?));
             app.manage(license::LicenseStore::load(&paths.app_local_data_dir()?));
+            app.manage(account::AccountStore::new(&paths.app_local_data_dir()?));
             let state = AppState {
                 engine,
                 stream_port,
@@ -206,6 +208,12 @@ pub fn run() {
             license::license_activate,
             license::license_refresh,
             license::license_remove,
+            account::account_begin,
+            account::account_redeem,
+            account::account_cancel,
+            account::account_vault_read,
+            account::account_vault_write,
+            account::account_vault_clear,
             ads::ads_config,
             ads::ads_report,
             music::music_status,

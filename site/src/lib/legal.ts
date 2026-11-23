@@ -1,6 +1,6 @@
 // The privacy policy and terms, in plain language. Update `UPDATED` with any change.
 
-export const UPDATED = "2026-11-11";
+export const UPDATED = "2026-11-23";
 
 export interface LegalSection {
   heading: string;
@@ -16,12 +16,21 @@ export interface LegalDoc {
 export const PRIVACY: LegalDoc = {
   title: "Privacy policy",
   intro:
-    "Velmora has no accounts and keeps what you watch on your PC. This page lists everything that does leave it, who receives it, and why. It covers the Velmora app for Windows, the license service and this website.",
+    "Velmora works without an account and keeps what you watch on your PC. An account is optional. This page lists everything that does leave your PC, who receives it, and why. It covers the Velmora app for Windows, accounts, the license service and this website.",
   sections: [
     {
       heading: "What stays on your PC",
       paragraphs: [
         "Your watch history, Continue Watching, My List, settings, downloads, the songs you play and search for in Music, and the taste profile Ani builds are stored on your PC only. Velmora has no server that collects them, and nobody else can see them.",
+      ],
+    },
+    {
+      heading: "Your Velmora account",
+      paragraphs: [
+        "An account is optional; Velmora works the same as a guest without one. You sign up on our sign-in page (auth.getvelmora.dpdns.org) with Google, Discord or an emailed code, and the page hands the result back to the app. The sign-in page loads no ads and no third-party scripts.",
+        "We store your email address, your username, your display name and your profile picture. With Google or Discord we receive the name, email address and photo you have there, and your picture can be that photo. Your username, display name and picture are visible to other signed-in Velmora users; your email address is not. Accounts are kept with Supabase, our database and sign-in provider, and codes sent by email go through Mailtrap.",
+        "The app keeps a sign-in token in Windows Credential Manager so you stay signed in, and a copy of your profile so it still shows when you are offline. Signing out removes both from your PC.",
+        "In Settings, under Velmora account, you can copy everything we hold about you, or delete your account. Deleting removes your profile and sign-in from our database for good.",
       ],
     },
     {

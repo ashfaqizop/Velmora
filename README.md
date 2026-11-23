@@ -14,7 +14,7 @@
   <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue" /></a>
 </p>
 
-Velmora is a Windows app (Android is planned) that looks a title up across several streaming and download sites at once, ranks the links it finds, and plays the best one in a built-in mpv player. It also brings your YouTube Music into the same app. Everything runs on your machine. There is no account, no server of ours and no tracking. If you turn on Ani, your messages go to Google's Gemini API with your own key.
+Velmora is a Windows app (Android is planned) that looks a title up across several streaming and download sites at once, ranks the links it finds, and plays the best one in a built-in mpv player. It also brings your YouTube Music into the same app. Playback and search run on your machine, and what you watch stays on it. An account is optional: sign in with Google, Discord or email for a username and profile, or use Velmora as a guest. If you turn on Ani, your messages go to Google's Gemini API with your own key.
 
 The part that finds and resolves links is a separate Rust library, the [UniverseAPI engine](universeapi/README.md), which lives in this repo and can be used on its own.
 

@@ -240,6 +240,21 @@ export const licenseActivate = (key: string) => invoke<LicenseStatus>("license_a
 export const licenseRefresh = () => invoke<LicenseStatus>("license_refresh");
 export const licenseRemove = () => invoke<LicenseStatus>("license_remove");
 
+// ── Velmora account (src-tauri/src/account.rs) ──
+
+export interface AuthSession {
+  access_token: string;
+  refresh_token: string;
+}
+/** Opens the browser to sign in and waits. Resolves to the session, or null if cancelled. */
+export const accountBegin = () => invoke<AuthSession | null>("account_begin");
+/** Finishes the waiting sign-in with the short code the website shows. */
+export const accountRedeem = (code: string) => invoke<AuthSession>("account_redeem", { code });
+export const accountCancel = () => invoke<void>("account_cancel");
+export const accountVaultRead = () => invoke<string | null>("account_vault_read");
+export const accountVaultWrite = (text: string) => invoke<void>("account_vault_write", { text });
+export const accountVaultClear = () => invoke<void>("account_vault_clear");
+
 /** The ad rules from the site, or null when it can't be reached. */
 export const adsConfig = () => invoke<unknown>("ads_config");
 export const adsReport = (counts: Record<string, number>) => invoke<void>("ads_report", { counts });

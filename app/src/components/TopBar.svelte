@@ -3,6 +3,8 @@
   import { spring, travel } from "../lib/motion.svelte";
   import { onMount } from "svelte";
   import Logo from "./Logo.svelte";
+  import Avatar from "./Avatar.svelte";
+  import { account } from "../lib/account.svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { nav } from "../lib/state.svelte";
   import * as api from "../lib/api";
@@ -155,12 +157,27 @@
     <m3e-tooltip for="btn-downloads">Downloads</m3e-tooltip>
 
     <m3e-button id="btn-profile" variant="text" class="profile">
-      <m3e-avatar slot="icon" class="avatar"><m3e-icon name="person"></m3e-icon></m3e-avatar>
-      Guest
+      {#if account.signedIn && account.profile}
+        <span slot="icon" class="avatar"><Avatar value={account.profile.avatar} size={28} /></span>
+        {account.profile.display_name}
+      {:else}
+        <m3e-avatar slot="icon" class="avatar"><m3e-icon name="person"></m3e-icon></m3e-avatar>
+        Guest
+      {/if}
       <m3e-icon slot="trailing-icon" name="expand_more"></m3e-icon>
       <m3e-menu-trigger for="profile-menu"></m3e-menu-trigger>
     </m3e-button>
     <m3e-menu id="profile-menu">
+      {#if account.signedIn && account.profile}
+        <m3e-menu-item onclick={() => nav.go({ name: "settings", page: "account" })}>
+          <m3e-icon slot="icon" name="person"></m3e-icon>@{account.profile.username}
+        </m3e-menu-item>
+      {:else}
+        <m3e-menu-item onclick={() => account.signIn()}>
+          <m3e-icon slot="icon" name="login"></m3e-icon>Sign in or sign up
+        </m3e-menu-item>
+      {/if}
+      <m3e-divider></m3e-divider>
       <m3e-menu-item onclick={() => nav.go({ name: "mylist" })}>
         <m3e-icon slot="icon" name="bookmarks"></m3e-icon>My List
       </m3e-menu-item>
@@ -170,6 +187,12 @@
       <m3e-menu-item onclick={() => nav.go({ name: "settings" })}>
         <m3e-icon slot="icon" name="settings"></m3e-icon>Settings
       </m3e-menu-item>
+      {#if account.signedIn}
+        <m3e-divider></m3e-divider>
+        <m3e-menu-item onclick={() => account.signOut()}>
+          <m3e-icon slot="icon" name="logout"></m3e-icon>Sign out
+        </m3e-menu-item>
+      {/if}
       <m3e-divider></m3e-divider>
       <m3e-menu-item onclick={onabout}>
         <m3e-icon slot="icon" name="info"></m3e-icon>About Velmora
