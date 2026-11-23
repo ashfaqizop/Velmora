@@ -18,14 +18,14 @@
       icon: "leaderboard",
       shape: "soft-burst",
       title: "The best link, picked",
-      text: "Links are ranked by quality, codec, language and size, so the first one is usually the one you want.",
+      text: "Links are ranked by quality, codec, language and size, and found while you read a title's page, so Play starts at once.",
       tone: "coral",
     },
     {
       icon: "play_circle",
       shape: "4-leaf-clover",
       title: "A real player inside",
-      text: "Built on mpv. MKV, HEVC, AV1, AC3 and 4K play without codec packs or extra apps.",
+      text: "Built on mpv. MKV, HEVC, AV1, AC3 and 4K play without codec packs or extra apps, and a built-in player takes over on PCs mpv can't run on.",
       tone: "violet",
     },
     {
@@ -76,7 +76,7 @@
       icon: "palette",
       shape: "very-sunny",
       title: "Make it yours",
-      text: "Material 3 Expressive design with eight accent colors to pick from.",
+      text: "Material 3 Expressive design that moves on springs, with accent colors to pick from and motion you can tone down.",
       tone: "violet",
     },
   ];
