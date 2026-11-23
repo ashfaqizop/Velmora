@@ -10,6 +10,8 @@
   import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
   import mark from "../assets/velmora-mark.webp";
   import Avatar from "./Avatar.svelte";
+  import NameStatus from "./NameStatus.svelte";
+  import { fly } from "svelte/transition";
   import { AUTH_HOST, MAIN_SITE, SUPABASE_KEY, SUPABASE_URL } from "./config";
   import { isPhotoUrl, PRESETS, presetId } from "./avatars";
 
@@ -299,7 +301,8 @@
       return;
     }
     if (!NAME.test(name)) {
-      nameCheck = "bad";
+      // Still typing the first letters is not a mistake.
+      nameCheck = /^[A-Za-z0-9_]{0,2}$/.test(name) ? "idle" : "bad";
       return;
     }
     nameCheck = "checking";
@@ -337,7 +340,7 @@
           ? "Someone just took that username. Pick another."
           : error.message.includes("username_reserved")
             ? "That name isn't available."
-            : "Couldn't save your profile. Try again.";
+            : `Couldn't save your profile. Try again. (${error.code ?? "error"}: ${error.message.slice(0, 120)})`;
       if (error.code === "23505") nameCheck = "taken";
       return;
     }
@@ -525,8 +528,11 @@
               class:good={nameCheck === "free"}
               class:bad={nameCheck === "taken" || nameCheck === "bad"}
             />
+            <span class="tail"><NameStatus state={nameCheck} /></span>
           </div>
-          <small id="name-hint" class:good={nameCheck === "free"} class:bad={nameCheck === "taken" || nameCheck === "bad"}>{nameHint}</small>
+          <small id="name-hint" class:good={nameCheck === "free"} class:bad={nameCheck === "taken" || nameCheck === "bad"}>
+            {#key nameHint}<span class="hint" in:fly={{ y: 4, duration: 180 }}>{nameHint}</span>{/key}
+          </small>
         </label>
 
         <fieldset class="faces">
@@ -767,12 +773,32 @@
   }
   .at input {
     padding-left: 32px;
+    padding-right: 48px;
+    transition:
+      border-color 240ms ease,
+      box-shadow 240ms ease;
   }
   .at input.good {
     border-color: #3ecf8e;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #3ecf8e 22%, transparent);
   }
   .at input.bad {
     border-color: #ff6b6b;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #ff6b6b 20%, transparent);
+  }
+  .tail {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    translate: 0 -50%;
+    display: grid;
+  }
+  .hint {
+    display: inline-block;
+  }
+  small {
+    min-height: 1.4em;
+    transition: color 240ms ease;
   }
   small {
     font-weight: 500;

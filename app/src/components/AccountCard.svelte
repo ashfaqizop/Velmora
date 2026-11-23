@@ -2,6 +2,7 @@
   // Settings > Velmora account: sign in, your profile, and your data.
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import Avatar from "./Avatar.svelte";
+  import NameStatus from "./NameStatus.svelte";
   import { account, USERNAME } from "../lib/account.svelte";
   import { isPhotoUrl, PRESETS, presetId } from "../lib/avatars";
 
@@ -44,7 +45,8 @@
       return;
     }
     if (!USERNAME.test(value)) {
-      check = "bad";
+      // Still typing the first letters is not a mistake.
+      check = /^[A-Za-z0-9_]{0,2}$/.test(value) ? "idle" : "bad";
       return;
     }
     check = "checking";
@@ -162,6 +164,8 @@
           bind:value={uname}
           disabled={busy || locked}
         />
+        <span slot="suffix" class="tail"><NameStatus state={check} /></span>
+        <span slot="error-icon"></span>
         <span slot="hint">{hint}</span>
         <span slot="error">{hint}</span>
       </m3e-form-field>
@@ -315,5 +319,11 @@
   }
   m3e-divider {
     margin: 16px 0;
+  }
+  .tail {
+    display: grid;
+    padding-right: 12px;
+    --status-busy: var(--md-sys-color-primary);
+    --status-no: var(--md-sys-color-error);
   }
 </style>

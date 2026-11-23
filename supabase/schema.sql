@@ -19,6 +19,7 @@ create table if not exists public.reserved_usernames (
 
 -- No policies on purpose: only the functions below read it.
 alter table public.reserved_usernames enable row level security;
+revoke all on public.reserved_usernames from anon, authenticated;
 
 insert into public.reserved_usernames (name) values
   ('admin'), ('administrator'), ('root'), ('system'), ('support'), ('help'), ('staff'),
@@ -48,8 +49,23 @@ create table if not exists public.profiles (
   constraint profiles_username_unique unique (username_key),
   constraint profiles_display_name_len check (char_length(btrim(display_name)) between 1 and 40),
   constraint profiles_avatar_ok check (
+    char_length(avatar) <= 500
+    and (
+      avatar ~ '^preset:([1-9]|1[0-2])$'
+      or avatar ~ '^https://(lh3\.googleusercontent\.com|cdn\.discordapp\.com)/[^[:space:]]+$'
+    )
+  )
+);
+
+-- Tables made by an earlier run keep their old rule, so replace it. (Postgres
+-- allows at most 255 in a repeat count like {1,400}, which made every photo
+-- avatar fail; the length is checked separately above instead.)
+alter table public.profiles drop constraint if exists profiles_avatar_ok;
+alter table public.profiles add constraint profiles_avatar_ok check (
+  char_length(avatar) <= 500
+  and (
     avatar ~ '^preset:([1-9]|1[0-2])$'
-    or avatar ~ '^https://(lh3\.googleusercontent\.com|cdn\.discordapp\.com)/[^[:space:]]{1,400}$'
+    or avatar ~ '^https://(lh3\.googleusercontent\.com|cdn\.discordapp\.com)/[^[:space:]]+$'
   )
 );
 
@@ -58,6 +74,8 @@ create table if not exists public.profiles (
 create or replace function public.profiles_guard()
 returns trigger
 language plpgsql
+-- Definer, so it can read the reserved names even though people can't.
+security definer
 set search_path = ''
 as $$
 begin
