@@ -12,7 +12,7 @@
   import Avatar from "./Avatar.svelte";
   import NameStatus from "./NameStatus.svelte";
   import { fly } from "svelte/transition";
-  import { AUTH_HOST, MAIN_SITE, SUPABASE_KEY, SUPABASE_URL } from "./config";
+  import { AUTH_HOST, MAIN_SITE, SUPABASE_KEY, SUPABASE_URL, TURNSTILE_SITE_KEY } from "./config";
   import { isPhotoUrl, PRESETS, presetId } from "./avatars";
 
   type View = "loading" | "nocontext" | "signin" | "code" | "setup" | "return" | "done" | "error";
@@ -37,6 +37,59 @@
   let view = $state<View>("loading");
   let busy = $state(false);
   let message = $state("");
+
+  // Cloudflare Turnstile: a quiet check that the email form isn't a bot. It only
+  // shows itself when it needs the person to do something.
+  interface TurnstileApi {
+    render(el: HTMLElement, options: Record<string, unknown>): string;
+    reset(id?: string): void;
+  }
+  let tsEl = $state<HTMLElement | undefined>();
+  let tsWidget: string | null = null;
+  let captcha = $state<string | null>(null);
+  let captchaFailed = $state(false);
+
+  function loadTurnstile(): Promise<TurnstileApi> {
+    const w = window as unknown as { turnstile?: TurnstileApi };
+    if (w.turnstile) return Promise.resolve(w.turnstile);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      s.async = true;
+      s.onload = () => (w.turnstile ? resolve(w.turnstile) : reject(new Error("turnstile missing")));
+      s.onerror = () => reject(new Error("turnstile blocked"));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function mountCaptcha(el: HTMLElement) {
+    tsWidget = "pending";
+    try {
+      const ts = await loadTurnstile();
+      tsWidget = ts.render(el, {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: "dark",
+        appearance: "interaction-only",
+        callback: (t: string) => ((captcha = t), (captchaFailed = false)),
+        "expired-callback": () => (captcha = null),
+        "timeout-callback": () => (captcha = null),
+        "error-callback": () => ((captcha = null), (captchaFailed = true)),
+      });
+    } catch {
+      captchaFailed = true;
+    }
+  }
+
+  /** A token works once, so ask for a fresh one after each use. */
+  function freshCaptcha() {
+    captcha = null;
+    const w = window as unknown as { turnstile?: TurnstileApi };
+    if (w.turnstile && tsWidget && tsWidget !== "pending") w.turnstile.reset(tsWidget);
+  }
+
+  $effect(() => {
+    if ((view === "signin" || view === "code") && tsEl && !tsWidget) mountCaptcha(tsEl);
+  });
 
   // Email
   let email = $state("");
@@ -216,7 +269,11 @@
     }
     busy = true;
     message = "";
-    const { error } = await sb.auth.signInWithOtp({ email: address, options: { shouldCreateUser: true } });
+    const { error } = await sb.auth.signInWithOtp({
+      email: address,
+      options: { shouldCreateUser: true, captchaToken: captcha ?? undefined },
+    });
+    freshCaptcha();
     busy = false;
     if (error) {
       message = friendly(error.message);
@@ -457,7 +514,12 @@
           <span>Email</span>
           <input type="email" autocomplete="email" placeholder="you@example.com" bind:value={email} disabled={busy} />
         </label>
-        <button class="btn primary" disabled={busy || !email.trim()}>{busy ? "Sending…" : "Email me a code"}</button>
+        <button class="btn primary" disabled={busy || !email.trim() || !captcha}>
+          {busy ? "Sending…" : captcha ? "Email me a code" : captchaFailed ? "Security check failed" : "Checking…"}
+        </button>
+        {#if captchaFailed}
+          <p class="fine">The security check couldn't run. A blocker may be stopping it: try turning it off for this page, or use Google or Discord.</p>
+        {/if}
       </form>
 
       <p class="fine">
@@ -489,7 +551,7 @@
         <button class="btn primary" disabled={busy || token.replace(/\s/g, "").length < 6}>{busy ? "Checking…" : "Continue"}</button>
       </form>
       <div class="row">
-        <button class="link" disabled={cooldown > 0 || busy} onclick={sendCode}>{cooldown > 0 ? `Send again in ${cooldown}s` : "Send a new code"}</button>
+        <button class="link" disabled={cooldown > 0 || busy || !captcha} onclick={sendCode}>{cooldown > 0 ? `Send again in ${cooldown}s` : "Send a new code"}</button>
         <button class="link" onclick={() => ((view = "signin"), (message = ""))}>Use a different email</button>
       </div>
     {:else if view === "setup"}
@@ -581,6 +643,7 @@
       <p class="muted">{message || "Something went wrong."}</p>
       <button class="btn primary" onclick={restart}>Try again</button>
     {/if}
+  <div class="ts" bind:this={tsEl}></div>
   </main>
 </div>
 
@@ -887,6 +950,9 @@
     font-size: 32px;
     background: color-mix(in srgb, #3ecf8e 22%, transparent);
     color: #3ecf8e;
+  }
+  .ts:empty {
+    display: none;
   }
   .spinner {
     width: 32px;

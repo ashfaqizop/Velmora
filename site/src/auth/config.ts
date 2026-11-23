@@ -8,3 +8,6 @@ export const SUPABASE_KEY = "sb_publishable_YSf01mWc6H2QFTxcBQcCMA_lElqBvgQ";
 /** The only place sign-in pages run. Its own origin keeps the main site's ad scripts away from sessions. */
 export const AUTH_HOST = "auth.getvelmora.dpdns.org";
 export const MAIN_SITE = "https://getvelmora.dpdns.org";
+
+/** Cloudflare Turnstile. The site key is public; the secret key lives only in Supabase (Authentication > Attack Protection). */
+export const TURNSTILE_SITE_KEY = "0x4AAAAAAGPNCEeEFCY2L9ym";
