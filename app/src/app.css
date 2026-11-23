@@ -281,3 +281,100 @@ main.content {
   transition-delay: 0s !important;
   scroll-behavior: auto !important;
 }
+
+/* ── Content arriving (lib/reveal.ts) ─────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--spring-slow-effects) var(--reveal-delay, 0ms),
+    transform var(--spring-default-spatial) var(--reveal-delay, 0ms);
+}
+:root[data-motion="reduced"] .reveal {
+  transform: none;
+}
+/* Artwork fades in over its placeholder and settles from a touch larger.
+   (Opacity and transform only: a row of posters loading at once stays
+   smooth on a modest GPU.) */
+img.img-fade {
+  opacity: 0;
+  transform: scale(1.04);
+}
+img.img-fade.img-in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--spring-slow-effects),
+    transform var(--spring-default-spatial);
+}
+:root[data-motion="reduced"] img.img-fade {
+  transform: none;
+}
+
+/* ── Press feedback ───────────────────────────────────────────────────
+   Buttons give a little as you press and spring back when you let go. */
+m3e-button,
+m3e-icon-button,
+m3e-fab,
+m3e-button-segment,
+m3e-chip,
+m3e-filter-chip,
+m3e-assist-chip,
+m3e-suggestion-chip {
+  transition: transform var(--spring-fast-spatial);
+}
+m3e-button:active,
+m3e-icon-button:active,
+m3e-fab:active,
+m3e-chip:active,
+m3e-filter-chip:active,
+m3e-assist-chip:active,
+m3e-suggestion-chip:active {
+  transform: scale(0.94);
+}
+m3e-button-segment:active {
+  transform: scale(0.97);
+}
+m3e-card[actionable] {
+  transition: transform var(--spring-default-spatial);
+}
+m3e-card[actionable]:active {
+  transform: scale(0.97);
+}
+:root[data-motion="reduced"] :is(m3e-button, m3e-icon-button, m3e-fab, m3e-chip, m3e-filter-chip, m3e-assist-chip, m3e-suggestion-chip, m3e-button-segment, m3e-card[actionable]):active {
+  transform: none;
+}
+
+/* ── Music colours that blend between songs ───────────────────────────
+   Registered, so the player's tint animates instead of jumping. */
+@property --np {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #3271fe;
+}
+@property --np-deep {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #0a0d16;
+}
+
+/* ── Scroll-linked ────────────────────────────────────────────────────
+   Big artwork on detail pages drifts slower than the page and fades as it
+   goes, driven by the page's own scroll (no script, on the compositor). */
+@keyframes scroll-drift {
+  to {
+    transform: translateY(28%) scale(1.04);
+    opacity: 0.25;
+  }
+}
+@supports (animation-timeline: scroll()) {
+  :root[data-motion="full"] .scroll-drift {
+    animation: scroll-drift linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: 0 520px;
+  }
+}

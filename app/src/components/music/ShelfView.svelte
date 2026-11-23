@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { reveal } from "../../lib/reveal";
   // One YouTube Music shelf: a carousel of cards, a block of song rows (laid
   // out in columns, like Quick picks), or a grid of mood tiles.
   import MusicCard from "./MusicCard.svelte";
@@ -40,7 +41,7 @@
   });
 </script>
 
-<section class="shelf">
+<section class="shelf" use:reveal>
   <header>
     <h2 class="display">{shelf.title}</h2>
     <div class="tools">

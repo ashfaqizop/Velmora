@@ -68,8 +68,11 @@
   const mode = $derived(nav.musicMode ? "music" : "velmora");
 
   let lastTop = 0;
+  /** The page is scrolled: the top bar lifts off it. */
+  let scrolled = $state(false);
   function onScroll() {
     if (!scroller) return;
+    scrolled = scroller.scrollTop > 6;
     musicUi.scrolled(scroller.scrollTop - lastTop);
     lastTop = scroller.scrollTop;
   }
@@ -84,7 +87,7 @@
   });
 </script>
 
-<div class="shell" class:revealed>
+<div class="shell" class:revealed class:scrolled>
   <div class="top"><TopBar onabout={() => about.open()} /></div>
   <div class="side"><Sidebar /></div>
 
@@ -207,6 +210,17 @@
   }
   .top {
     grid-area: top;
+    position: relative;
+    z-index: 2;
+    transition:
+      background-color var(--spring-slow-effects),
+      box-shadow var(--spring-slow-effects);
+  }
+  .shell.scrolled .top {
+    background-color: color-mix(in srgb, var(--md-sys-color-surface-container) 72%, transparent);
+    box-shadow:
+      0 1px 0 color-mix(in srgb, var(--md-sys-color-outline-variant) 60%, transparent),
+      0 10px 28px -18px rgb(0 0 0 / 70%);
   }
   .side {
     grid-area: side;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fadeImage } from "../lib/reveal";
   import type { TitleSummary } from "../lib/types";
   import { keyOf, library, meta, nav } from "../lib/state.svelte";
 
@@ -24,7 +25,7 @@
 <m3e-card actionable variant="filled" class="poster" style:width={width ? `${width}px` : undefined} onclick={open} title={title.name}>
   <div class="art" bind:this={art} data-vt-key={key}>
     {#if title.poster && !failed}
-      <img src={title.poster} alt="" loading="lazy" decoding="async" onerror={() => (failed = true)} />
+      <img src={title.poster} alt="" loading="lazy" decoding="async" use:fadeImage onerror={() => (failed = true)} />
     {:else}
       <div class="fallback">
         <span class="on-shape initials">

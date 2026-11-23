@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pop } from "../../lib/reveal";
   // One song in a list: number (or a small equalizer while it plays), cover,
   // title, artists, album, plays, like, length and the song menu.
   import Art from "./Art.svelte";
@@ -90,7 +91,7 @@
       likes.toggle(item);
     }}
   >
-    <m3e-icon name="favorite" filled={liked}></m3e-icon>
+    <m3e-icon name="favorite" filled={liked} use:pop={liked}></m3e-icon>
   </button>
   <span class="len">{item.duration ? clock(item.duration) : ""}</span>
   <button class="icon more" aria-label="More" onclick={(e) => musicUi.openMenu(item, e, ctx)}>

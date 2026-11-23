@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { springScrollTo, stopSpringScroll } from "../../lib/reveal";
   // Synced lyrics: big lines, the current one bright, the rest dimmed, kept
   // centred as the song plays. Click a line to jump there. Plain lyrics just
   // scroll.
@@ -65,11 +66,15 @@
     const el = box.children[i] as HTMLElement | undefined;
     if (!el) return;
     const top = el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2;
-    box.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    // On a spring, so a line change glides and settles instead of sliding at one speed.
+    springScrollTo(box, top);
   });
 </script>
 
-<div class="lyrics" {lang} bind:this={box} onwheel={() => (userScrolled = Date.now())}>
+<div class="lyrics" {lang} bind:this={box} onwheel={() => {
+    userScrolled = Date.now();
+    if (box) stopSpringScroll(box);
+  }}>
   {#if loading}
     <p class="note">Finding lyrics…</p>
   {:else if !lyrics}
@@ -117,9 +122,9 @@
     color: rgb(255 255 255 / 30%);
     transform-origin: left center;
     transition:
-      color 300ms ease,
-      transform 400ms cubic-bezier(0.2, 0, 0, 1),
-      filter 300ms ease;
+      color var(--spring-slow-effects),
+      transform var(--spring-default-spatial),
+      filter var(--spring-slow-effects);
     filter: blur(0.4px);
   }
   .line:hover {

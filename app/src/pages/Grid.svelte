@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { flip } from "svelte/animate";
+  import { scale } from "svelte/transition";
+  import { reveal } from "../lib/reveal";
+  import { spring } from "../lib/motion.svelte";
   import type { Snippet } from "svelte";
   import Poster from "../components/Poster.svelte";
   import AdSlot from "../components/AdSlot.svelte";
@@ -38,7 +42,10 @@
     {#each blocks as block, b (b)}
       <div class="grid">
         {#each block as t (keyOf(t))}
-          <Poster title={t} />
+          <!-- Cards rise in as they scroll into view, and close ranks when one leaves (My List). -->
+          <div class="cell" use:reveal animate:flip={spring("default-spatial")} out:scale={{ start: 0.9, opacity: 0, ...spring("fast-effects") }}>
+            <Poster title={t} />
+          </div>
         {/each}
       </div>
       {#if b < blocks.length - 1}<AdSlot id="grid" />{/if}
@@ -66,6 +73,11 @@
   }
   .ghost {
     aspect-ratio: 2 / 3;
+  }
+  .cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
   .empty {
     display: flex;

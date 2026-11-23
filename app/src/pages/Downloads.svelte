@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { flip } from "svelte/animate";
+  import { fly } from "svelte/transition";
+  import { spring, travel } from "../lib/motion.svelte";
   import AdSlot from "../components/AdSlot.svelte";
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
@@ -98,7 +101,13 @@
     <div class="list">
       {#each [...downloads.items].reverse() as d (d.id)}
         {@const s = d.state.state}
-        <m3e-card variant="filled" class="item" in:fade={{ duration: 200 }}>
+        <m3e-card
+          variant="filled"
+          class="item"
+          animate:flip={spring("default-spatial")}
+          in:fly={{ y: travel(-12), opacity: 0, ...spring("default-spatial") }}
+          out:fade={spring("fast-effects")}
+        >
           <div slot="content" class="row">
             <div class="icon" class:done={s === "completed"} class:bad={s === "failed"}>
               <m3e-icon name={s === "completed" ? "check" : s === "failed" ? "error" : s === "paused" ? "pause" : "download"}></m3e-icon>

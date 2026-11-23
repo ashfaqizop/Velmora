@@ -1,4 +1,6 @@
 <script lang="ts">
+  import PlayIcon from "./PlayIcon.svelte";
+  import { pop } from "../../lib/reveal";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   // The floating now-playing pill, across the whole app while music is
   // loaded. It shrinks to a round cover-and-play button while a page scrolls
@@ -16,6 +18,14 @@
   const cover = $derived(cur ? art(cur.thumbnails, 120) : null);
   const progress = $derived(musicPlayer.duration ? Math.min(1, musicPlayer.position / musicPlayer.duration) : 0);
   const shown = $derived(!!cur && nav.route.name !== "player" && !musicUi.full);
+
+  // Snackbars ("Downloaded", "Undo") sit above the bar instead of on it.
+  $effect(() => {
+    const root = document.documentElement.style;
+    if (shown) root.setProperty("--m3e-snackbar-margin", "108px");
+    else root.removeProperty("--m3e-snackbar-margin");
+    return () => root.removeProperty("--m3e-snackbar-margin");
+  });
   const compact = $derived(musicUi.compact);
 
   // Artwork colors for the whole player (pill and full view).
@@ -68,18 +78,18 @@
       </button>
       <div class="controls">
         <button class="ctl" aria-label="Previous" onclick={() => musicPlayer.prev()}><m3e-icon name="skip_previous" filled></m3e-icon></button>
-        <button class="ctl play" aria-label={musicPlayer.playing ? "Pause" : "Play"} onclick={() => musicPlayer.toggle()}>
+        <button class="ctl play" class:playing={musicPlayer.playing} aria-label={musicPlayer.playing ? "Pause" : "Play"} onclick={() => musicPlayer.toggle()}>
           {#if musicPlayer.loading || musicPlayer.buffering}
             <m3e-loading-indicator class="busy"></m3e-loading-indicator>
           {:else}
-            <m3e-icon name={musicPlayer.playing ? "pause" : "play_arrow"} filled></m3e-icon>
+            <PlayIcon playing={musicPlayer.playing} size={28} />
           {/if}
         </button>
         <button class="ctl" aria-label="Next" onclick={() => musicPlayer.next()}><m3e-icon name="skip_next" filled></m3e-icon></button>
       </div>
       <div class="side">
         <button class="ctl small" class:on={likes.liked(cur.id)} aria-label="Like" onclick={() => likes.toggle(cur)}>
-          <m3e-icon name="favorite" filled={likes.liked(cur.id)}></m3e-icon>
+          <m3e-icon name="favorite" filled={likes.liked(cur.id)} use:pop={likes.liked(cur.id)}></m3e-icon>
         </button>
         <button class="ctl small" aria-label="Queue" onclick={() => openFull("queue")}><m3e-icon name="queue_music"></m3e-icon></button>
         <button class="ctl small" aria-label="Open the player" onclick={() => openFull()}><m3e-icon name="open_in_full"></m3e-icon></button>
@@ -115,10 +125,11 @@
     border: 1px solid color-mix(in srgb, var(--np) 30%, transparent);
     box-shadow: 0 18px 50px rgb(0 0 0 / 50%);
     transition:
-      width 420ms cubic-bezier(0.2, 0, 0, 1),
-      height 420ms cubic-bezier(0.2, 0, 0, 1),
-      border-radius 420ms cubic-bezier(0.2, 0, 0, 1),
-      background 600ms ease;
+      width var(--spring-default-spatial),
+      height var(--spring-default-spatial),
+      border-radius var(--spring-default-spatial),
+      --np 900ms ease,
+      --np-deep 900ms ease;
   }
   .pill.compact {
     width: 76px;
@@ -184,22 +195,29 @@
     border-radius: 50%;
     color: var(--md-sys-color-on-surface);
     transition:
-      background 150ms ease,
-      border-radius 250ms ease;
+      background var(--spring-fast-effects),
+      border-radius var(--spring-fast-spatial),
+      transform var(--spring-fast-spatial);
+  }
+  .ctl:active {
+    transform: scale(0.9);
   }
   .ctl:hover {
     background: color-mix(in srgb, var(--md-sys-color-on-surface) 10%, transparent);
   }
+  /* Round while paused, a rounded square while playing (M3 Expressive). */
   .ctl.play {
     width: 50px;
     height: 50px;
-    border-radius: 18px;
+    border-radius: 50%;
     background: var(--np);
     color: var(--np-on, #fff);
     --m3e-icon-size: 28px;
   }
+  .ctl.play.playing {
+    border-radius: 16px;
+  }
   .ctl.play:hover {
-    border-radius: 50%;
     background: var(--np);
   }
   .busy {

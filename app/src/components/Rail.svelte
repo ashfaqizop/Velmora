@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { fade } from "svelte/transition";
+  import { reveal } from "../lib/reveal";
+  import { spring } from "../lib/motion.svelte";
   import type { Snippet } from "svelte";
 
   let {
@@ -10,7 +13,7 @@
   }: { title: string; icon: string; onseeall?: () => void; loading?: boolean; children?: Snippet } = $props();
 </script>
 
-<section class="rail">
+<section class="rail" use:reveal>
   <header>
     <m3e-icon name={icon} class="icon"></m3e-icon>
     <m3e-heading variant="title" size="large" level={2}>{title}</m3e-heading>
@@ -29,7 +32,7 @@
       {/each}
     </div>
   {:else}
-    <m3e-slide-group threshold="48">
+    <m3e-slide-group threshold="48" in:fade={spring("slow-effects")}>
       <div class="row">{@render children?.()}</div>
     </m3e-slide-group>
   {/if}

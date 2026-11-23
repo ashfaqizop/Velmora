@@ -1,4 +1,7 @@
 <script lang="ts">
+  import PlayIcon from "./PlayIcon.svelte";
+  import WaveSeek from "./WaveSeek.svelte";
+  import { pop } from "../../lib/reveal";
   // The full music player: the artwork's glow behind everything, the cover in
   // its living shape inside a ring that moves with the music, big controls,
   // and synced lyrics or the queue on the right. With video on, the music
@@ -7,6 +10,7 @@
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { spring, travel } from "../../lib/motion.svelte";
+  import { flip } from "svelte/animate";
   import MorphCover from "./MorphCover.svelte";
   import Visualizer from "./Visualizer.svelte";
   import Lyrics from "./Lyrics.svelte";
@@ -43,7 +47,28 @@
   }
 
   // ── Up next ──
+  // Which way the last skip went, so the next cover comes in from that side.
+  let skipDir = $state(1);
+  let lastIndex = musicPlayer.index;
+  $effect(() => {
+    const i = musicPlayer.index;
+    if (i !== lastIndex) skipDir = i < lastIndex ? -1 : 1;
+    lastIndex = i;
+  });
   const firstAuto = $derived(musicPlayer.queue.findIndex((q, i) => i > musicPlayer.index && musicPlayer.auto.has(q.id)));
+  // Up next with keys that follow each song when the queue is reordered (the
+  // same song twice gets #2), so rows slide to their new places instead of
+  // being redrawn in place.
+  const upcoming = $derived.by(() => {
+    const seen = new Map<string, number>();
+    const out: { q: (typeof musicPlayer.queue)[number]; i: number; key: string }[] = [];
+    musicPlayer.queue.forEach((q, i) => {
+      const n = (seen.get(q.id) ?? 0) + 1;
+      seen.set(q.id, n);
+      if (i >= musicPlayer.index) out.push({ q, i, key: n > 1 ? `${q.id}#${n}` : q.id });
+    });
+    return out;
+  });
   const hasUpNext = $derived(musicPlayer.queue.length > musicPlayer.index + 1);
   let naming = $state(false);
   let listName = $state("");
@@ -179,7 +204,10 @@
     data-np-full
   >
     {#if !showingVideo}
-      <div class="glow" style:background-image={cover ? `url("${cover}")` : undefined} transition:fade={{ duration: 400 }}></div>
+      <!-- The blurred art behind everything cross-fades between songs. -->
+      {#key cover}
+        <div class="glow" style:background-image={cover ? `url("${cover}")` : undefined} transition:fade={spring("slow-effects")}></div>
+      {/key}
     {/if}
     <div class="shade"></div>
 
@@ -271,8 +299,18 @@
         <div class="stage" bind:this={stage}>
           {#if !showingVideo}
             <Visualizer size={stageSize} color={tint} />
-            <div class="cover" data-np-cover>
-              <MorphCover src={cover} size={Math.round(stageSize * 0.66)} playing={musicPlayer.playing} lobes={12} react />
+            <!-- The cover breathes in a little while paused, and a new song's cover
+                 comes in from the side you skipped to. -->
+            <div class="cover" class:paused={!musicPlayer.playing} data-np-cover>
+              {#key cur.id}
+                <div
+                  class="cover-slide"
+                  in:fly={{ x: travel(skipDir * 90), opacity: 0, ...spring("default-spatial") }}
+                  out:fly={{ x: travel(skipDir * -90), opacity: 0, ...spring("fast-effects") }}
+                >
+                  <MorphCover src={cover} size={Math.round(stageSize * 0.66)} playing={musicPlayer.playing} lobes={12} react />
+                </div>
+              {/key}
             </div>
             {#if video}<span class="vid-wait">Loading the video…</span>{/if}
           {/if}
@@ -290,22 +328,22 @@
             </span>
           </div>
           <button class="icon big" class:liked={likes.liked(cur.id)} aria-label="Like" onclick={() => likes.toggle(cur)}>
-            <m3e-icon name="favorite" filled={likes.liked(cur.id)}></m3e-icon>
+            <m3e-icon name="favorite" filled={likes.liked(cur.id)} use:pop={likes.liked(cur.id)}></m3e-icon>
           </button>
         </div>
 
         <div class="seek">
           <span>{clock(seeking ?? musicPlayer.position)}</span>
-          <m3e-slider class="slider" min="0" max={Math.max(1, Math.floor(musicPlayer.duration))} step="1" aria-label="Seek" use:slider>
-            <m3e-slider-thumb
-              value={Math.floor(seeking ?? musicPlayer.position)}
-              oninput={(e: Event) => (seeking = (e.currentTarget as HTMLElement & { value: number }).value)}
-              onchange={(e: Event) => {
-                musicPlayer.seek((e.currentTarget as HTMLElement & { value: number }).value);
-                seeking = null;
-              }}
-            ></m3e-slider-thumb>
-          </m3e-slider>
+          <WaveSeek
+            value={musicPlayer.position}
+            max={Math.max(1, Math.floor(musicPlayer.duration))}
+            playing={musicPlayer.playing && !musicPlayer.buffering}
+            oninput={(v) => (seeking = v)}
+            onchange={(v) => {
+              musicPlayer.seek(v);
+              seeking = null;
+            }}
+          />
           <span>{clock(musicPlayer.duration)}</span>
         </div>
 
@@ -314,11 +352,11 @@
             <m3e-icon name="shuffle"></m3e-icon>
           </button>
           <button class="icon mid" aria-label="Previous" onclick={() => musicPlayer.prev()}><m3e-icon name="skip_previous" filled></m3e-icon></button>
-          <button class="play" aria-label={musicPlayer.playing ? "Pause" : "Play"} onclick={() => musicPlayer.toggle()}>
+          <button class="play" class:playing={musicPlayer.playing} aria-label={musicPlayer.playing ? "Pause" : "Play"} onclick={() => musicPlayer.toggle()}>
             {#if musicPlayer.loading || musicPlayer.buffering}
               <m3e-loading-indicator></m3e-loading-indicator>
             {:else}
-              <m3e-icon name={musicPlayer.playing ? "pause" : "play_arrow"} filled></m3e-icon>
+              <PlayIcon playing={musicPlayer.playing} size={40} />
             {/if}
           </button>
           <button class="icon mid" aria-label="Next" onclick={() => musicPlayer.next()}><m3e-icon name="skip_next" filled></m3e-icon></button>
@@ -377,8 +415,13 @@
                   <button type="button" class="chip" onclick={() => (naming = false)}>Cancel</button>
                 </form>
               {/if}
-              {#each musicPlayer.queue as q, i (q.id + i)}
-                {#if i >= musicPlayer.index}
+              {#each upcoming as { q, i, key } (key)}
+                <div
+                  class="q-item"
+                  animate:flip={spring("default-spatial")}
+                  in:fly={{ y: travel(10), opacity: 0, ...spring("default-spatial") }}
+                  out:fly={{ x: travel(40), opacity: 0, ...spring("fast-effects") }}
+                >
                   {#if i === firstAuto}
                     <div class="q-head">
                       <m3e-icon name="all_inclusive"></m3e-icon>
@@ -415,7 +458,7 @@
                       </button>
                     {/if}
                   </div>
-                {/if}
+                </div>
               {/each}
             </div>
           {/if}
@@ -439,6 +482,10 @@
     flex-direction: column;
     color: #fff;
     background: var(--np-deep);
+    /* The tint is a registered colour (app.css), so a new song's blends in. */
+    transition:
+      --np 900ms ease,
+      --np-deep 900ms ease;
     /* clip, not hidden: a hidden box can still be scrolled by code. */
     overflow: clip;
     isolation: isolate;
@@ -611,7 +658,15 @@
   }
   .cover {
     position: relative;
+    display: grid;
     filter: drop-shadow(0 30px 60px rgb(0 0 0 / 50%));
+    transition: transform var(--spring-slow-spatial);
+  }
+  .cover.paused {
+    transform: scale(0.93);
+  }
+  .cover-slide {
+    grid-area: 1 / 1;
   }
   .meta {
     display: flex;
@@ -673,15 +728,22 @@
     place-items: center;
     width: 78px;
     height: 78px;
-    border-radius: 28px;
+    /* Round while paused, a rounded square while playing (M3 Expressive). */
+    border-radius: 50%;
     background: var(--np);
     color: #fff;
     --m3e-icon-size: 40px;
     box-shadow: 0 14px 34px color-mix(in srgb, var(--np) 45%, transparent);
-    transition: border-radius 320ms cubic-bezier(0.2, 0, 0, 1);
+    transition:
+      border-radius var(--spring-default-spatial),
+      transform var(--spring-fast-spatial),
+      background-color var(--spring-slow-effects);
   }
-  .play:hover {
-    border-radius: 50%;
+  .play.playing {
+    border-radius: 26px;
+  }
+  .play:active {
+    transform: scale(0.92);
   }
   .err {
     margin: 0;

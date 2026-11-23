@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { spring, travel } from "../../lib/motion.svelte";
   // The song menu, opened by right-click or ⋮ on any song. One instance for
   // the whole app (mounted in App.svelte), placed where the click was.
   import { fade, scale } from "svelte/transition";
@@ -74,7 +75,8 @@
     bind:this={box}
     style:left={`${pos.x || m.x}px`}
     style:top={`${pos.y || m.y}px`}
-    transition:scale={{ start: 0.92, duration: 160 }}
+    style:transform-origin={`${m.x - (pos.x || m.x)}px ${m.y - (pos.y || m.y)}px`}
+    transition:scale={{ start: travel(1) ? 0.85 : 1, opacity: 0, ...spring("fast-spatial") }}
   >
     <div class="head">
       <strong>{it.title}</strong>

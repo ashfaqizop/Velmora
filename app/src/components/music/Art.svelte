@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fadeImage } from "../../lib/reveal";
   // Artwork for a song, album, playlist or artist, at the size it's shown.
   import { art } from "../../lib/music/ui.svelte";
   import type { MusicThumb } from "../../lib/types";
@@ -17,7 +18,7 @@
 
 <div class="art" class:round class:wide style:--size={`${size}px`}>
   {#if src && !failed}
-    <img {src} {alt} loading="lazy" decoding="async" onerror={() => (failed = true)} />
+    <img {src} {alt} loading="lazy" decoding="async" use:fadeImage onerror={() => (failed = true)} />
   {:else}
     <m3e-icon name="music_note"></m3e-icon>
   {/if}

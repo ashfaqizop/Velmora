@@ -186,7 +186,7 @@
   <div class="banner">
     <!-- No backdrop (some providers only have posters): use a soft, blurred poster instead. -->
     {#if s.backdrop || s.poster}
-      <div class="art" class:soft={!s.backdrop} style:background-image={`url("${s.backdrop ?? s.poster}")`}></div>
+      <div class="art" class:scroll-drift={!!s.backdrop} class:soft={!s.backdrop} style:background-image={`url("${s.backdrop ?? s.poster}")`}></div>
     {/if}
     <div class="scrim"></div>
   </div>
