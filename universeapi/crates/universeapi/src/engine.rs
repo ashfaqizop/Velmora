@@ -387,9 +387,77 @@ impl Engine {
         crate::relevance::narrow(&all, query)
     }
 
+    /// A title's page. A title that came from a streaming site (a Home row
+    /// from HDHub, a search hit only one site had) gets the metadata page for
+    /// the same title instead: TMDB (or Cinemeta) for films and shows, AniList
+    /// for anime. A site's own page is thin: its headline is a release name,
+    /// its "genres" are file tags (1080p, HEVC) and its screenshots won't
+    /// load outside the site. The site stays listed as a place it's on, so
+    /// its sources are still found. With no match, the site's page is used.
     pub async fn detail(&self, r: &ProviderRef) -> Result<TitleDetail> {
         let p = self.provider(r.provider).ok_or_else(|| Error::Unsupported(format!("provider {}", r.provider)))?;
-        p.detail(&r.id).await
+        let d = p.detail(&r.id).await?;
+        if is_metadata(r.provider) {
+            return Ok(d);
+        }
+        Ok(self.canonical_detail(r, d).await)
+    }
+
+    async fn canonical_detail(&self, r: &ProviderRef, site: TitleDetail) -> TitleDetail {
+        let Some(found) = self.metadata_match(r, &site.summary).await else { return site };
+        let Some(meta) = self.provider(found.provider) else { return site };
+        let mut d = match meta.detail(&found.id).await {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::debug!("metadata page for {} failed: {e}", site.summary.name);
+                return site;
+            }
+        };
+        // Where it's available: the site it came from, and any it already knew.
+        for place in std::iter::once(&site.summary.origin).chain(site.summary.also_on.iter()) {
+            if place.provider != d.summary.origin.provider && !d.summary.also_on.iter().any(|x| x.provider == place.provider) {
+                d.summary.also_on.push(place.clone());
+            }
+        }
+        d.summary.ids.absorb(&site.summary.ids);
+        // A show the metadata source has no episode list for keeps the site's.
+        if d.seasons.is_empty() {
+            d.seasons = site.seasons;
+        }
+        d
+    }
+
+    /// The metadata entry for a title a site listed, found by name, year and
+    /// kind (or a shared id). Remembered, so it's looked up once per title.
+    async fn metadata_match(&self, r: &ProviderRef, s: &TitleSummary) -> Option<ProviderRef> {
+        let key = format!("canonical:{:?}:{}", r.provider, r.id);
+        if let Some(hit) = self.ctx.cache.get::<Option<ProviderRef>>(&key).await {
+            return hit;
+        }
+        let meta: Arc<dyn Provider> = if s.kind == MediaKind::Anime { self.anilist.clone() } else { self.movie_tv_meta() };
+        let mut queries = vec![s.name.clone()];
+        if let Some(o) = s.original_name.as_ref().filter(|o| **o != s.name) {
+            queries.push(o.clone());
+        }
+        let mut hit = None;
+        for q in queries {
+            let Ok(found) = tokio::time::timeout(SEARCH_TIMEOUT, meta.search(&q)).await else { break };
+            let Ok(found) = found else { continue };
+            // Prefer an exact year when the site gave one; same_title allows ±1.
+            let mut matches: Vec<&TitleSummary> = found.iter().filter(|c| same_title(s, c) && kinds_compatible(s.kind, c.kind)).collect();
+            matches.sort_by_key(|c| match (s.year, c.year) {
+                (Some(a), Some(b)) => a.abs_diff(b),
+                _ => 1,
+            });
+            if let Some(c) = matches.first() {
+                hit = Some(c.origin.clone());
+                break;
+            }
+        }
+        // A miss is remembered for less long: the metadata source may catch up.
+        let ttl = if hit.is_some() { crate::cache::ttl::DETAIL } else { crate::cache::ttl::DETAIL / 4 };
+        self.ctx.cache.put(&key, &hit, ttl).await;
+        hit
     }
 
     // ── Sources ─────────────────────────────────────────────────────────
@@ -540,6 +608,11 @@ impl Engine {
             s.retag();
         }
     }
+}
+
+/// TMDB, Cinemeta and AniList describe titles; the rest are sites that host them.
+fn is_metadata(p: ProviderId) -> bool {
+    matches!(p, ProviderId::Tmdb | ProviderId::Cinemeta | ProviderId::Anilist)
 }
 
 fn kinds_compatible(a: MediaKind, b: MediaKind) -> bool {

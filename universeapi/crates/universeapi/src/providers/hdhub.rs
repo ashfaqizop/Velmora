@@ -301,11 +301,14 @@ pub fn clean_title(raw: &str) -> String {
     static CUT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?i)\s*(\(\s*(19|20)\d{2}|\[|\|\s*|\b(season|s\d{1,2}\b|web-?dl|webrip|bluray|hdrip|hdtc|hdcam|hdts|ds4k|4k|\d{3,4}p|full movie|hindi|dual audio)\b)").expect("regex")
     });
-    let decoded = crate::util::unescape_html(raw);
-    let cut = CUT.find(&decoded).map(|m| &decoded[..m.start()]).unwrap_or(&decoded);
+    // The site's headings carry icon-font glyphs (Unicode private use area)
+    // that show as empty boxes anywhere else.
+    let decoded: String = crate::util::unescape_html(raw).chars().filter(|c| !('\u{e000}'..='\u{f8ff}').contains(c)).collect();
+    let decoded = decoded.trim();
+    let cut = CUT.find(decoded).map(|m| &decoded[..m.start()]).unwrap_or(decoded);
     let out = cut.trim().trim_end_matches([':', '-', '–', '(']).trim().to_string();
     if out.is_empty() {
-        collapse_ws(&decoded)
+        collapse_ws(decoded)
     } else {
         out
     }
@@ -569,6 +572,8 @@ mod tests {
         assert_eq!(clean_title("Avengers: Endgame (2019) BluRay [Hindi (DD5.1) & English] 1080p"), "Avengers: Endgame");
         assert_eq!(clean_title("Hostel Haadsa (Season 1) WEB-DL [Hindi DD2.0]"), "Hostel Haadsa");
         assert_eq!(clean_title("Bigg Boss (Season 20) WEB-DL [Hindi 2.0]"), "Bigg Boss");
+        // An icon-font glyph in front of the name is dropped.
+        assert_eq!(clean_title("\u{f008} Saiyaara (2025) Hindi WEB-DL 1080p"), "Saiyaara");
         assert_eq!(slug_of("https://new2.hdhub4u.free/avengers-endgame-2019/"), "avengers-endgame-2019");
         assert_eq!(tmdb_size("https://image.tmdb.org/t/p/w200/x.jpg", "w500"), "https://image.tmdb.org/t/p/w500/x.jpg");
     }
