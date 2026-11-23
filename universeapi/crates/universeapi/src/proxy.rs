@@ -152,6 +152,16 @@ impl MediaProxy {
         Ok(path)
     }
 
+    /// Register a bare URL with the headers it needs; returns the proxied path.
+    pub fn register_url(&self, url: &str, headers: BTreeMap<String, String>) -> Result<String> {
+        let t = token();
+        let path = proxify(&t, url).ok_or_else(|| Error::Unsupported(format!("cannot proxy {url}")))?;
+        if let Ok(mut e) = self.entries.write() {
+            e.insert(t, Entry::Http { headers });
+        }
+        Ok(path)
+    }
+
     /// Register a torrent file for streaming while it downloads.
     #[cfg(feature = "torrent")]
     pub fn register_torrent(&self, job: std::sync::Arc<crate::torrent::TorrentJob>) -> String {

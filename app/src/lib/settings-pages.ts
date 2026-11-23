@@ -64,6 +64,8 @@ export interface SettingEntry {
 }
 
 export const SETTINGS_INDEX: SettingEntry[] = [
+  { id: "player-engine", page: "playback", label: "Player", hint: "mpv or the built-in player", words: "engine mpv built-in builtin fallback old pc crash won't start fails graphics" },
+  { id: "player-graphics", page: "playback", label: "Graphics mode and player report", hint: "What mpv settled on, and details to send", words: "graphics driver gpu d3d11 opengl software log report copy details error" },
   { id: "quality", page: "playback", label: "Preferred quality", hint: "720p, 1080p or 4K first", words: "resolution hd uhd" },
   { id: "auto4k", page: "playback", label: "Pick 4K automatically", hint: "Use 4K without asking", words: "uhd data" },
   { id: "codec", page: "playback", label: "Video codec", hint: "H.264, HEVC or AV1", words: "h265 gpu decode" },
@@ -92,7 +94,6 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { id: "music-normalize", page: "music", label: "Volume normalization", hint: "Even out loud and quiet songs", words: "loudness replaygain level leveler" },
   { id: "output-device", page: "music", label: "Output device", hint: "Headphones, speakers or a DAC", words: "speaker headphones dac audio device output" },
   { id: "exclusive", page: "music", label: "Exclusive mode", hint: "Bit-perfect, past the Windows mixer", words: "wasapi bit perfect audiophile exclusive" },
-  { id: "crossfade", page: "music", label: "Crossfade", hint: "Fade songs into each other, or gapless", words: "gapless fade transition mix dj" },
   { id: "music-quality", page: "music", label: "Audio quality", hint: "Low, Normal or High", words: "bitrate data saver kbps opus aac" },
   { id: "precache", page: "music", label: "Save the next songs ahead", hint: "Next songs start at once", words: "cache preload buffer offline" },
   { id: "speed", page: "music", label: "Speed", hint: "0.5x to 2x", words: "tempo faster slower playback rate" },

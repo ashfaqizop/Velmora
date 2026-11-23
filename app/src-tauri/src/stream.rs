@@ -8,7 +8,12 @@
 //! including the range requests they send when seeking.
 //!
 //! Downloaded vault files (see `universeapi::vault`) are served from
-//! `/v/{token}`, decrypted on the fly with full range support.
+//! `/v/{token}`, decrypted on the fly with full range support. Plain files
+//! (songs saved ahead, older downloads) come from `/f/{token}`.
+//!
+//! The built-in player (an `<audio>` element run through Web Audio) needs
+//! CORS to read the samples, so every response allows any origin. The server
+//! only listens on loopback and every path needs a random token.
 
 use std::collections::HashMap;
 use std::io::SeekFrom;
@@ -29,11 +34,31 @@ const MAX_HEAD: usize = 16 * 1024;
 pub struct Sealed {
     pub vault: Arc<Vault>,
     files: std::sync::Mutex<HashMap<String, PathBuf>>,
+    plain: std::sync::Mutex<HashMap<String, PathBuf>>,
 }
 
 impl Sealed {
     pub fn new(vault: Arc<Vault>) -> Self {
-        Self { vault, files: std::sync::Mutex::new(HashMap::new()) }
+        Self { vault, files: std::sync::Mutex::new(HashMap::new()), plain: std::sync::Mutex::new(HashMap::new()) }
+    }
+
+    /// Make a plain (unencrypted) file playable; returns the token for `/f/{token}`.
+    pub fn register_plain(&self, path: PathBuf) -> Result<String, String> {
+        let mut raw = [0u8; 16];
+        getrandom::getrandom(&mut raw).map_err(|e| e.to_string())?;
+        let token: String = raw.iter().map(|b| format!("{b:02x}")).collect();
+        if let Ok(mut files) = self.plain.lock() {
+            // Songs are registered one by one as they play; keep the map small.
+            if files.len() > 500 {
+                files.clear();
+            }
+            files.insert(token.clone(), path);
+        }
+        Ok(token)
+    }
+
+    fn get_plain(&self, token: &str) -> Option<PathBuf> {
+        self.plain.lock().ok()?.get(token).cloned()
     }
 
     /// Make `path` playable; returns the token for `/v/{token}`.
@@ -139,6 +164,9 @@ async fn serve(mut sock: TcpStream, engine: Arc<Engine>, sealed: Arc<Sealed>) ->
     if let Some(token) = req.target.strip_prefix("/v/") {
         return serve_vault(&mut sock, &sealed, token, req.range.as_deref(), head_only).await;
     }
+    if let Some(token) = req.target.strip_prefix("/f/") {
+        return serve_plain(&mut sock, &sealed, token, req.range.as_deref(), head_only).await;
+    }
 
     let resp = match engine.proxy().handle(&req.target, req.range.as_deref()).await {
         Ok(r) => r,
@@ -148,7 +176,7 @@ async fn serve(mut sock: TcpStream, engine: Arc<Engine>, sealed: Arc<Sealed>) ->
         }
     };
 
-    let mut head = format!("HTTP/1.1 {} {}\r\n", resp.status, reason(resp.status));
+    let mut head = format!("HTTP/1.1 {} {}\r\n{CORS}", resp.status, reason(resp.status));
     let mut has_length = false;
     for (k, v) in &resp.headers {
         has_length |= k.eq_ignore_ascii_case("content-length");
@@ -202,7 +230,7 @@ async fn serve_vault(
             Some(span) => span,
             None => {
                 let msg = format!(
-                    "HTTP/1.1 416 {}\r\nContent-Range: bytes */{total}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    "HTTP/1.1 416 {}\r\n{CORS}Content-Range: bytes */{total}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
                     reason(416)
                 );
                 sock.write_all(msg.as_bytes()).await?;
@@ -212,8 +240,8 @@ async fn serve_vault(
     };
     let len = if total == 0 { 0 } else { end - start + 1 };
     let mut head = match range {
-        Some(_) => format!("HTTP/1.1 206 {}\r\nContent-Range: bytes {start}-{end}/{total}\r\n", reason(206)),
-        None => format!("HTTP/1.1 200 {}\r\n", reason(200)),
+        Some(_) => format!("HTTP/1.1 206 {}\r\n{CORS}Content-Range: bytes {start}-{end}/{total}\r\n", reason(206)),
+        None => format!("HTTP/1.1 200 {}\r\n{CORS}", reason(200)),
     };
     head.push_str(&format!(
         "Content-Type: {}\r\nAccept-Ranges: bytes\r\nContent-Length: {len}\r\nConnection: close\r\n\r\n",
@@ -240,6 +268,82 @@ async fn serve_vault(
     sock.shutdown().await
 }
 
+/// Serve a plain file from disk, with range requests so seeking works.
+async fn serve_plain(
+    sock: &mut TcpStream,
+    sealed: &Sealed,
+    token: &str,
+    range: Option<&str>,
+    head_only: bool,
+) -> std::io::Result<()> {
+    let Some(path) = sealed.get_plain(token) else {
+        return respond_text(sock, 404, "unknown file").await;
+    };
+    let mut file = match tokio::fs::File::open(&path).await {
+        Ok(f) => f,
+        Err(e) => return respond_text(sock, 404, &e.to_string()).await,
+    };
+    let total = file.metadata().await?.len();
+    let (start, end) = match range {
+        None if total == 0 => (0, 0),
+        None => (0, total - 1),
+        Some(r) => match parse_range(r, total) {
+            Some(span) => span,
+            None => {
+                let msg = format!(
+                    "HTTP/1.1 416 {}\r\n{CORS}Content-Range: bytes */{total}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    reason(416)
+                );
+                sock.write_all(msg.as_bytes()).await?;
+                return sock.shutdown().await;
+            }
+        },
+    };
+    let len = if total == 0 { 0 } else { end - start + 1 };
+    let mut head = match range {
+        Some(_) => format!("HTTP/1.1 206 {}\r\n{CORS}Content-Range: bytes {start}-{end}/{total}\r\n", reason(206)),
+        None => format!("HTTP/1.1 200 {}\r\n{CORS}", reason(200)),
+    };
+    head.push_str(&format!(
+        "Content-Type: {}\r\nAccept-Ranges: bytes\r\nContent-Length: {len}\r\nConnection: close\r\n\r\n",
+        mime_for(&path)
+    ));
+    sock.write_all(head.as_bytes()).await?;
+    if head_only || len == 0 {
+        return sock.shutdown().await;
+    }
+    file.seek(SeekFrom::Start(start)).await?;
+    let mut buf = vec![0u8; 256 * 1024];
+    let mut left = len;
+    while left > 0 {
+        let want = left.min(buf.len() as u64) as usize;
+        let n = file.read(&mut buf[..want]).await?;
+        if n == 0 {
+            break;
+        }
+        sock.write_all(&buf[..n]).await?;
+        left -= n as u64;
+    }
+    sock.shutdown().await
+}
+
+/// Content type from the file extension, for the formats the players see.
+fn mime_for(path: &Path) -> &'static str {
+    match path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase()).as_deref() {
+        Some("webm") | Some("weba") => "audio/webm",
+        Some("m4a") | Some("mp4") | Some("m4v") => "audio/mp4",
+        Some("mp3") => "audio/mpeg",
+        Some("opus") | Some("ogg") | Some("oga") => "audio/ogg",
+        Some("flac") => "audio/flac",
+        Some("wav") => "audio/wav",
+        Some("mkv") => "video/x-matroska",
+        _ => "application/octet-stream",
+    }
+}
+
+/// Lets the built-in player's Web Audio read the samples.
+const CORS: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Expose-Headers: Content-Length, Content-Range, Accept-Ranges\r\n";
+
 /// `bytes=a-b`, `bytes=a-` or `bytes=-n` (the first range only) → inclusive span.
 fn parse_range(spec: &str, total: u64) -> Option<(u64, u64)> {
     let r = spec.trim().strip_prefix("bytes=")?.split(',').next()?.trim();
@@ -263,7 +367,7 @@ fn parse_range(spec: &str, total: u64) -> Option<(u64, u64)> {
 
 async fn respond_text(sock: &mut TcpStream, status: u16, text: &str) -> std::io::Result<()> {
     let msg = format!(
-        "HTTP/1.1 {status} {}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",
+        "HTTP/1.1 {status} {}\r\n{CORS}Content-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",
         reason(status),
         text.len()
     );

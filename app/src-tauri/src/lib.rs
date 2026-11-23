@@ -14,6 +14,7 @@ mod prefs;
 mod runtime;
 mod stream;
 mod sync;
+mod webplay;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -230,6 +231,10 @@ pub fn run() {
             music::music_download,
             music::music_downloads,
             music::music_download_delete,
+            webplay::web_media_url,
+            webplay::web_file_url,
+            webplay::player_log_path,
+            webplay::player_log,
             media::media_update,
             media::media_clear,
             musicdb::music_cache_get,

@@ -17,7 +17,8 @@
   } from "tauri-plugin-libmpv-api";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
-  import { startMpv, stopMpv } from "../lib/mpv";
+  import { MpvUnavailable, startMpv, stopMpv } from "../lib/mpv";
+  import { playerEngine } from "../lib/engine.svelte";
   import { musicPlayer } from "../lib/music/player.svelte";
   import { sound, type SoundOption } from "../lib/audio.svelte";
   import { isTorrent, providerName, sourceChips, sourceTitle } from "../lib/sources";
@@ -61,6 +62,8 @@
   };
 
   let phase = $state<Phase>("sources");
+  /** mpv couldn't start in any graphics mode on this PC. */
+  let mpvFailed = $state(false);
   let status = $state("Finding sources");
   let report = $state<SourcesReport | null>(null);
   let current = $state(-1);
@@ -174,7 +177,8 @@
     try {
       // Music shares mpv; it stops here and can pick up where it was later.
       await musicPlayer.yieldToVideo();
-      await startMpv(config);
+      mpvFailed = false;
+      await startMpv(config, { video: true });
       ready = true;
       cleanups.push(await observeProperties(OBSERVED, onProperty));
       cleanups.push(
@@ -184,7 +188,10 @@
         }),
       );
     } catch (e) {
-      fail(`The player couldn't start: ${e}`);
+      if (e instanceof MpvUnavailable) {
+        mpvFailed = true;
+        fail("The video player couldn't start on this PC");
+      } else fail(`The player couldn't start: ${e}`);
       return;
     }
 
@@ -357,6 +364,16 @@
       torrentInfo = p.finished ? "Fully downloaded" : `${mb(p.downloaded)} of ${mb(p.total)}`;
       if (p.finished) clearInterval(torrentTimer);
     }, 1000);
+  }
+
+  /** Everything needed to work out why mpv won't start, for sending on. */
+  async function copyDetails() {
+    try {
+      await navigator.clipboard.writeText(playerEngine.details());
+      M3eSnackbar.open("Copied. Paste it in a message to whoever helps you.");
+    } catch {
+      M3eSnackbar.open("Couldn't copy the details");
+    }
   }
 
   function fail(message: string) {
@@ -625,11 +642,21 @@
     <div class="center" transition:fade={{ duration: 250 }}>
       <m3e-icon name="error" class="big"></m3e-icon>
       <span class="status">{status}</span>
-      {#if report?.errors.length}
+      {#if mpvFailed}
+        <span class="hint">
+          Velmora tried every graphics mode, from the best to plain software, and none worked.
+          {#if playerEngine.reason}mpv said: {playerEngine.reason}{/if}
+        </span>
+      {:else if report?.errors.length}
         <span class="hint">{report.errors.map((e) => `${e.provider}: ${e.message}`).join(" · ")}</span>
       {/if}
       <div class="row">
         <m3e-button variant="tonal" onclick={leave}>Go back</m3e-button>
+        {#if mpvFailed}
+          <m3e-button variant="tonal" onclick={copyDetails}>
+            <m3e-icon slot="icon" name="content_copy"></m3e-icon>Copy details
+          </m3e-button>
+        {/if}
         <m3e-button variant="filled" onclick={retry}>
           <m3e-icon slot="icon" name="refresh"></m3e-icon>Try again
         </m3e-button>

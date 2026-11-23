@@ -144,6 +144,14 @@ export const setDownloadDir = (path: string | null) => invoke<string>("set_downl
 export const defaultDownloadFolder = () => invoke<string>("default_download_folder");
 /** What the player loads for a downloaded file, plus subtitle files beside it. */
 export const openLocal = (path: string) => invoke<{ url: string; subtitles: string[] }>("open_local", { path });
+/** The built-in player's way to a remote stream: a loopback URL that adds the headers. */
+export const webMediaUrl = (url: string, headers: [string, string][]) => invoke<string>("web_media_url", { url, headers });
+/** The built-in player's way to a media file on this PC. */
+export const webFileUrl = (path: string) => invoke<string>("web_file_url", { path });
+/** Where mpv logs one way of starting. */
+export const playerLogPath = (profile: string) => invoke<string>("player_log_path", { profile });
+/** The end of that log, with its error lines. */
+export const playerLog = (profile: string) => invoke<string>("player_log", { profile });
 
 export interface SyncStatus {
   anilistAvailable: boolean;

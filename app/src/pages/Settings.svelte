@@ -10,6 +10,7 @@
   import MusicSettings from "../components/music/MusicSettings.svelte";
   import MusicStorage from "../components/music/MusicStorage.svelte";
   import MusicOutput from "../components/music/MusicOutput.svelte";
+  import PlayerEngine from "../components/PlayerEngine.svelte";
   import EqEditor from "../components/music/EqEditor.svelte";
   import { musicExports, type DownloadFormat } from "../lib/music/exports.svelte";
   import { musicPlayer } from "../lib/music/player.svelte";
@@ -242,6 +243,9 @@
     <section>
       <m3e-heading variant="title" size="large" level={2}>Playback</m3e-heading>
       <m3e-card variant="filled">
+        <div slot="content"><PlayerEngine /></div>
+      </m3e-card>
+      <m3e-card variant="filled">
         <div slot="content" class="rows">
           <div class="row" data-setting="quality">
             <div class="text"><strong>Preferred quality</strong><span>Velmora picks the closest match first.</span></div>
@@ -451,23 +455,6 @@
             </div>
             <m3e-switch checked={musicPlayer.autoplay} onchange={(e: Event) => musicPlayer.setAutoplay(checked(e))}></m3e-switch>
           </label>
-          <m3e-divider></m3e-divider>
-          <div class="row" data-setting="crossfade">
-            <div class="text">
-              <strong>Crossfade</strong>
-              <span>
-                {musicPlayer.prefs.crossfade
-                  ? `The next song fades in over the last ${musicPlayer.prefs.crossfade} s of this one.`
-                  : "Off: songs follow each other with no gap. Albums play as they were made."}
-              </span>
-            </div>
-            <m3e-slider class="slider" min="0" max="12" step="1" discrete labelled aria-label="Crossfade seconds" use:slider>
-              <m3e-slider-thumb
-                value={musicPlayer.prefs.crossfade}
-                onchange={(e: Event) => musicPlayer.setPrefs({ crossfade: Number((e.currentTarget as HTMLElement & { value: number }).value) })}
-              ></m3e-slider-thumb>
-            </m3e-slider>
-          </div>
           <m3e-divider></m3e-divider>
           <div class="row" data-setting="music-quality">
             <div class="text">

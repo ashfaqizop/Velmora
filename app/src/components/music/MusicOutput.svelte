@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import { musicPlayer, type AudioDevice } from "../../lib/music/player.svelte";
+  import { playerEngine } from "../../lib/engine.svelte";
 
   let devices = $state<AudioDevice[]>([]);
   let loading = $state(true);
@@ -51,13 +52,19 @@
       <m3e-icon-button aria-label="Look for devices again" onclick={refresh}><m3e-icon name="refresh"></m3e-icon></m3e-icon-button>
     </div>
   </div>
+  {#if playerEngine.builtin}
+    <div class="row note">
+      <div class="text">
+        <span>The built-in player plays through the Windows default device. Picking a device and exclusive mode need mpv.</span>
+      </div>
+    </div>
+  {:else}
   <m3e-divider></m3e-divider>
   <label class="row" data-setting="exclusive">
     <div class="text">
       <strong>Exclusive mode</strong>
       <span>
-        Music takes the device to itself and skips the Windows mixer. Other apps go silent while it plays, and crossfade
-        turns off. Movies and shows always share the device.
+        Music takes the device to itself and skips the Windows mixer. Other apps go silent while it plays. Movies and shows always share the device.
       </span>
     </div>
     <m3e-switch checked={musicPlayer.prefs.exclusive} onchange={(e: Event) => musicPlayer.setPrefs({ exclusive: checked(e) })}></m3e-switch>
@@ -69,6 +76,7 @@
       </div>
       <m3e-button variant="tonal" onclick={bitPerfect}><m3e-icon slot="icon" name="graphic_eq"></m3e-icon>Make it bit-perfect</m3e-button>
     </div>
+  {/if}
   {/if}
 </div>
 
