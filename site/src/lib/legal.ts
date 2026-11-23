@@ -30,6 +30,7 @@ export const PRIVACY: LegalDoc = {
         "An account is optional; Velmora works the same as a guest without one. You sign up on our sign-in page (auth.getvelmora.dpdns.org) with Google, Discord or an emailed code, and the page hands the result back to the app. The sign-in page loads no ads and no third-party scripts.",
         "We store your email address, your username, your display name and your profile picture. With Google or Discord we receive the name, email address and photo you have there, and your picture can be that photo. Your username, display name and picture are visible to other signed-in Velmora users; your email address is not. Accounts are kept with Supabase, our database and sign-in provider, and codes sent by email go through Mailtrap.",
         "The app keeps a sign-in token in Windows Credential Manager so you stay signed in, and a copy of your profile so it still shows when you are offline. Signing out removes both from your PC.",
+        "If you link a Velmora Max key to your account, our license server stores that key's ID with your account ID, so Max can follow you to a new PC. Unlinking it, or deleting your account, removes that link; the key itself stays yours.",
         "In Settings, under Velmora account, you can copy everything we hold about you, or delete your account. Deleting removes your profile and sign-in from our database for good.",
       ],
     },

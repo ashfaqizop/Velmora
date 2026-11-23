@@ -208,6 +208,7 @@ pub fn run() {
             license::license_activate,
             license::license_refresh,
             license::license_remove,
+            license::license_account,
             account::account_begin,
             account::account_redeem,
             account::account_cancel,

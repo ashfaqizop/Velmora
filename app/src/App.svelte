@@ -32,6 +32,7 @@
   feed.load();
   // Max or Public decides whether ads run at all; the rules wait for that answer.
   license.load().then(() => ads.init());
+  account.onSignedIn = () => license.syncAccount();
   account.init().catch((e) => console.warn("account", e));
   // YouTube Music sign-in state (only the Music pages need it).
   musicSession.init();

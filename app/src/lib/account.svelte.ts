@@ -87,6 +87,14 @@ class Account {
   private lastSaved = "";
   /** A typed code is finishing the sign-in, so the browser route ending is not a cancel. */
   private redeeming = false;
+  /** Called once you are signed in with the server's say-so (Max sync hangs on this). */
+  onSignedIn: (() => void) | null = null;
+
+  /** The current session's access token, for calls to our own server. */
+  async accessToken(): Promise<string | null> {
+    const { data } = await this.client.auth.getSession();
+    return data.session?.access_token ?? null;
+  }
 
   get signedIn() {
     return this.status === "signed-in" && !!this.profile;
@@ -254,6 +262,7 @@ class Account {
     this.offline = false;
     writeCache(this.profile, this.email);
     this.status = "signed-in";
+    this.onSignedIn?.();
   }
 
   /** Sign out of this PC only; other devices stay signed in. */
@@ -298,6 +307,13 @@ class Account {
 
   /** Delete the account and everything on it. This can't be undone. */
   async deleteAccount() {
+    // The Max link lives on our license server, so it goes first. The key itself stays yours.
+    try {
+      const token = await this.accessToken();
+      if (token) await api.licenseAccount("unlink", token);
+    } catch {
+      // Not worth stopping the deletion for.
+    }
     const { error } = await this.client.rpc("delete_my_account");
     if (error) throw new Error(describe(error));
     await this.signOut();

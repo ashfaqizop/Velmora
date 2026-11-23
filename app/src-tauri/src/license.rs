@@ -402,6 +402,70 @@ pub async fn license_remove(state: State<'_, AppState>, lic: State<'_, LicenseSt
     Ok(lic.status())
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountResult {
+    status: LicenseStatus,
+    /// linked, already, restored, none or unlinked.
+    result: String,
+}
+
+/// Keep Max with the signed-in Velmora account: `link` attaches this PC's key
+/// to it, `restore` brings the account's key onto this PC (moving it from
+/// another PC), `unlink` forgets the link. `access_token` is the account's
+/// session token; the server checks it with Supabase.
+#[tauri::command]
+pub async fn license_account(
+    state: State<'_, AppState>,
+    lic: State<'_, LicenseStore>,
+    action: String,
+    access_token: String,
+) -> Result<AccountResult, String> {
+    let mut body = json!({ "action": action, "access_token": access_token, "device": lic.device });
+    match action.as_str() {
+        "link" => match lic.get() {
+            Some(s) => body["key"] = json!(s.key),
+            None => return Ok(AccountResult { status: lic.status(), result: "none".into() }),
+        },
+        "restore" | "unlink" => {}
+        _ => return Err("Unknown action.".into()),
+    }
+
+    let resp = state
+        .engine
+        .ctx()
+        .http
+        .client()
+        .post(format!("{SITE}/api/license/account"))
+        .header("Content-Type", "application/json")
+        .body(body.to_string())
+        .timeout(TIMEOUT)
+        .send()
+        .await
+        .map_err(|_| "Couldn't reach the license server. Check your connection and try again.".to_string())?;
+    let http_status = resp.status().as_u16();
+    let reply: Value = serde_json::from_str(&resp.text().await.unwrap_or_default()).unwrap_or(Value::Null);
+    if reply["ok"] != true {
+        if http_status >= 500 {
+            return Err("The license server couldn't answer. Try again later.".into());
+        }
+        return Err(reply["message"].as_str().unwrap_or("The license server refused this.").to_string());
+    }
+
+    let result = reply["result"].as_str().unwrap_or("none").to_string();
+    if action == "restore" && (result == "restored" || result == "already") {
+        let (Some(key), Some(token)) = (reply["key"].as_str(), reply["token"].as_str()) else {
+            return Err("The license server gave an answer Velmora couldn't check. Try again later.".into());
+        };
+        let checked = parse_key(key).zip(parse_token(token)).filter(|(k, t)| t.id == k.id && t.d == lic.device);
+        if checked.is_none() {
+            return Err("The license server gave an answer Velmora couldn't check. Try again later.".into());
+        }
+        lic.put(Some(Stored { key: key.to_string(), token: Some(token.to_string()), problem: None }))?;
+    }
+    Ok(AccountResult { status: lic.status(), result })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

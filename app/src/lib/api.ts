@@ -239,6 +239,14 @@ export const licenseActivate = (key: string) => invoke<LicenseStatus>("license_a
 /** Renews the activation if it's due; quiet when offline. */
 export const licenseRefresh = () => invoke<LicenseStatus>("license_refresh");
 export const licenseRemove = () => invoke<LicenseStatus>("license_remove");
+export interface LicenseAccountResult {
+  status: LicenseStatus;
+  /** linked, already, restored, none or unlinked. */
+  result: "linked" | "already" | "restored" | "none" | "unlinked";
+}
+/** Keep Max with the signed-in account. Rejects with a readable message. */
+export const licenseAccount = (action: "link" | "restore" | "unlink", accessToken: string) =>
+  invoke<LicenseAccountResult>("license_account", { action, accessToken });
 
 // ── Velmora account (src-tauri/src/account.rs) ──
 

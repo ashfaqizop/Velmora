@@ -4,6 +4,7 @@
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { license } from "../lib/license.svelte";
+  import { account } from "../lib/account.svelte";
 
   let draft = $state("");
   let busy = $state(false);
@@ -59,6 +60,31 @@
     }
   }
 
+  async function linkNow() {
+    busy = true;
+    await license.syncAccount(false);
+    busy = false;
+  }
+
+  async function restoreNow() {
+    busy = true;
+    await license.syncAccount(false);
+    if (!license.max && !license.accountProblem) M3eSnackbar.open("Your account doesn't have a Max key yet. Activate one here and it will be linked.");
+    busy = false;
+  }
+
+  async function unlink() {
+    busy = true;
+    try {
+      await license.unlinkAccount();
+      M3eSnackbar.open("Max is no longer linked to your account. The key still works on this PC.");
+    } catch (e) {
+      M3eSnackbar.open(String(e));
+    } finally {
+      busy = false;
+    }
+  }
+
   async function remove() {
     if (!confirmRemove) {
       confirmRemove = true;
@@ -97,6 +123,7 @@
       </m3e-button>
     </div>
     {#if changing}{@render entry()}{/if}
+    {@render accountLine()}
   {:else if s.state !== "none" && PROBLEM[s.state]}
     {@const p = PROBLEM[s.state]}
     <div class="state">
@@ -127,8 +154,38 @@
       </div>
     </div>
     {@render entry()}
+    {@render accountLine()}
   {/if}
 </div>
+
+{#snippet accountLine()}
+  <div class="account">
+    {#if !account.signedIn}
+      <span class="note">
+        <m3e-icon name="person"></m3e-icon>
+        Sign in to keep Max with your account, so it follows you to a new PC.
+      </span>
+      <m3e-button variant="text" disabled={account.status === "signing-in"} onclick={() => account.signIn()}>Sign in</m3e-button>
+    {:else if license.max}
+      <span class="note">
+        <m3e-icon name="link"></m3e-icon>
+        {license.linked ? "Linked to your Velmora account. Sign in on a new PC and Max comes with you." : "Not linked to your account yet."}
+      </span>
+      {#if license.linked}
+        <m3e-button variant="text" disabled={busy} onclick={unlink}>Unlink</m3e-button>
+      {:else}
+        <m3e-button variant="tonal" disabled={busy || license.syncing} onclick={linkNow}>Link to my account</m3e-button>
+      {/if}
+    {:else}
+      <span class="note">
+        <m3e-icon name="link"></m3e-icon>
+        Already have Max on your account? Bring it to this PC. If it's on another PC, it moves here.
+      </span>
+      <m3e-button variant="tonal" disabled={busy || license.syncing} onclick={restoreNow}>Restore from my account</m3e-button>
+    {/if}
+  </div>
+  {#if license.accountProblem}<p class="problem" role="alert">{license.accountProblem}</p>{/if}
+{/snippet}
 
 {#snippet entry()}
     <div class="entry">
@@ -197,6 +254,27 @@
   .text span {
     font-size: 13px;
     color: var(--md-sys-color-on-surface-variant);
+  }
+  .account {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+  }
+  .note {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    --m3e-icon-size: 18px;
+  }
+  .problem {
+    margin: 0;
+    font-size: 13px;
+    color: var(--md-sys-color-error);
   }
   .entry {
     display: flex;
