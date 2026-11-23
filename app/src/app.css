@@ -12,9 +12,9 @@
   --app-sidebar-width: 256px;
   --app-panel-width: 320px;
   --app-gutter: 24px;
-  /* Brand accents from the Velmora mark. */
-  --brand-coral: #ff5a5a;
-  --brand-indigo: #7b6cff;
+  /* Brand colours from the Velmora fox: its cream fur and its blue tile. */
+  --brand-cream: #f8e8c8;
+  --brand-blue: #3271fe;
 }
 /* Set on text whose language is known (lyrics), so Han uses the right shapes. */
 [lang="zh"] {

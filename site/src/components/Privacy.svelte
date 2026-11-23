@@ -47,8 +47,8 @@
     inset: -40% -10% auto;
     height: 120%;
     background:
-      radial-gradient(40% 50% at 30% 50%, rgb(123 108 255 / 28%), transparent 70%),
-      radial-gradient(35% 45% at 75% 40%, rgb(255 90 90 / 18%), transparent 70%);
+      radial-gradient(40% 50% at 30% 50%, rgb(50 113 254 / 28%), transparent 70%),
+      radial-gradient(35% 45% at 75% 40%, rgb(248 232 200 / 18%), transparent 70%);
     filter: blur(20px);
     pointer-events: none;
   }

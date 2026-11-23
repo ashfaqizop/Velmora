@@ -287,8 +287,8 @@
     gap: 6px;
     background: linear-gradient(
       150deg,
-      color-mix(in srgb, var(--md-sys-color-primary) 58%, #120b24) 0%,
-      color-mix(in srgb, var(--brand-coral) 42%, #1a0b1c) 100%
+      color-mix(in srgb, var(--md-sys-color-primary) 58%, #0a1230) 0%,
+      color-mix(in srgb, var(--brand-cream) 42%, #0b1226) 100%
     );
     color: #fff;
     /* PoweredBy reads these. */
@@ -318,7 +318,7 @@
   }
   .s2 {
     --m3e-shape-size: 120px;
-    --m3e-shape-container-color: var(--brand-coral);
+    --m3e-shape-container-color: var(--brand-cream);
     top: -36px;
     right: -30px;
     opacity: 0.45;

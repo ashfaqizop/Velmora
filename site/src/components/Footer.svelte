@@ -42,7 +42,7 @@
     margin-top: 120px;
     padding: 64px 0 40px;
     border-top: 1px solid var(--line);
-    background: linear-gradient(180deg, transparent, rgb(123 108 255 / 5%));
+    background: linear-gradient(180deg, transparent, rgb(50 113 254 / 5%));
     --md-sys-color-on-surface: #f4f1fb;
   }
   .top {

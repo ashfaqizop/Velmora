@@ -47,13 +47,13 @@
     --m3e-filled-button-focus-icon-color: #140f22;
     --m3e-filled-button-pressed-label-text-color: #140f22;
     --m3e-filled-button-pressed-icon-color: #140f22;
-    --m3e-filled-button-hover-state-layer-color: var(--indigo);
-    --m3e-filled-button-pressed-state-layer-color: var(--indigo);
+    --m3e-filled-button-hover-state-layer-color: var(--blue);
+    --m3e-filled-button-pressed-state-layer-color: var(--blue);
     border-radius: 999px;
     box-shadow:
       0 0 0 1px rgb(255 255 255 / 30%),
-      0 18px 60px -12px color-mix(in srgb, var(--indigo) 80%, transparent),
-      0 10px 30px -10px color-mix(in srgb, var(--coral) 70%, transparent);
+      0 18px 60px -12px color-mix(in srgb, var(--blue) 80%, transparent),
+      0 10px 30px -10px color-mix(in srgb, var(--cream) 70%, transparent);
     transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .cta:hover {

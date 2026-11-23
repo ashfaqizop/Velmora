@@ -136,7 +136,8 @@
   }
 
   const ACCENTS: [string, string][] = [
-    ["#6015EA", "Velmora violet"],
+    ["#3271FE", "Velmora blue"],
+    ["#6015EA", "Violet"],
     ["#FF5A5A", "Coral"],
     ["#0B7FD9", "Ocean"],
     ["#00A67E", "Jade"],

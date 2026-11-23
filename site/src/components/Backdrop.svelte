@@ -38,7 +38,7 @@
     height: 42vw;
     right: -10vw;
     top: -6vw;
-    background: #ff5a5a;
+    background: #f8e8c8;
     opacity: 0.32;
     animation-duration: 32s;
     animation-delay: -8s;
@@ -48,7 +48,7 @@
     height: 46vw;
     left: 30vw;
     top: 40vh;
-    background: #7b6cff;
+    background: #3271fe;
     opacity: 0.22;
     animation-duration: 38s;
     animation-delay: -14s;

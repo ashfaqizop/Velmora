@@ -38,8 +38,8 @@
     font-size: 13px;
     font-weight: 600;
     color: #e4dcff;
-    background: rgb(123 108 255 / 12%);
-    border: 1px solid rgb(123 108 255 / 28%);
+    background: rgb(50 113 254 / 12%);
+    border: 1px solid rgb(50 113 254 / 28%);
     --m3e-icon-size: 16px;
   }
   b {

@@ -89,7 +89,7 @@
 <section id="features">
   <Shapes
     spots={[
-      { x: "93%", y: "150px", size: 150, color: "#7b6cff", spin: 26, opacity: 0.55 },
+      { x: "93%", y: "150px", size: 150, color: "#3271fe", spin: 26, opacity: 0.55 },
       { x: "4%", y: "62%", size: 76, color: "#2dd4bf", spin: -14, offset: 6, opacity: 0.7 },
     ]}
   />
@@ -120,7 +120,7 @@
     margin-top: 56px;
   }
   .card {
-    --tone: var(--indigo);
+    --tone: var(--blue);
     position: relative;
     overflow: hidden;
     padding: 28px;
@@ -142,7 +142,7 @@
     grid-column: span 2;
   }
   .tone-coral {
-    --tone: var(--coral);
+    --tone: var(--cream);
   }
   .tone-violet {
     --tone: var(--violet);

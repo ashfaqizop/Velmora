@@ -1,18 +1,18 @@
 :root {
   --font: "Plus Jakarta Sans Variable", "Segoe UI Variable Text", system-ui, sans-serif;
   --display: "Instrument Serif", Georgia, serif;
-  --bg: #0c0a13;
-  --coral: #ff5a5a;
-  --indigo: #7b6cff;
-  --violet: #8b5cf6;
+  --bg: #0a0d16;
+  --cream: #f8e8c8;
+  --blue: #3271fe;
+  --violet: #6c9bff;
   --amber: #ffb74d;
   --ink: #f4f1fb;
   --muted: #b2abc4;
   --line: rgb(255 255 255 / 8%);
   --glass: rgb(255 255 255 / 4%);
   --max: 1180px;
-  --brand-coral: var(--coral);
-  --brand-indigo: var(--indigo);
+  --brand-cream: var(--cream);
+  --brand-blue: var(--blue);
 }
 
 * {
@@ -47,7 +47,7 @@ footer {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--indigo) 55%, transparent);
+  background: color-mix(in srgb, var(--blue) 55%, transparent);
   color: #fff;
 }
 
@@ -79,14 +79,14 @@ img {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--indigo);
+  color: var(--blue);
 }
 .eyebrow::before {
   content: "";
   width: 18px;
   height: 2px;
   border-radius: 2px;
-  background: linear-gradient(90deg, var(--coral), var(--indigo));
+  background: linear-gradient(90deg, var(--cream), var(--blue));
 }
 .title {
   margin: 12px 0 0;
@@ -98,7 +98,7 @@ img {
 }
 .title em {
   font-style: italic;
-  background: linear-gradient(100deg, var(--coral), #ff9a8b 35%, var(--indigo) 80%);
+  background: linear-gradient(100deg, var(--cream), #ffd59a 35%, var(--blue) 80%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

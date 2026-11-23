@@ -213,7 +213,7 @@
     --m3e-icon-size: 20px;
   }
   .ctl.on {
-    color: var(--brand-coral, #ff5a5a);
+    color: var(--brand-cream, #f8e8c8);
   }
   .bar {
     position: absolute;

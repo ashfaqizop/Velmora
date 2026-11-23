@@ -64,8 +64,8 @@
     background: var(--glass);
   }
   .tier.max {
-    background: linear-gradient(160deg, rgb(123 108 255 / 22%), rgb(255 90 90 / 10%));
-    border-color: rgb(123 108 255 / 40%);
+    background: linear-gradient(160deg, rgb(50 113 254 / 22%), rgb(248 232 200 / 10%));
+    border-color: rgb(50 113 254 / 40%);
   }
   header {
     display: flex;

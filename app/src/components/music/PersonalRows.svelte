@@ -114,7 +114,7 @@
   .shade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(160deg, color-mix(in srgb, var(--brand-indigo) 55%, transparent), color-mix(in srgb, var(--brand-coral) 45%, transparent));
+    background: linear-gradient(160deg, color-mix(in srgb, var(--brand-blue) 55%, transparent), color-mix(in srgb, var(--brand-cream) 45%, transparent));
     mix-blend-mode: multiply;
   }
   .tag {

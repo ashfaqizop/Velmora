@@ -103,7 +103,7 @@
     display: block;
     height: 100%;
     border-radius: 5px;
-    background: linear-gradient(90deg, var(--md-sys-color-primary), var(--brand-coral, #ff5a5a));
+    background: linear-gradient(90deg, var(--md-sys-color-primary), var(--brand-cream, #f8e8c8));
     transform-origin: left;
     animation: grow 700ms var(--md-sys-motion-easing-emphasized-decelerate, ease-out) both;
   }

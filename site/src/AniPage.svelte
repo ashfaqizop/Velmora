@@ -111,10 +111,10 @@
   <section class="hero">
     <Shapes
       spots={[
-        { x: "5%", y: "180px", size: 70, color: "#ff5a5a", spin: 14, offset: 3 },
+        { x: "5%", y: "180px", size: 70, color: "#f8e8c8", spin: 14, offset: 3 },
         { x: "52%", y: "130px", size: 46, color: "#ffb74d", spin: -10, offset: 6 },
-        { x: "95%", y: "300px", size: 130, color: "#7b6cff", spin: -22 },
-        { x: "48%", y: "88%", size: 88, color: "#c38bff", spin: 18, offset: 8, opacity: 0.6 },
+        { x: "95%", y: "300px", size: 130, color: "#3271fe", spin: -22 },
+        { x: "48%", y: "88%", size: 88, color: "#8fb4ff", spin: 18, offset: 8, opacity: 0.6 },
       ]}
     />
     <div class="wrap grid">
@@ -315,8 +315,8 @@
       <div class="end" use:reveal>
         <Shapes
           spots={[
-            { x: "10%", y: "70%", size: 120, color: "#7b6cff", spin: 20 },
-            { x: "90%", y: "30%", size: 100, color: "#ff5a5a", spin: -16, offset: 5 },
+            { x: "10%", y: "70%", size: 120, color: "#3271fe", spin: 20 },
+            { x: "90%", y: "30%", size: 100, color: "#f8e8c8", spin: -16, offset: 5 },
           ]}
         />
         <span class="on-shape mark small" aria-hidden="true">
@@ -344,7 +344,7 @@
   }
   .mark {
     --m3e-shape-size: 72px;
-    --m3e-shape-container-color: var(--indigo);
+    --m3e-shape-container-color: var(--blue);
     color: #fff;
     --m3e-icon-size: 34px;
     animation: in 0.9s both cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -374,7 +374,7 @@
   }
   h1 em {
     font-style: italic;
-    background: linear-gradient(100deg, #ff8a7a, var(--coral) 30%, #c38bff 65%, var(--indigo));
+    background: linear-gradient(100deg, #ffd59a, var(--cream) 30%, #8fb4ff 65%, var(--blue));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -422,10 +422,10 @@
     border-radius: 32px;
     border: 1px solid var(--line);
     background:
-      radial-gradient(90% 60% at 0% 0%, rgb(123 108 255 / 24%), transparent 60%),
-      radial-gradient(70% 50% at 100% 100%, rgb(255 90 90 / 16%), transparent 60%),
+      radial-gradient(90% 60% at 0% 0%, rgb(50 113 254 / 24%), transparent 60%),
+      radial-gradient(70% 50% at 100% 100%, rgb(248 232 200 / 16%), transparent 60%),
       #15111f;
-    box-shadow: 0 40px 100px -40px rgb(123 108 255 / 55%);
+    box-shadow: 0 40px 100px -40px rgb(50 113 254 / 55%);
     font-size: 14px;
     animation: in 1.1s 0.5s both cubic-bezier(0.2, 0.7, 0.2, 1);
   }
@@ -437,7 +437,7 @@
   }
   .me {
     align-self: flex-end;
-    background: var(--indigo);
+    background: var(--blue);
     color: #fff;
     border-bottom-right-radius: 6px;
   }
@@ -483,13 +483,13 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: var(--indigo);
-    box-shadow: 0 0 0 0 rgb(123 108 255 / 60%);
+    background: var(--blue);
+    box-shadow: 0 0 0 0 rgb(50 113 254 / 60%);
     animation: pulse 1.6s infinite;
   }
   @keyframes pulse {
     to {
-      box-shadow: 0 0 0 10px rgb(123 108 255 / 0%);
+      box-shadow: 0 0 0 10px rgb(50 113 254 / 0%);
     }
   }
   .spot {
@@ -512,7 +512,7 @@
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background: radial-gradient(circle at 40% 40%, #f3efff, #b9a6ff 60%, #7b6cff);
+    background: radial-gradient(circle at 40% 40%, #eef4ff, #9dbbff 60%, #3271fe);
     box-shadow: 0 0 60px 14px rgb(167 139 250 / 45%);
   }
   .ridge {
@@ -596,7 +596,7 @@
       opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .ask:hover {
-    border-color: rgb(123 108 255 / 50%);
+    border-color: rgb(50 113 254 / 50%);
     transform: translateY(-3px);
   }
   .ask m3e-icon {
@@ -636,7 +636,7 @@
     width: 52px;
     height: 52px;
     border-radius: 16px;
-    background: linear-gradient(135deg, var(--coral), var(--indigo));
+    background: linear-gradient(135deg, #6c9bff, var(--blue));
     color: #fff;
     --m3e-icon-size: 26px;
     margin-bottom: 8px;
@@ -658,8 +658,8 @@
     margin-top: 16px;
     padding: 18px 24px;
     border-radius: 20px;
-    background: rgb(123 108 255 / 10%);
-    border: 1px solid rgb(123 108 255 / 25%);
+    background: rgb(50 113 254 / 10%);
+    border: 1px solid rgb(50 113 254 / 25%);
     font-size: 15px;
     line-height: 1.55;
     color: var(--muted);
@@ -695,7 +695,7 @@
     width: 46px;
     height: 46px;
     border-radius: 14px;
-    background: rgb(123 108 255 / 16%);
+    background: rgb(50 113 254 / 16%);
     color: #c9c1ff;
     --m3e-icon-size: 22px;
   }
@@ -751,8 +751,8 @@
     border-radius: 36px;
     border: 1px solid var(--line);
     background:
-      radial-gradient(50% 80% at 10% 0%, rgb(123 108 255 / 18%), transparent 70%),
-      radial-gradient(40% 80% at 95% 100%, rgb(255 90 90 / 12%), transparent 70%),
+      radial-gradient(50% 80% at 10% 0%, rgb(50 113 254 / 18%), transparent 70%),
+      radial-gradient(40% 80% at 95% 100%, rgb(248 232 200 / 12%), transparent 70%),
       #120e1d;
   }
   .trust div {
@@ -796,7 +796,7 @@
     font-size: 64px;
     line-height: 0.9;
     color: transparent;
-    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--indigo) 80%, transparent);
+    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--blue) 80%, transparent);
     margin-bottom: 12px;
   }
   .setup strong {
@@ -844,8 +844,8 @@
     border-radius: 44px;
     border: 1px solid rgb(255 255 255 / 10%);
     background:
-      radial-gradient(60% 80% at 20% 0%, rgb(255 90 90 / 26%), transparent 60%),
-      radial-gradient(60% 90% at 90% 100%, rgb(123 108 255 / 40%), transparent 60%),
+      radial-gradient(60% 80% at 20% 0%, rgb(248 232 200 / 26%), transparent 60%),
+      radial-gradient(60% 90% at 90% 100%, rgb(50 113 254 / 40%), transparent 60%),
       #140f22;
   }
   .end .lead {

@@ -57,7 +57,7 @@
     font-size: 64px;
     line-height: 0.9;
     color: transparent;
-    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--indigo) 80%, transparent);
+    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--blue) 80%, transparent);
     margin-bottom: 12px;
   }
   li strong {

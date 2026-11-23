@@ -926,7 +926,7 @@
     position: absolute;
     inset: 0;
     z-index: -1;
-    background: #0c0a13 center / cover no-repeat;
+    background: #0a0d16 center / cover no-repeat;
     pointer-events: none;
   }
   .backdrop::after {

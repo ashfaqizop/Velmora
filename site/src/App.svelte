@@ -38,10 +38,10 @@
   <section class="hero">
     <Shapes
       spots={[
-        { x: "9%", y: "200px", size: 120, color: "#7b6cff", spin: 22 },
-        { x: "90%", y: "240px", size: 92, color: "#ff5a5a", spin: -16, offset: 4 },
+        { x: "9%", y: "200px", size: 120, color: "#3271fe", spin: 22 },
+        { x: "90%", y: "240px", size: 92, color: "#f8e8c8", spin: -16, offset: 4 },
         { x: "17%", y: "480px", size: 52, color: "#ffb74d", spin: 12, offset: 7 },
-        { x: "82%", y: "530px", size: 64, color: "#c38bff", spin: -20, offset: 2 },
+        { x: "82%", y: "530px", size: 64, color: "#8fb4ff", spin: -20, offset: 2 },
       ]}
     />
     <div class="wrap center">
@@ -97,8 +97,8 @@
       <div class="end" use:reveal>
         <Shapes
           spots={[
-            { x: "8%", y: "26%", size: 110, color: "#ff5a5a", spin: 18, opacity: 0.85 },
-            { x: "92%", y: "72%", size: 130, color: "#7b6cff", spin: -24, offset: 5 },
+            { x: "8%", y: "26%", size: 110, color: "#f8e8c8", spin: 18, opacity: 0.85 },
+            { x: "92%", y: "72%", size: 130, color: "#3271fe", spin: -24, offset: 5 },
             { x: "86%", y: "18%", size: 44, color: "#ffb74d", spin: 10, offset: 8 },
           ]}
         />
@@ -140,14 +140,14 @@
     animation: in 0.9s 0.05s both cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .pill:hover {
-    border-color: rgb(123 108 255 / 60%);
+    border-color: rgb(50 113 254 / 60%);
   }
   .new {
     padding: 3px 10px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 700;
-    background: linear-gradient(90deg, var(--coral), var(--indigo));
+    background: linear-gradient(90deg, #5d8eff, var(--blue));
     color: #fff;
   }
   h1 {
@@ -159,7 +159,7 @@
   }
   h1 em {
     font-style: italic;
-    background: linear-gradient(100deg, #ff8a7a 0%, var(--coral) 25%, #c38bff 60%, var(--indigo) 90%);
+    background: linear-gradient(100deg, #ffd59a 0%, var(--cream) 25%, #8fb4ff 60%, var(--blue) 90%);
     background-size: 200% 100%;
     -webkit-background-clip: text;
     background-clip: text;
@@ -289,8 +289,8 @@
     overflow: hidden;
     border: 1px solid rgb(255 255 255 / 10%);
     background:
-      radial-gradient(60% 80% at 20% 0%, rgb(255 90 90 / 30%), transparent 60%),
-      radial-gradient(60% 90% at 90% 100%, rgb(123 108 255 / 40%), transparent 60%),
+      radial-gradient(60% 80% at 20% 0%, rgb(248 232 200 / 30%), transparent 60%),
+      radial-gradient(60% 90% at 90% 100%, rgb(50 113 254 / 40%), transparent 60%),
       #140f22;
   }
   .end-count {

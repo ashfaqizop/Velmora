@@ -34,8 +34,8 @@
 <section id="changelog">
   <Shapes
     spots={[
-      { x: "86%", y: "230px", size: 130, color: "#7b6cff", spin: 22 },
-      { x: "70%", y: "150px", size: 50, color: "#ff5a5a", spin: -12, offset: 5 },
+      { x: "86%", y: "230px", size: 130, color: "#3271fe", spin: 22 },
+      { x: "70%", y: "150px", size: 50, color: "#f8e8c8", spin: -12, offset: 5 },
       { x: "95%", y: "380px", size: 64, color: "#ffb74d", spin: 16, offset: 8 },
     ]}
   />
@@ -378,7 +378,7 @@
     --m3e-icon-size: 16px;
   }
   .k-new {
-    background: rgb(123 108 255 / 18%);
+    background: rgb(50 113 254 / 18%);
     color: #c9c1ff;
   }
   .k-improved {

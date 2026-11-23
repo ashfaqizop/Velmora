@@ -54,7 +54,7 @@
     border: 1px solid rgb(61 220 132 / 22%);
     background:
       radial-gradient(70% 90% at 100% 100%, rgb(61 220 132 / 18%), transparent 60%),
-      radial-gradient(60% 80% at 0% 0%, rgb(123 108 255 / 14%), transparent 60%),
+      radial-gradient(60% 80% at 0% 0%, rgb(50 113 254 / 14%), transparent 60%),
       #110f1a;
     --md-sys-color-on-surface: #f4f1fb;
   }

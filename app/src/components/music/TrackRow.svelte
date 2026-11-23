@@ -199,7 +199,7 @@
     opacity: 1;
   }
   .like.on {
-    color: var(--brand-coral, #ff5a5a);
+    color: var(--brand-cream, #f8e8c8);
   }
   .e {
     display: inline-grid;

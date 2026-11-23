@@ -216,7 +216,7 @@
     overflow: hidden;
     background:
       radial-gradient(120% 80% at 50% 120%, color-mix(in srgb, var(--md-sys-color-primary) 16%, transparent), transparent 60%),
-      #0c0a13;
+      #0a0d16;
     transition: opacity 650ms var(--md-sys-motion-easing-emphasized, ease), filter 650ms ease;
   }
   .splash.leaving {
@@ -249,7 +249,7 @@
     animation: spin 40s linear infinite;
   }
   .blob.b {
-    --m3e-shape-container-color: var(--brand-coral);
+    --m3e-shape-container-color: var(--brand-cream);
     transform: translate(-20%, -35%) scale(0.8);
     animation: spin 55s linear infinite reverse;
   }

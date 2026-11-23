@@ -152,7 +152,7 @@
     --m3e-icon-size: 18px;
   }
   .badge m3e-icon {
-    color: var(--brand-coral);
+    color: var(--brand-cream);
   }
   .title {
     margin: 0;

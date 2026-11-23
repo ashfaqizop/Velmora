@@ -21,7 +21,7 @@
   const cur = $derived(musicPlayer.current);
   const cover = $derived(cur ? art(cur.thumbnails, 600) : null);
   const tint = $derived(musicUi.colors?.base ?? "var(--md-sys-color-primary)");
-  const deep = $derived(musicUi.colors?.deep ?? "#120b24");
+  const deep = $derived(musicUi.colors?.deep ?? "#0a1230");
   // Video is chosen; the page only turns see-through once mpv is drawing it,
   // so a slow or failed video never leaves a transparent window.
   const video = $derived(musicPlayer.video);
@@ -514,7 +514,7 @@
     --m3e-icon-size: 28px;
   }
   .icon.liked {
-    color: var(--brand-coral, #ff5a5a);
+    color: var(--brand-cream, #f8e8c8);
   }
   .icon.small {
     width: 32px;

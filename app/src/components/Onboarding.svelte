@@ -235,7 +235,7 @@
   }
   .blob.b {
     --m3e-shape-size: 380px;
-    --m3e-shape-container-color: var(--brand-coral);
+    --m3e-shape-container-color: var(--brand-cream);
     right: -100px;
     bottom: -120px;
     opacity: 0.2;

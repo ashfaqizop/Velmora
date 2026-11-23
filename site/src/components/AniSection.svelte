@@ -79,7 +79,7 @@
     width: 44px;
     height: 44px;
     border-radius: 14px;
-    background: rgb(123 108 255 / 16%);
+    background: rgb(50 113 254 / 16%);
     color: #c9c1ff;
     --m3e-icon-size: 22px;
   }
@@ -119,10 +119,10 @@
     border-radius: 32px;
     border: 1px solid var(--line);
     background:
-      radial-gradient(90% 60% at 0% 0%, rgb(123 108 255 / 22%), transparent 60%),
-      radial-gradient(70% 50% at 100% 100%, rgb(255 90 90 / 16%), transparent 60%),
+      radial-gradient(90% 60% at 0% 0%, rgb(50 113 254 / 22%), transparent 60%),
+      radial-gradient(70% 50% at 100% 100%, rgb(248 232 200 / 16%), transparent 60%),
       #15111f;
-    box-shadow: 0 40px 100px -40px rgb(123 108 255 / 50%);
+    box-shadow: 0 40px 100px -40px rgb(50 113 254 / 50%);
     font-size: 14px;
   }
   .msg {
@@ -133,7 +133,7 @@
   }
   .me {
     align-self: flex-end;
-    background: var(--indigo);
+    background: var(--blue);
     color: #fff;
     border-bottom-right-radius: 6px;
   }

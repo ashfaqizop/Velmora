@@ -1,18 +1,15 @@
 <script lang="ts">
   import wordmark from "../assets/velmora-wordmark.png";
+  import mark from "../assets/velmora-mark.webp";
+  import markSmall from "../assets/velmora-mark-small.webp";
 
   // `size` is the height of the mark in px; everything else scales from it.
+  // The fox's face stands in below 64px, where the tails would be a blur.
   let { size = 32, word = true }: { size?: number; word?: boolean } = $props();
 </script>
 
 <span class="logo" style:font-size="{size}px" role="img" aria-label="Velmora">
-  <svg class="mark" viewBox="50 120 1810 1630" aria-hidden="true">
-    <g fill="var(--brand-coral)" stroke="var(--brand-coral)" stroke-width="34" stroke-linejoin="round">
-      <polygon points="690,146 1278,146 1838,936 1810,966 1236,966 672,180" />
-      <polygon points="628,966 1212,966 1770,1700 1752,1730 1166,1730 606,1000" />
-    </g>
-    <rect x="73" y="1377" width="505" height="353" rx="26" fill="var(--logo-square, var(--brand-indigo))" />
-  </svg>
+  <img class="mark" src={size < 64 ? markSmall : mark} alt="" aria-hidden="true" draggable="false" />
   {#if word}
     <span class="word" style:--wordmark="url({wordmark})"></span>
   {/if}
@@ -27,9 +24,9 @@
   }
   .mark {
     height: 1em;
-    width: 1.11em;
+    width: 1em;
     flex: none;
-    overflow: visible;
+    display: block;
   }
   .word {
     height: 0.62em;

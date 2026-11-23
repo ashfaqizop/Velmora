@@ -361,7 +361,7 @@ class Settings {
   }
 }
 
-export const DEFAULT_ACCENT = "#6015EA";
+export const DEFAULT_ACCENT = "#3271FE";
 
 export function applyAccent(color: string) {
   document.getElementById("theme")?.setAttribute("color", color);

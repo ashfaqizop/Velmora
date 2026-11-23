@@ -114,7 +114,7 @@
     --m3e-icon-size: 15px;
   }
   .star m3e-icon {
-    color: var(--brand-coral, #ff5a5a);
+    color: var(--brand-cream, #f8e8c8);
   }
   .badge {
     --m3e-chip-container-height: 24px;

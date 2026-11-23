@@ -26,11 +26,11 @@
   <!-- Behind the window: they peek out around its edges. -->
   <Shapes
     spots={[
-      { x: "3%", y: "6%", size: 190, color: "#7b6cff", spin: 26 },
-      { x: "96%", y: "2%", size: 130, color: "#ff5a5a", spin: -18, offset: 4 },
+      { x: "3%", y: "6%", size: 190, color: "#3271fe", spin: 26 },
+      { x: "96%", y: "2%", size: 130, color: "#f8e8c8", spin: -18, offset: 4 },
       { x: "101%", y: "52%", size: 84, color: "#2dd4bf", spin: 14, offset: 7 },
       { x: "5%", y: "96%", size: 120, color: "#ffb74d", spin: -16, offset: 2 },
-      { x: "93%", y: "100%", size: 200, color: "#c38bff", spin: 30, offset: 9 },
+      { x: "93%", y: "100%", size: 200, color: "#8fb4ff", spin: 30, offset: 9 },
     ]}
   />
   <div class="window">
@@ -115,8 +115,8 @@
     border: 1px solid rgb(255 255 255 / 10%);
     box-shadow:
       0 0 0 1px rgb(0 0 0 / 40%),
-      0 40px 120px -30px rgb(123 108 255 / 45%),
-      0 30px 80px -40px rgb(255 90 90 / 35%);
+      0 40px 120px -30px rgb(50 113 254 / 45%),
+      0 30px 80px -40px rgb(248 232 200 / 35%);
     transform: rotateX(14deg) scale(0.96);
     transform-origin: 50% 0;
     animation: settle 1.6s 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
@@ -183,7 +183,7 @@
     --m3e-icon-size: 18px;
   }
   .nav.on {
-    background: rgb(123 108 255 / 22%);
+    background: rgb(50 113 254 / 22%);
     color: #fff;
   }
   .promo {
@@ -193,7 +193,7 @@
     gap: 4px;
     padding: 14px;
     border-radius: 16px;
-    background: linear-gradient(160deg, rgb(255 90 90 / 18%), rgb(123 108 255 / 18%));
+    background: linear-gradient(160deg, rgb(248 232 200 / 18%), rgb(50 113 254 / 18%));
     font-size: 11px;
     color: var(--muted);
   }
@@ -409,7 +409,7 @@
     color: #fff;
   }
   .src.top {
-    background: linear-gradient(90deg, rgb(123 108 255 / 35%), rgb(255 90 90 / 20%));
+    background: linear-gradient(90deg, rgb(50 113 254 / 35%), rgb(248 232 200 / 20%));
     color: #fff;
   }
   .src m3e-icon {
@@ -435,7 +435,7 @@
   .mark {
     flex: none;
     --m3e-shape-size: 34px;
-    --m3e-shape-container-color: var(--indigo);
+    --m3e-shape-container-color: var(--blue);
     color: #fff;
     --m3e-icon-size: 18px;
   }
@@ -457,7 +457,7 @@
     width: 38px;
     height: 22px;
     border-radius: 999px;
-    background: var(--indigo);
+    background: var(--blue);
     position: relative;
     margin-left: 6px;
   }
