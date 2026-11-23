@@ -76,6 +76,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { id: "anime-audio", page: "playback", label: "Anime audio", hint: "Sub or dub", words: "japanese english dub sub" },
 
   { id: "account-profile", page: "account", label: "Velmora account", hint: "Sign in, your profile and username", words: "login log in sign in sign up register profile username avatar picture google discord email name logout sign out" },
+  { id: "account-sync", page: "account", label: "Sync my data", hint: "My List, progress and settings across your PCs", words: "backup restore cloud devices computers history continue watching list" },
   { id: "account-data", page: "account", label: "Your data and deleting your account", hint: "Copy or delete what Velmora holds about you", words: "export delete remove privacy gdpr" },
 
   { id: "dialogue", page: "sound", label: "Dialogue boost", hint: "Clearer voices", words: "speech voice center" },

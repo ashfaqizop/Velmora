@@ -4,6 +4,7 @@
   import Avatar from "./Avatar.svelte";
   import NameStatus from "./NameStatus.svelte";
   import { account, USERNAME } from "../lib/account.svelte";
+  import { sync } from "../lib/sync.svelte";
   import { isPhotoUrl, PRESETS, presetId } from "../lib/avatars";
 
   const p = $derived(account.profile);
@@ -97,6 +98,22 @@
     }
   }
 
+  // ── Sync ──
+  const synced = $derived(sync.lastSync ? new Date(sync.lastSync).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : null);
+  const syncLine = $derived(
+    !sync.enabled
+      ? "Off. Your list, progress and settings stay on this PC."
+      : sync.status === "syncing"
+        ? "Syncing…"
+        : sync.status === "error"
+          ? (sync.error ?? "Couldn't sync. Velmora will try again.")
+          : account.offline
+            ? "You're offline. Changes sync when you're back online."
+            : synced
+              ? `Up to date. Last synced ${synced}.`
+              : "Ready. The first sync starts in a moment.",
+  );
+
   // ── Data ──
   let confirmDelete = $state(false);
   let confirmTimer: ReturnType<typeof setTimeout> | undefined;
@@ -120,6 +137,7 @@
     busy = true;
     try {
       await account.deleteAccount();
+      sync.forgetAccount();
       M3eSnackbar.open("Your account was deleted.");
     } catch (e) {
       M3eSnackbar.open((e as Error).message);
@@ -193,6 +211,20 @@
       </div>
     </div>
   {/if}
+
+  <m3e-divider></m3e-divider>
+
+  <div class="state" data-setting="account-sync">
+    <div class="text">
+      <strong>Sync my data</strong>
+      <span>Keeps My List, watch progress and settings the same on every PC you sign in on. The download folder stays per PC.</span>
+      <span class="small" class:error-text={sync.status === "error"}>{syncLine}</span>
+    </div>
+    <m3e-button variant="text" disabled={!sync.enabled || sync.status === "syncing" || account.offline} onclick={() => sync.run(true)}>
+      <m3e-icon slot="icon" name="sync"></m3e-icon>Sync now
+    </m3e-button>
+    <m3e-switch checked={sync.enabled} aria-label="Sync my data" onchange={(e: Event) => sync.setEnabled((e.currentTarget as HTMLElement & { checked: boolean }).checked)}></m3e-switch>
+  </div>
 
   <m3e-divider></m3e-divider>
 
@@ -319,6 +351,9 @@
   }
   m3e-divider {
     margin: 16px 0;
+  }
+  .error-text {
+    color: var(--md-sys-color-error) !important;
   }
   .tail {
     display: grid;

@@ -304,6 +304,9 @@ class Library {
   watchlist = $state<TitleSummary[]>(load("watchlist", []));
   history = $state<HistoryEntry[]>(load("history", []));
 
+  /** Told about every change made on this PC, so sync can send it (see sync.svelte.ts). */
+  onChange: ((e: { table: "list" | "progress"; key: string; deleted: boolean }) => void) | null = null;
+
   has(t: TitleSummary) {
     const k = keyOf(t);
     return this.watchlist.some((w) => keyOf(w) === k);
@@ -311,8 +314,10 @@ class Library {
 
   toggle(t: TitleSummary) {
     const k = keyOf(t);
-    this.watchlist = this.has(t) ? this.watchlist.filter((w) => keyOf(w) !== k) : [$state.snapshot(t), ...this.watchlist];
+    const removing = this.has(t);
+    this.watchlist = removing ? this.watchlist.filter((w) => keyOf(w) !== k) : [$state.snapshot(t), ...this.watchlist];
     save("watchlist", this.watchlist);
+    this.onChange?.({ table: "list", key: k, deleted: removing });
   }
 
   /** Unfinished titles, most recent first (one entry per title). */
@@ -351,12 +356,40 @@ class Library {
     };
     this.history = [entry, ...this.history.filter((h) => keyOf(h.title) !== k)].slice(0, 200);
     save("history", this.history);
+    this.onChange?.({ table: "progress", key: k, deleted: false });
   }
 
   forget(t: TitleSummary) {
     const k = keyOf(t);
     this.history = this.history.filter((h) => keyOf(h.title) !== k);
     save("history", this.history);
+    this.onChange?.({ table: "progress", key: k, deleted: true });
+  }
+
+  // ── Changes that arrive from your account (sync). They don't count as edits made here. ──
+
+  /** Put a list entry in, or take it out (title null). Newest first, by `at`. */
+  applyList(key: string, title: TitleSummary | null, order: (k: string) => number) {
+    const rest = this.watchlist.filter((w) => keyOf(w) !== key);
+    const next = title ? [title, ...rest] : rest;
+    next.sort((a, b) => order(keyOf(b)) - order(keyOf(a)));
+    this.watchlist = next;
+    save("watchlist", this.watchlist);
+  }
+
+  /** Put a progress entry in, or take it out (entry null). Keeps the newest 200. */
+  applyProgress(key: string, entry: HistoryEntry | null) {
+    const rest = this.history.filter((h) => keyOf(h.title) !== key);
+    this.history = (entry ? [entry, ...rest] : rest).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 200);
+    save("history", this.history);
+  }
+
+  /** Empty this PC's list and history (another account is signing in). */
+  clear() {
+    this.watchlist = [];
+    this.history = [];
+    save("watchlist", []);
+    save("history", []);
   }
 }
 

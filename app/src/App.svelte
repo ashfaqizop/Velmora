@@ -10,6 +10,7 @@
   import { downloads, feed, nav } from "./lib/state.svelte";
   import { license } from "./lib/license.svelte";
   import { account } from "./lib/account.svelte";
+  import { sync } from "./lib/sync.svelte";
   import { ads } from "./lib/ads.svelte";
   import { musicSession } from "./lib/music/session.svelte";
   import { musicPlayer } from "./lib/music/player.svelte";
@@ -32,7 +33,11 @@
   feed.load();
   // Max or Public decides whether ads run at all; the rules wait for that answer.
   license.load().then(() => ads.init());
-  account.onSignedIn = () => license.syncAccount();
+  account.onSignedIn = () => {
+    license.syncAccount();
+    sync.schedule(1500);
+  };
+  sync.start();
   account.init().catch((e) => console.warn("account", e));
   // YouTube Music sign-in state (only the Music pages need it).
   musicSession.init();
