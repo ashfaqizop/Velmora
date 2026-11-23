@@ -13,6 +13,7 @@
 // only hear silence.
 import type { MpvEvent } from "tauri-plugin-libmpv-api";
 import * as api from "../api";
+import { AudioChain } from "../webchain";
 import type { PlayerIO } from "./io";
 
 interface Slot {
@@ -20,42 +21,6 @@ interface Slot {
   /** The song in it has started loading for real (not an empty element). */
   loaded: boolean;
 }
-
-/** One filter from an mpv `lavfi=[...]` chain. */
-interface Filter {
-  name: string;
-  args: Record<string, string>;
-  raw: string;
-}
-
-/** Every filter in an mpv `af` string, in order. */
-function parseAf(af: string): Filter[] {
-  const out: Filter[] = [];
-  for (const m of af.matchAll(/lavfi=\[([^\]]*)\]/g)) {
-    for (const part of m[1].split(",")) {
-      const eq = part.indexOf("=");
-      const name = (eq < 0 ? part : part.slice(0, eq)).trim();
-      const rest = eq < 0 ? "" : part.slice(eq + 1);
-      const args: Record<string, string> = {};
-      for (const kv of rest.split(":")) {
-        const i = kv.indexOf("=");
-        if (i > 0) args[kv.slice(0, i)] = kv.slice(i + 1);
-      }
-      if (name) out.push({ name, args, raw: rest });
-    }
-  }
-  return out;
-}
-
-const num = (v: string | undefined, fallback: number) => {
-  const n = parseFloat(v ?? "");
-  return Number.isFinite(n) ? n : fallback;
-};
-
-/** mpv's volume is cubic: 50% is an eighth of the amplitude. */
-const amplitude = (volume: number) => Math.max(0, volume / 100) ** 3;
-
-const dB = (rms: number) => (rms > 0 ? 20 * Math.log10(rms) : -Infinity);
 
 class WebAudioIO implements PlayerIO {
   readonly kind = "builtin" as const;
@@ -76,12 +41,7 @@ class WebAudioIO implements PlayerIO {
   private af = "";
   private loadSeq = 0;
 
-  private input!: GainNode;
-  private master!: GainNode;
-  private chain: AudioNode[] = [];
-  private meters: [AnalyserNode, AnalyserNode] | null = null;
-  private splitter: ChannelSplitterNode | null = null;
-  private meterTimer: ReturnType<typeof setInterval> | undefined;
+  private chain: AudioChain | null = null;
 
   private emit(ev: MpvEvent) {
     for (const cb of this.listeners) cb(ev);
@@ -104,19 +64,19 @@ class WebAudioIO implements PlayerIO {
     if (this.ctx) return;
     const ctx = new AudioContext({ latencyHint: "playback" });
     this.ctx = ctx;
-    this.input = ctx.createGain();
-    this.master = ctx.createGain();
-    this.master.gain.value = amplitude(this.volume);
-    this.master.connect(ctx.destination);
+    this.chain = new AudioChain(ctx, (levels) => {
+      if (!this.el.paused) this.prop("af-metadata/viz", levels);
+    });
+    this.chain.setVolume(this.volume);
     for (let i = 0; i < 2; i++) {
       const el = new Audio();
       el.crossOrigin = "anonymous";
       el.preload = "auto";
-      ctx.createMediaElementSource(el).connect(this.input);
+      ctx.createMediaElementSource(el).connect(this.chain.input);
       this.slots.push({ el, loaded: false });
       this.wire(i);
     }
-    this.rebuild();
+    this.chain.setAf(this.af);
   }
 
   /** Element events, as mpv would report them. Only the playing slot speaks,
@@ -217,122 +177,13 @@ class WebAudioIO implements PlayerIO {
     slot.el.load();
   }
 
-  // ── The filter chain ──────────────────────────────────────────────
-
-  /** Rebuild the graph from the current `af`: input → filters → master. */
-  private rebuild() {
-    const ctx = this.ctx;
-    if (!ctx) return;
-    this.input.disconnect();
-    for (const n of this.chain) n.disconnect();
-    this.chain = [];
-    let viz = false;
-    for (const f of parseAf(this.af)) {
-      switch (f.name) {
-        case "volume": {
-          const g = ctx.createGain();
-          g.gain.value = 10 ** (num(f.raw.replace(/db$/i, ""), 0) / 20);
-          this.chain.push(g);
-          break;
-        }
-        case "equalizer":
-        case "bass":
-        case "treble": {
-          const b = ctx.createBiquadFilter();
-          b.type = f.name === "bass" ? "lowshelf" : f.name === "treble" ? "highshelf" : "peaking";
-          b.frequency.value = num(f.args.f, 1000);
-          b.Q.value = num(f.args.w, 1);
-          b.gain.value = num(f.args.g, 0);
-          this.chain.push(b);
-          break;
-        }
-        case "acompressor": {
-          // Night mode. mpv's threshold and makeup are linear.
-          const c = ctx.createDynamicsCompressor();
-          c.threshold.value = Math.max(-100, dB(num(f.args.threshold, 0.125)));
-          c.ratio.value = Math.min(20, num(f.args.ratio, 2));
-          c.attack.value = num(f.args.attack, 20) / 1000;
-          c.release.value = num(f.args.release, 250) / 1000;
-          c.knee.value = 6;
-          const makeup = ctx.createGain();
-          makeup.gain.value = num(f.args.makeup, 1);
-          this.chain.push(c, makeup);
-          break;
-        }
-        case "dynaudnorm": {
-          // Even volume: a slow, gentle compressor with some lift.
-          const c = ctx.createDynamicsCompressor();
-          c.threshold.value = -28;
-          c.knee.value = 12;
-          c.ratio.value = 3;
-          c.attack.value = 0.05;
-          c.release.value = 0.6;
-          const lift = ctx.createGain();
-          lift.gain.value = 1.8;
-          this.chain.push(c, lift);
-          break;
-        }
-        case "astats":
-          viz = true;
-          break;
-        // pan (dialogue boost on surround) doesn't come up for music.
-      }
-    }
-    let node: AudioNode = this.input;
-    for (const n of this.chain) {
-      node.connect(n);
-      node = n;
-    }
-    node.connect(this.master);
-    this.setMeter(viz);
-  }
-
-  /** The visualizer's loudness, sent the way mpv's astats filter reports it. */
-  private setMeter(on: boolean) {
-    const ctx = this.ctx;
-    if (!ctx) return;
-    if (!on) {
-      clearInterval(this.meterTimer);
-      this.meterTimer = undefined;
-      if (this.splitter) this.master.disconnect(this.splitter);
-      this.splitter = null;
-      this.meters = null;
-      return;
-    }
-    if (this.meters) return;
-    this.splitter = ctx.createChannelSplitter(2);
-    this.meters = [ctx.createAnalyser(), ctx.createAnalyser()];
-    this.master.connect(this.splitter);
-    this.meters.forEach((a, i) => {
-      a.fftSize = 1024;
-      this.splitter!.connect(a, i);
-    });
-    const buf = new Float32Array(1024);
-    const rms = (a: AnalyserNode) => {
-      a.getFloatTimeDomainData(buf);
-      let sum = 0;
-      for (const x of buf) sum += x * x;
-      return Math.sqrt(sum / buf.length);
-    };
-    this.meterTimer = setInterval(() => {
-      if (!this.meters || this.el.paused) return;
-      const l = rms(this.meters[0]);
-      const r = rms(this.meters[1]);
-      this.prop("af-metadata/viz", {
-        "lavfi.astats.1.RMS_level": String(dB(l)),
-        "lavfi.astats.2.RMS_level": String(dB(r)),
-        "lavfi.astats.Overall.RMS_level": String(dB((l + r) / 2)),
-      });
-    }, 33);
-  }
-
   // ── mpv's names ───────────────────────────────────────────────────
 
   async set(name: string, value: string | number | boolean): Promise<void> {
     switch (name) {
       case "volume":
         this.volume = Number(value) || 0;
-        if (this.ctx) this.master.gain.setTargetAtTime(amplitude(this.volume), this.ctx.currentTime, 0.03);
+        this.chain?.setVolume(this.volume);
         return;
       case "pause":
         if (!this.slots.length) return;
@@ -355,7 +206,7 @@ class WebAudioIO implements PlayerIO {
         return;
       case "af":
         this.af = String(value);
-        this.rebuild();
+        this.chain?.setAf(this.af);
         return;
       case "user-agent":
         this.ua = String(value) || null;

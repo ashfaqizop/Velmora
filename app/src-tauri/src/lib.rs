@@ -15,6 +15,7 @@ mod runtime;
 mod stream;
 mod sync;
 mod webplay;
+mod webvideo;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -94,7 +95,11 @@ pub fn run() {
             let key = stream::load_key(&paths.app_local_data_dir()?.join("vault.key")).map_err(std::io::Error::other)?;
             let vault = Arc::new(universeapi::vault::Vault::new(key));
             engine.downloads().set_vault(Some(vault.clone()));
-            let sealed = Arc::new(stream::Sealed::new(vault));
+            let video_jobs = webvideo::VideoJobs::new(
+                runtime_dir.join(if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" }),
+                paths.app_local_data_dir()?.join("webvideo"),
+            );
+            let sealed = Arc::new(stream::Sealed::new(vault, video_jobs));
             let stream_port = tauri::async_runtime::block_on(stream::start(engine.clone(), sealed.clone()))?;
             // Downloads don't survive a restart, so any .part left in the folder is dead weight.
             let downloads = engine.downloads().clone();
@@ -235,6 +240,10 @@ pub fn run() {
             webplay::web_file_url,
             webplay::player_log_path,
             webplay::player_log,
+            webvideo::web_video_probe,
+            webvideo::web_video_open,
+            webvideo::web_video_subs,
+            webvideo::web_subtitle,
             media::media_update,
             media::media_clear,
             musicdb::music_cache_get,

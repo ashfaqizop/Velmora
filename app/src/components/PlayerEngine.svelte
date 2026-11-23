@@ -48,8 +48,8 @@
     <div class="text">
       <strong>Player</strong>
       <span>
-        mpv plays nearly everything with the best picture. The built-in player is the one inside Velmora's window: it runs on any
-        PC, for Music now and for movies and shows in a coming update. Automatic uses mpv and falls back when it can't start.
+        mpv plays nearly everything with the best picture. The built-in player is the one inside Velmora's window and runs on any
+        PC; ffmpeg converts what it can't play as is, which takes some CPU. Automatic uses mpv and falls back when it can't start.
       </span>
     </div>
     <m3e-segmented-button aria-label="Player">

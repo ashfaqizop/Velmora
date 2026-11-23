@@ -3,18 +3,19 @@
   import ProviderLogo from "../components/ProviderLogo.svelte";
   import { ads } from "../lib/ads.svelte";
   import { personalize } from "../lib/ani/personalize.svelte";
-  import { onDestroy, onMount, untrack } from "svelte";
+  import { onDestroy, onMount, tick, untrack } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import {
-    command,
+    command as mpvCommand,
     listenEvents,
     observeProperties,
-    setProperty,
+    setProperty as mpvSetProperty,
     type MpvConfig,
     type MpvObservableProperty,
   } from "tauri-plugin-libmpv-api";
+  import { webVideo } from "../lib/webvideo";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { MpvUnavailable, startMpv, stopMpv } from "../lib/mpv";
@@ -64,6 +65,15 @@
   let phase = $state<Phase>("sources");
   /** mpv couldn't start in any graphics mode on this PC. */
   let mpvFailed = $state(false);
+  /** Playing on the built-in player (webvideo.ts) instead of mpv. */
+  let web = $state(false);
+  let stage = $state<HTMLDivElement>();
+
+  // The page talks mpv's language; on the built-in player the same names go there.
+  const setProperty = (name: string, value: string | number | boolean) =>
+    web ? webVideo.set(name, value) : mpvSetProperty(name, value);
+  const command = (name: string, args: (string | number | boolean)[] = []) =>
+    web ? webVideo.cmd(name, args) : mpvCommand(name, args);
   let status = $state("Finding sources");
   let report = $state<SourcesReport | null>(null);
   let current = $state(-1);
@@ -145,7 +155,8 @@
     cleanups.forEach((f) => f());
     document.documentElement.classList.remove("player-active");
     if (stream) api.closeStream(stream.id).catch(() => {});
-    stopMpv();
+    if (web) webVideo.detach();
+    else stopMpv();
     if (fullscreen) win.setFullscreen(false);
   });
 
@@ -174,19 +185,37 @@
       },
       observedProperties: OBSERVED,
     };
+    const onEvent = (ev: { event: string; reason?: string }) => {
+      if (ev.event === "file-loaded") onLoaded();
+      else if (ev.event === "end-file" && ev.reason === "error") onSourceFailed();
+    };
     try {
       // Music shares mpv; it stops here and can pick up where it was later.
       await musicPlayer.yieldToVideo();
       mpvFailed = false;
-      await startMpv(config, { video: true });
-      ready = true;
-      cleanups.push(await observeProperties(OBSERVED, onProperty));
-      cleanups.push(
-        await listenEvents((ev) => {
-          if (ev.event === "file-loaded") onLoaded();
-          else if (ev.event === "end-file" && ev.reason === "error") onSourceFailed();
-        }),
-      );
+      let builtin = playerEngine.builtin;
+      if (!builtin) {
+        try {
+          await startMpv(config, { video: true });
+        } catch (e) {
+          // mpv can't run on this PC: the built-in player takes over.
+          if (e instanceof MpvUnavailable && playerEngine.choice === "auto") builtin = true;
+          else throw e;
+        }
+      }
+      if (builtin) {
+        web = true;
+        await tick();
+        if (!stage) throw "The built-in player couldn't start.";
+        webVideo.attach(stage, { alang: String(config.initialOptions?.alang ?? ""), slang: String(config.initialOptions?.slang ?? "en,eng"), volume, af: sound.filters() });
+        ready = true;
+        cleanups.push(webVideo.observe(onProperty));
+        cleanups.push(webVideo.listen(onEvent));
+      } else {
+        ready = true;
+        cleanups.push(await observeProperties(OBSERVED, onProperty));
+        cleanups.push(await listenEvents(onEvent));
+      }
     } catch (e) {
       if (e instanceof MpvUnavailable) {
         mpvFailed = true;
@@ -594,6 +623,10 @@
   aria-label="Video player"
   onmousemove={poke}
 >
+  {#if web}
+    <!-- The built-in player puts its <video> and subtitles here (webvideo.ts). -->
+    <div class="web-stage" bind:this={stage}></div>
+  {/if}
   <!-- The video area itself: click toggles pause, double-click toggles full screen. -->
   <button
     class="surface"
@@ -645,7 +678,8 @@
       {#if mpvFailed}
         <span class="hint">
           Velmora tried every graphics mode, from the best to plain software, and none worked.
-          {#if playerEngine.reason}mpv said: {playerEngine.reason}{/if}
+          {#if playerEngine.reason}mpv said: {playerEngine.reason}.{/if}
+          Set Settings → Playback → Player to Automatic to use the built-in player instead.
         </span>
       {:else if report?.errors.length}
         <span class="hint">{report.errors.map((e) => `${e.provider}: ${e.message}`).join(" · ")}</span>
@@ -842,6 +876,45 @@
   }
   .player.hide-cursor {
     cursor: none;
+  }
+  .web-stage {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background: #000;
+    pointer-events: none;
+  }
+  .web-stage :global(.web-video) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .web-stage :global(.web-subs) {
+    position: absolute;
+    left: 50%;
+    bottom: 7%;
+    transform: translateX(-50%);
+    max-width: min(90%, 1100px);
+    padding: 4px 12px;
+    border-radius: 6px;
+    text-align: center;
+    white-space: pre-line;
+    font-size: clamp(18px, 2.6vw, 40px);
+    font-weight: 600;
+    line-height: 1.25;
+    color: #fff;
+    text-shadow:
+      0 0 4px #000,
+      0 0 2px #000,
+      1px 1px 2px #000;
+    background: rgb(0 0 0 / 0.25);
+    opacity: 0;
+    transition: opacity 80ms linear;
+  }
+  .web-stage :global(.web-subs.on) {
+    opacity: 1;
   }
   .surface {
     all: unset;

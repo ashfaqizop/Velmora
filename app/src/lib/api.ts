@@ -153,6 +153,32 @@ export const playerLogPath = (profile: string) => invoke<string>("player_log_pat
 /** The end of that log, with its error lines. */
 export const playerLog = (profile: string) => invoke<string>("player_log", { profile });
 
+export interface WebProbe {
+  duration: number | null;
+  video: { codec: string; width: number; height: number; pixFmt: string } | null;
+  audio: { index: number; codec: string; channels: string; lang: string | null; title: string | null; default: boolean }[];
+  subs: { index: number; codec: string; lang: string | null; title: string | null; default: boolean; text: boolean }[];
+}
+export interface WebPlan {
+  start: number;
+  audio: number | null;
+  copyVideo: boolean;
+  copyAudio: boolean;
+  maxHeight: number;
+  burnSub: number | null;
+  textSubs: number[];
+  live: boolean;
+}
+/** What's in a stream or file, for the built-in video player. */
+export const webVideoProbe = (input: string) => invoke<WebProbe>("web_video_probe", { input });
+/** Start a built-in player session at `plan.start`. */
+export const webVideoOpen = (input: string, plan: WebPlan) =>
+  invoke<{ token: string; url: string; offset: number }>("web_video_open", { input, plan });
+/** The WebVTT written so far for one of a session's subtitle tracks. */
+export const webVideoSubs = (token: string, index: number) => invoke<string>("web_video_subs", { token, index });
+/** A subtitle file (or one track of it) as WebVTT. */
+export const webSubtitle = (input: string, index?: number) => invoke<string>("web_subtitle", { input, index: index ?? null });
+
 export interface SyncStatus {
   anilistAvailable: boolean;
   anilistUser: string | null;

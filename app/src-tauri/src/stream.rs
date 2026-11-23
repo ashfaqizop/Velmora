@@ -35,11 +35,13 @@ pub struct Sealed {
     pub vault: Arc<Vault>,
     files: std::sync::Mutex<HashMap<String, PathBuf>>,
     plain: std::sync::Mutex<HashMap<String, PathBuf>>,
+    /// The built-in player's video sessions (`/w/{token}`, see webvideo.rs).
+    pub video: crate::webvideo::VideoJobs,
 }
 
 impl Sealed {
-    pub fn new(vault: Arc<Vault>) -> Self {
-        Self { vault, files: std::sync::Mutex::new(HashMap::new()), plain: std::sync::Mutex::new(HashMap::new()) }
+    pub fn new(vault: Arc<Vault>, video: crate::webvideo::VideoJobs) -> Self {
+        Self { vault, files: std::sync::Mutex::new(HashMap::new()), plain: std::sync::Mutex::new(HashMap::new()), video }
     }
 
     /// Make a plain (unencrypted) file playable; returns the token for `/f/{token}`.
@@ -166,6 +168,9 @@ async fn serve(mut sock: TcpStream, engine: Arc<Engine>, sealed: Arc<Sealed>) ->
     }
     if let Some(token) = req.target.strip_prefix("/f/") {
         return serve_plain(&mut sock, &sealed, token, req.range.as_deref(), head_only).await;
+    }
+    if let Some(token) = req.target.strip_prefix("/w/") {
+        return crate::webvideo::serve(&mut sock, &sealed.video, token, req.range.as_deref(), head_only).await;
     }
 
     let resp = match engine.proxy().handle(&req.target, req.range.as_deref()).await {
@@ -342,7 +347,7 @@ fn mime_for(path: &Path) -> &'static str {
 }
 
 /// Lets the built-in player's Web Audio read the samples.
-const CORS: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Expose-Headers: Content-Length, Content-Range, Accept-Ranges\r\n";
+pub(crate) const CORS: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Expose-Headers: Content-Length, Content-Range, Accept-Ranges\r\n";
 
 /// `bytes=a-b`, `bytes=a-` or `bytes=-n` (the first range only) → inclusive span.
 fn parse_range(spec: &str, total: u64) -> Option<(u64, u64)> {
@@ -365,7 +370,7 @@ fn parse_range(spec: &str, total: u64) -> Option<(u64, u64)> {
     (start <= end && start < total).then_some((start, end))
 }
 
-async fn respond_text(sock: &mut TcpStream, status: u16, text: &str) -> std::io::Result<()> {
+pub(crate) async fn respond_text(sock: &mut TcpStream, status: u16, text: &str) -> std::io::Result<()> {
     let msg = format!(
         "HTTP/1.1 {status} {}\r\n{CORS}Content-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",
         reason(status),
