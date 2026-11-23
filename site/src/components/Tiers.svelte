@@ -19,7 +19,7 @@
       points: [
         "The same app with no ads at all",
         "Keys come from the developer, one per person",
-        "Works on one PC at a time. Enter it in Settings, under License",
+        "Works on one PC at a time. Enter it in Settings, under License, and link it to your account to move it to a new PC",
       ],
     },
   ];

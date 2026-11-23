@@ -21,6 +21,7 @@
   import * as api from "../lib/api";
   import { MpvUnavailable, startMpv, stopMpv } from "../lib/mpv";
   import { playerEngine } from "../lib/engine.svelte";
+  import { analytics } from "../lib/analytics.svelte";
   import { musicPlayer } from "../lib/music/player.svelte";
   import { sound, type SoundOption } from "../lib/audio.svelte";
   import { isTorrent, providerName, sourceChips, sourceTitle } from "../lib/sources";
@@ -449,9 +450,16 @@
   let streamed = false;
   let finished = false;
 
+  /** Counted once per playback, after a minute of it. */
+  let counted = false;
+
   function saveProgress() {
     if (live || phase !== "playing" || duration <= 0) return;
     library.saveProgress(title, target, time, duration);
+    if (!counted && time >= 60 && source) {
+      counted = true;
+      analytics.watched(title, source, playerEngine.builtin || playerEngine.mpvDown ? "builtin" : "mpv");
+    }
     if (!finished && time / duration >= 0.95) {
       finished = true;
       personalize.finish(title, target);

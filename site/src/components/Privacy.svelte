@@ -4,9 +4,9 @@
   import Dots from "./Dots.svelte";
 
   const ITEMS = [
-    ["person_off", "No account", "Install it and start. There is nothing to sign up for."],
-    ["cloud_off", "No server of ours", "Searching, ranking and playing all happen on your PC."],
-    ["visibility_off", "No profile of you", "Your history and taste stay on your PC. Ads in Public run in a sealed frame and can't see what you watch."],
+    ["person_off", "No account needed", "Install it and start. A free account is there if you want your list and progress on every PC."],
+    ["cloud_off", "Your PC does the work", "Searching, ranking and playing all happen on your PC. Our servers only hold what you choose to sync."],
+    ["visibility_off", "Counts, not people", "Ads in Public run in a sealed frame and can't see what you watch. Anonymous play totals carry no ID and switch off in Settings."],
     ["code", "Open source", "Every line is on GitHub under GPL-3.0, and GitHub Actions builds every release."],
   ];
 

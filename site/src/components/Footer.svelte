@@ -12,6 +12,7 @@
     [`${REPO_URL}/blob/main/LICENSE`, "License (GPL-3.0)"],
     [`${REPO_URL}/blob/main/SECURITY.md`, "Security"],
     ["/privacy/", "Privacy policy"],
+    ["/stats/", "Velmora by the numbers"],
     ["/terms/", "Terms of use"],
   ];
 </script>

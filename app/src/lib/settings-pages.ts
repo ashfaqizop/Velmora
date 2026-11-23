@@ -10,6 +10,7 @@ export type SettingsPage =
   | "music-storage"
   | "ani"
   | "account"
+  | "privacy"
   | "accounts"
   | "appearance"
   | "license"
@@ -43,6 +44,7 @@ export const SETTINGS_GROUPS: { label: string; pages: PageInfo[] }[] = [
     pages: [
       { id: "ani", label: "Ani", icon: "auto_awesome" },
       { id: "account", label: "Velmora account", icon: "person" },
+      { id: "privacy", label: "Privacy", icon: "shield" },
       { id: "accounts", label: "Linked accounts", icon: "account_circle" },
       { id: "appearance", label: "Appearance", icon: "palette" },
       { id: "license", label: "License", icon: "workspace_premium" },
@@ -77,6 +79,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
 
   { id: "account-profile", page: "account", label: "Velmora account", hint: "Sign in, your profile and username", words: "login log in sign in sign up register profile username avatar picture google discord email name logout sign out" },
   { id: "account-sync", page: "account", label: "Sync my data", hint: "My List, progress and settings across your PCs", words: "backup restore cloud devices computers history continue watching list" },
+  { id: "analytics", page: "privacy", label: "Share anonymous usage statistics", hint: "Daily totals of what gets played, never who", words: "analytics telemetry tracking privacy stats data collection opt out popular trending" },
   { id: "account-data", page: "account", label: "Your data and deleting your account", hint: "Copy or delete what Velmora holds about you", words: "export delete remove privacy gdpr" },
 
   { id: "dialogue", page: "sound", label: "Dialogue boost", hint: "Clearer voices", words: "speech voice center" },

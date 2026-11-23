@@ -229,6 +229,12 @@ export const aniStop = (id: string) => invoke<void>("ani_stop", { id });
 export const tmdbRaw = (path: string, query: Record<string, string> = {}) => invoke<unknown>("tmdb_raw", { path, query });
 export const tmdbList = (path: string, query: Record<string, string> = {}, field?: string, kind?: "movie" | "tv") =>
   invoke<TitleSummary[]>("tmdb_list", { path, query, field, kind });
+/** Summaries for TMDB ids like "movie/603" or "tv/1396". */
+export const tmdbTitles = (ids: string[]) => invoke<TitleSummary[]>("tmdb_titles", { ids });
+// ── Anonymous usage statistics (src-tauri/src/analytics.rs) ──
+/** Send one finished day of counts. True once it is dealt with and can be forgotten. */
+export const analyticsReport = (batch: unknown) => invoke<boolean>("analytics_report", { batch });
+export const analyticsTrending = () => invoke<{ people: number; titles: { k: string; people: number }[] }>("analytics_trending");
 export const anilistFind = (filters: Record<string, unknown>) => invoke<TitleSummary[]>("anilist_find", { filters });
 export const anilistRaw = (query: string, variables: Record<string, unknown> = {}) =>
   invoke<unknown>("anilist_raw", { query, variables });

@@ -8,7 +8,7 @@
     ],
     [
       "What is Velmora Max?",
-      "The same app with no ads at all. Max keys are given out by the developer, not sold. Each key works on one PC at a time: enter it in Settings, under License, and remove it there to move it to another PC.",
+      "The same app with no ads at all. Max keys are given out by the developer, not sold. Each key works on one PC at a time: enter it in Settings, under License, and remove it there to move it to another PC. If you sign in to a Velmora account, the key is linked to it, and signing in on a new PC brings Max along (the old PC drops back to Public).",
     ],
     [
       "Why does Windows warn me about the installer?",
@@ -18,7 +18,14 @@
       "Does Velmora host any movies or shows?",
       "No. Velmora doesn't host, upload or store any content. It searches third-party sites the way a browser does and plays what they serve. You're responsible for what you watch and for following the law where you live.",
     ],
-    ["Do I need an account?", "No. You can connect AniList or Trakt if you want your progress synced there, but nothing needs signing up for."],
+    [
+      "Do I need an account?",
+      "No. Velmora works fully as a guest. A free Velmora account (Google, Discord or an emailed code) gives you a username and profile, keeps your list, progress and settings in step across PCs, and brings Max with you to a new one. You can also connect AniList or Trakt separately for your progress there.",
+    ],
+    [
+      "What does Velmora collect?",
+      "Nothing, unless you opt in by signing in. An account stores your email, username, display name and picture, and what you choose to sync. Separately, the app sends once a day anonymous totals (which sites and players get used, which titles get watched) with no ID and no account attached; one switch in Settings, under Privacy, turns that off. The privacy policy has the details, and the public numbers are on the stats page.",
+    ],
     [
       "What is Ani, and does it cost anything?",
       "Ani is an optional assistant inside Velmora. It uses Google Gemini with your own API key, which you can get free from Google AI Studio. Your key and the taste profile Ani builds stay on your PC.",

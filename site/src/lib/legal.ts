@@ -35,6 +35,14 @@ export const PRIVACY: LegalDoc = {
       ],
     },
     {
+      heading: "Anonymous usage statistics",
+      paragraphs: [
+        "Velmora counts, on your PC, which titles you watch for at least a minute, which site each play came from, which player ran (mpv or the built-in one) and the video quality. Once a day it sends those totals to our server, together with the day and the Velmora version. Titles are identified by their public TMDB number and counted once per day.",
+        "The counts carry no ID, no account and nothing about your PC. Your IP address reaches our server like any website's; we keep only a short one-way hash of it for a day, to stop one address flooding the counts. This is separate from signing in: your account is never attached to these numbers.",
+        "We use the totals for the \"Popular on Velmora\" row in the app and for the public stats page on this website. A title is only listed once several different installs have watched it. It is on by default, and you can turn it off in Settings, under Privacy, which also deletes any counts not yet sent and shows you exactly what would be sent.",
+      ],
+    },
+    {
       heading: "Searching and playing",
       paragraphs: [
         "When you search or play something, Velmora contacts third-party sites and services directly from your PC, the way a browser does: the video sources, TMDB, AniList and Cinemeta for title details, TheSportsDB and football-data.org for scores, and the public iptv-org playlist for Live TV. Each of them sees your IP address and the request, under its own privacy policy.",

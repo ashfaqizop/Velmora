@@ -3,6 +3,7 @@
 
 mod account;
 mod ads;
+mod analytics;
 mod ani;
 mod commands;
 mod license;
@@ -202,6 +203,9 @@ pub fn run() {
             ani::ani_stop,
             ani::tmdb_raw,
             ani::tmdb_list,
+            ani::tmdb_titles,
+            analytics::analytics_report,
+            analytics::analytics_trending,
             ani::anilist_find,
             ani::anilist_raw,
             license::license_status,

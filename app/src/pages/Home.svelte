@@ -8,10 +8,12 @@
   import { onMount } from "svelte";
   import { sports } from "../lib/live.svelte";
   import { feed, keyOf, library, nav } from "../lib/state.svelte";
+  import { trending } from "../lib/trending.svelte";
 
   // Scores: load when Home opens, then refresh once a minute while it's open.
   onMount(() => {
     sports.load();
+    trending.load();
     const timer = setInterval(() => sports.load(), 60_000);
     return () => clearInterval(timer);
   });
@@ -56,6 +58,14 @@
   {/if}
 
   <SportsRail />
+
+  {#if trending.items.length >= 4}
+    <Rail title="Popular on Velmora" icon="groups">
+      {#each trending.items as t (keyOf(t))}
+        <Poster title={t} width={160} />
+      {/each}
+    </Rail>
+  {/if}
 
   {#if feed.loading}
     <Rail title="Trending movies" icon="local_fire_department" loading />

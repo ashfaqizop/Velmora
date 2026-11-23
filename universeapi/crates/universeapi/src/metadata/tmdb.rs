@@ -265,6 +265,20 @@ impl Tmdb {
         self.get(path, &q).await
     }
 
+    /// Summaries for TMDB ids like "movie/603" or "tv/1396", looked up together.
+    /// Ids that can't be found are left out; the order of `ids` is kept.
+    pub async fn titles(&self, ids: &[String]) -> Vec<TitleSummary> {
+        let lookups = ids.iter().take(40).map(|id| async move {
+            let (kind, num) = id.split_once('/')?;
+            if !matches!(kind, "movie" | "tv") || num.is_empty() || num.len() > 9 || !num.bytes().all(|b| b.is_ascii_digit()) {
+                return None;
+            }
+            let item: Item = self.get(&format!("/{kind}/{num}"), &[]).await.ok()?;
+            Some(to_summary(&item, kind))
+        });
+        futures::future::join_all(lookups).await.into_iter().flatten().collect()
+    }
+
     /// Titles from a TMDB list (search, discover, trending, credits, collection
     /// parts). `field` names the array: `results`, `parts`, `cast` or `crew`.
     pub async fn list(&self, path: &str, query: &[(String, String)], field: &str, fallback_type: &str) -> Result<Vec<TitleSummary>> {
@@ -374,7 +388,9 @@ fn extras(it: &Item, kind: &str) -> TitleExtra {
 fn to_summary(it: &Item, fallback_type: &str) -> TitleSummary {
     let media = it.media_type.as_deref().unwrap_or(fallback_type);
     let is_tv = media == "tv";
-    let anime = it.genre_ids.contains(&ANIMATION) && it.original_language.as_deref() == Some("ja");
+    // List results carry genre ids; a single title carries genre names.
+    let animated = it.genre_ids.contains(&ANIMATION) || it.genres.iter().any(|g| g.name == "Animation");
+    let anime = animated && it.original_language.as_deref() == Some("ja");
     let kind = match (anime, is_tv) {
         (true, _) => MediaKind::Anime,
         (false, true) if matches!(it.original_language.as_deref(), Some("ko" | "zh" | "th")) => MediaKind::AsianDrama,

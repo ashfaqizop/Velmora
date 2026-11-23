@@ -38,6 +38,32 @@ export const KIND_ICON: Record<ChangeKind, string> = { new: "add_circle", improv
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.6.0",
+    date: "2026-12-01",
+    name: "One account, every PC",
+    summary: "An optional Velmora account: sign in with Google, Discord or email on the website, pick a username, and your list, progress and settings follow you to every PC. Max follows you too. And a Popular on Velmora row built from anonymous play counts you can switch off.",
+    color: "#7c3aed",
+    shape: "soft-burst",
+    soon: true,
+    highlights: [
+      { icon: "badge", title: "An account, if you want one", text: "Sign in on the website with Google, Discord or an emailed code, choose a username and a face, and Velmora picks it up. Guest still works exactly as before." },
+      { icon: "sync", title: "Your stuff on every PC", text: "My List, watch progress and settings sync in the background. It's instant and works offline; the newest change wins." },
+      { icon: "workspace_premium", title: "Max follows you", text: "Link your Max key to your account and signing in on a new PC brings it along." },
+      { icon: "groups", title: "Popular on Velmora", text: "A Home row of what people are watching this week, from anonymous counts." },
+      { icon: "shield", title: "Privacy page", text: "One switch for anonymous stats, and a button that shows exactly what would be sent." },
+    ],
+    changes: [
+      { kind: "new", title: "Sign in or sign up", text: "Google, Discord or an emailed code, done in your browser. X and GitHub can follow." },
+      { kind: "new", title: "Usernames and profiles", text: "A unique username (capitals don't make it a different one), a display name and a picture: your Google or Discord photo, or one of twelve foxes." },
+      { kind: "new", title: "Sync", text: "My List, watch progress and history, and your settings, kept in step across PCs. The download folder stays per PC." },
+      { kind: "new", title: "Max on your account", text: "Link a key once; on a new PC, signing in moves Max over from the old one." },
+      { kind: "new", title: "Works offline", text: "Open Velmora with no internet and you're still you; it reconnects on its own." },
+      { kind: "new", title: "Your data, yours", text: "Copy everything Velmora holds about you, or delete the account and all of it, in Settings." },
+      { kind: "new", title: "Anonymous usage statistics", text: "Daily totals of which sites and players get used and which titles get watched, with no ID and no account. On by default, off in Settings > Privacy." },
+      { kind: "new", title: "Velmora by the numbers", text: "A public stats page on the website with the totals." },
+    ],
+  },
+  {
     version: "0.5.0",
     date: "2026-11-23",
     name: "Plays anywhere, moves like it means it",

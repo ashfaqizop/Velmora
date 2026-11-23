@@ -11,6 +11,7 @@
   import AniKey from "../components/AniKey.svelte";
   import MaxLicense from "../components/MaxLicense.svelte";
   import AccountCard from "../components/AccountCard.svelte";
+  import PrivacyCard from "../components/PrivacyCard.svelte";
   import MusicSettings from "../components/music/MusicSettings.svelte";
   import MusicStorage from "../components/music/MusicStorage.svelte";
   import MusicOutput from "../components/music/MusicOutput.svelte";
@@ -662,6 +663,15 @@
       <m3e-heading variant="title" size="large" level={2}>Velmora account</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" data-setting="account-profile"><AccountCard /></div>
+      </m3e-card>
+    </section>
+    {/if}
+
+    {#if page === "privacy"}
+    <section>
+      <m3e-heading variant="title" size="large" level={2}>Privacy</m3e-heading>
+      <m3e-card variant="filled">
+        <div slot="content"><PrivacyCard /></div>
       </m3e-card>
     </section>
     {/if}

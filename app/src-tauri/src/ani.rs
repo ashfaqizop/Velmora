@@ -286,6 +286,12 @@ pub async fn tmdb_list(
     state.engine.tmdb().list(&path, &pairs(query), &field, &kind).await.map_err(|e| e.to_string())
 }
 
+/// Summaries for TMDB ids like "movie/603" or "tv/1396" (the Popular on Velmora row).
+#[tauri::command]
+pub async fn tmdb_titles(state: State<'_, AppState>, ids: Vec<String>) -> Result<Vec<TitleSummary>, String> {
+    Ok(state.engine.tmdb().titles(&ids).await)
+}
+
 /// Anime from AniList filters (search, genres, sort, year, season, status, format).
 #[tauri::command]
 pub async fn anilist_find(state: State<'_, AppState>, filters: Value) -> Result<Vec<TitleSummary>, String> {
