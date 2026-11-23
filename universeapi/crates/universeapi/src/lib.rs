@@ -40,5 +40,5 @@ pub mod util;
 pub mod vault;
 
 pub use config::{Preferences, Registry};
-pub use engine::{Engine, EngineOptions, ProviderFailure, SearchBatch, SourcesReport};
+pub use engine::{Engine, EngineOptions, ProviderFailure, SearchBatch, SourcesEvent, SourcesReport};
 pub use error::{Error, Result};

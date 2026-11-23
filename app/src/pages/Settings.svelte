@@ -1,5 +1,6 @@
 <script lang="ts">
   import { indicator } from "../lib/indicator";
+  import { finder } from "../lib/finder.svelte";
   import { motion, type MotionPref } from "../lib/motion.svelte";
   import { onDestroy, onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
@@ -356,6 +357,17 @@
       <m3e-heading variant="title" size="large" level={2}>Sources</m3e-heading>
       <m3e-card variant="filled">
         <div slot="content" class="rows">
+          <label class="row" data-setting="sources-ahead">
+            <div class="text">
+              <strong>Find sources while I browse</strong>
+              <span>
+                A title's page looks up where it plays while you read it, so Play starts at once and the page shows each site
+                as it answers. Uses a little data in the background; links are remembered until they expire.
+              </span>
+            </div>
+            <m3e-switch checked={finder.ahead} onchange={(e: Event) => finder.setAhead(checked(e))}></m3e-switch>
+          </label>
+          <m3e-divider></m3e-divider>
           <label class="row" data-setting="torrents">
             <div class="text"><strong>Torrents</strong><span>Adds YTS, EZTV and Nyaa. Your IP is visible to peers, so a VPN is a good idea.</span></div>
             <m3e-switch checked={p.include_torrents} onchange={(e: Event) => set({ include_torrents: checked(e) })}></m3e-switch>

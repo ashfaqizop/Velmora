@@ -51,6 +51,23 @@ pub struct ProviderFailure {
     pub message: String,
 }
 
+/// Progress of a source search, for a page that shows it as it happens.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SourcesEvent {
+    /// The providers being asked, best first.
+    Plan { providers: Vec<ProviderId> },
+    /// One provider is done. No sources and no error: it doesn't have it.
+    Batch {
+        provider: ProviderId,
+        sources: Vec<Source>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+        /// Came from the cache, no network.
+        cached: bool,
+    },
+}
+
 /// One provider's search results, emitted as soon as it answers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchBatch {
@@ -464,6 +481,24 @@ impl Engine {
 
     /// Find, resolve, verify and rank every source for a title.
     pub async fn sources(&self, title: &TitleSummary, target: Target, mode: AudioMode) -> SourcesReport {
+        self.sources_each(title, target, mode, |_| {}).await
+    }
+
+    /// [`Engine::sources`], reporting each provider as it finishes, so a page
+    /// can show where a title is while the slower sites are still working.
+    ///
+    /// Each provider's verified sources are cached until the first of their
+    /// links expires (40 minutes when a link doesn't say, 6 hours for
+    /// torrents), and a provider that doesn't have the title is remembered
+    /// for 30 minutes. Coming back to a title is then instant. A cached link
+    /// that fails to play is dropped with [`Engine::forget_sources`].
+    pub async fn sources_each<F: FnMut(SourcesEvent) + Send>(
+        &self,
+        title: &TitleSummary,
+        target: Target,
+        mode: AudioMode,
+        mut on: F,
+    ) -> SourcesReport {
         let title = &self.with_ids(title).await;
         let prefs = self.ctx.prefs();
         let kind = title.kind;
@@ -474,34 +509,79 @@ impl Engine {
             .cloned()
             .collect();
         providers.sort_by_key(|p| prefs.provider_rank(kind, p.id()));
+        on(SourcesEvent::Plan { providers: providers.iter().map(|p| p.id()).collect() });
 
-        let results = futures::future::join_all(providers.iter().map(|p| async move {
-            let provider = p.id();
-            let r = tokio::time::timeout(SOURCES_TIMEOUT, self.provider_sources(p.as_ref(), title, target, mode)).await;
-            (provider, r.unwrap_or_else(|_| Err(Error::provider(provider, "timed out"))))
-        }))
-        .await;
+        let verify = prefs.verify_sources;
+        let futs: Vec<_> = providers
+            .iter()
+            .map(|p| async move {
+                let provider = p.id();
+                (provider, self.cached_provider_sources(p.as_ref(), title, target, mode, verify).await)
+            })
+            .collect();
+        let mut pending: FuturesUnordered<_> = futs.into_iter().collect();
 
         let mut report = SourcesReport::default();
-        for (provider, r) in results {
+        while let Some((provider, r)) = pending.next().await {
             match r {
-                Ok(list) => {
+                Ok((list, cached)) => {
+                    on(SourcesEvent::Batch { provider, sources: list.clone(), error: None, cached });
                     for s in list {
                         if !report.sources.iter().any(|x| x.url == s.url) {
                             report.sources.push(s);
                         }
                     }
                 }
-                Err(Error::NotFound(_)) => {}
-                Err(e) => report.errors.push(ProviderFailure { provider, message: e.to_string() }),
+                Err(e) => {
+                    let message = e.to_string();
+                    on(SourcesEvent::Batch { provider, sources: Vec::new(), error: Some(message.clone()), cached: false });
+                    report.errors.push(ProviderFailure { provider, message });
+                }
             }
-        }
-
-        if prefs.verify_sources {
-            self.verify(&mut report.sources).await;
         }
         rank::rank(&mut report.sources, &prefs, kind, target);
         report
+    }
+
+    /// Forget the cached sources for a title (one of them didn't play).
+    pub async fn forget_sources(&self, title: &TitleSummary, target: Target, mode: AudioMode) {
+        for p in &self.content {
+            self.ctx.cache.put(&sources_key(p.id(), title, target, mode), &Option::<Vec<Source>>::None, Duration::ZERO).await;
+        }
+    }
+
+    /// One provider's sources for a title, from the cache when they're still good.
+    async fn cached_provider_sources(
+        &self,
+        p: &dyn Provider,
+        title: &TitleSummary,
+        target: Target,
+        mode: AudioMode,
+        verify: bool,
+    ) -> Result<(Vec<Source>, bool)> {
+        let pid = p.id();
+        let key = sources_key(pid, title, target, mode);
+        if let Some(Some(hit)) = self.ctx.cache.get::<Option<Vec<Source>>>(&key).await {
+            return Ok((hit, true));
+        }
+        let found = match tokio::time::timeout(SOURCES_TIMEOUT, self.provider_sources(p, title, target, mode)).await {
+            Ok(r) => r,
+            Err(_) => return Err(Error::provider(pid, "timed out")),
+        };
+        let mut list = match found {
+            Ok(list) => list,
+            Err(Error::NotFound(_)) => {
+                self.ctx.cache.put(&key, &Some(Vec::<Source>::new()), Duration::from_secs(30 * 60)).await;
+                return Ok((Vec::new(), false));
+            }
+            Err(e) => return Err(e),
+        };
+        if verify && !list.is_empty() {
+            self.verify(&mut list).await;
+        }
+        let ttl = if list.is_empty() { Duration::from_secs(30 * 60) } else { sources_ttl(&list) };
+        self.ctx.cache.put(&key, &Some(list.clone()), ttl).await;
+        Ok((list, false))
     }
 
     /// Search hits often lack external ids (a TMDB search result has no IMDb
@@ -557,7 +637,8 @@ impl Engine {
             let found = p.search(&q).await?;
             if let Some(hit) = found.iter().find(|c| same_title(title, c) && kinds_compatible(title.kind, c.kind)) {
                 let id = hit.origin.id.clone();
-                self.ctx.cache.put(&key, &id, crate::cache::ttl::DETAIL).await;
+                // Where a site keeps a title rarely changes; finding it is most of the wait.
+                self.ctx.cache.put(&key, &id, crate::cache::ttl::LOCATE).await;
                 return Ok(id);
             }
         }
@@ -607,6 +688,43 @@ impl Engine {
             }
             s.retag();
         }
+    }
+}
+
+/// The cache key for one provider's sources for a title: by its canonical id
+/// when it has one, so the same film reached from TMDB or from a site's row
+/// shares one entry.
+fn sources_key(p: ProviderId, t: &TitleSummary, target: Target, mode: AudioMode) -> String {
+    let who = if let Some(i) = &t.ids.imdb {
+        format!("imdb:{i}")
+    } else if let Some(i) = t.ids.tmdb {
+        format!("tmdb:{:?}:{i}", t.kind)
+    } else if let Some(i) = t.ids.anilist {
+        format!("anilist:{i}")
+    } else if let Some(i) = t.ids.mal {
+        format!("mal:{i}")
+    } else {
+        format!("{:?}:{}", t.origin.provider, t.origin.id)
+    };
+    let at = match target {
+        Target::Movie => "movie".to_string(),
+        Target::Episode { season, episode } => format!("s{season}e{episode}"),
+        Target::Season { season } => format!("s{season}"),
+    };
+    format!("sources:v1:{p:?}:{who}:{at}:{mode:?}")
+}
+
+/// How long a provider's sources stay good: until the first signed link
+/// expires (less five minutes), 40 minutes when they don't say, and longer
+/// for torrents, whose magnets don't expire.
+fn sources_ttl(list: &[Source]) -> Duration {
+    if list.iter().all(|s| s.is_torrent()) {
+        return Duration::from_secs(6 * 60 * 60);
+    }
+    let now = chrono::Utc::now().timestamp();
+    match list.iter().filter_map(|s| s.expires_at).min() {
+        Some(exp) => Duration::from_secs((exp - now - 300).clamp(60, 60 * 60) as u64),
+        None => Duration::from_secs(40 * 60),
     }
 }
 
@@ -683,6 +801,10 @@ mod tests {
         assert_send(e.sports().lookup("tsdb:1"));
         assert_send(e.tv().channels(&crate::tv::TvQuery::default()));
         assert_send(e.tv().check("x"));
+        let t = TitleSummary::new(ProviderId::HdHub, "x", "x", MediaKind::Movie);
+        assert_send(e.detail(&t.origin));
+        assert_send(e.sources_each(&t, Target::Movie, AudioMode::Sub, |_| {}));
+        assert_send(e.forget_sources(&t, Target::Movie, AudioMode::Sub));
         let m = e.music();
         assert_send(m.home(None));
         assert_send(m.feed("FEmusic_charts", None, None));

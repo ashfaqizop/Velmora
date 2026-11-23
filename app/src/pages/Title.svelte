@@ -3,6 +3,9 @@
   import { personalize } from "../lib/ani/personalize.svelte";
   import { fade } from "svelte/transition";
   import Poster from "../components/Poster.svelte";
+  import WhereToWatch from "../components/WhereToWatch.svelte";
+  import { finder, lookupTitle, type Finding } from "../lib/finder.svelte";
+  import type { Source } from "../lib/types";
   import Rail from "../components/Rail.svelte";
   import AdSlot from "../components/AdSlot.svelte";
   import * as api from "../lib/api";
@@ -61,15 +64,44 @@
     return first && ep ? { type: "episode", season: first.number, episode: ep.number } : null;
   });
   const resuming = $derived(playTarget ? library.resumeAt(title, playTarget) > 0 : false);
+  // ── Sources, found while you look at the page ──
+  // Once the page has settled (details in, half a second on it), the sources
+  // for what Play would play are looked up in the background; the row under
+  // the buttons fills in as each site answers, and Play then starts at once.
+  const lookup = $derived(lookupTitle(title, detail));
+  let finding = $state<Finding | null>(null);
+  $effect(() => {
+    const target = playTarget;
+    const ready = !!detail || !!error;
+    if (!finder.ahead || !target || !ready) return;
+    const t = lookup;
+    const mode = settings.audioMode;
+    const timer = setTimeout(() => (finding = finder.find(t, target, mode)), 500);
+    return () => clearTimeout(timer);
+  });
+
+  /** Pointing at an episode starts finding its sources too. */
+  let hoverTimer: ReturnType<typeof setTimeout> | undefined;
+  function warm(target: Target) {
+    clearTimeout(hoverTimer);
+    if (!finder.ahead || (!detail && !error)) return;
+    hoverTimer = setTimeout(() => finder.find(lookup, target, settings.audioMode), 350);
+  }
+
+  const bestQuality = $derived.by(() => {
+    const r = finding?.best?.tags.resolution;
+    return r ? (r >= 2160 ? "4K" : `${r}p`) : "";
+  });
   const playLabel = $derived.by(() => {
     if (!playTarget) return "Play";
     const ep = playTarget.type === "episode" ? ` ${targetLabel(playTarget)}` : "";
-    return `${resuming ? "Resume" : "Play"}${ep}`;
+    return `${resuming ? "Resume" : "Play"}${ep}${bestQuality ? ` · ${bestQuality}` : ""}`;
   });
 
-  function play(target: Target | null) {
+  /** Open the player; `source` plays that link first (a chip in the row). */
+  function play(target: Target | null, source?: Source) {
     if (!target) return;
-    nav.go({ name: "player", title, target, mode: settings.audioMode, detail: detail ?? undefined });
+    nav.go({ name: "player", title, target, mode: settings.audioMode, detail: detail ?? undefined, source: source?.url });
   }
 
   /** Progress through an episode, for the bar under its row. */
@@ -251,6 +283,9 @@
       {#if resuming && last}
         <span class="resume-hint">{formatLeft(last.duration - last.position)}</span>
       {/if}
+      {#if finding && finder.ahead}
+        <WhereToWatch {finding} onplay={(src) => play(playTarget, src)} />
+      {/if}
     </div>
   </div>
 
@@ -290,7 +325,11 @@
             {/if}
             <m3e-list variant="segmented">
               {#each episodes as ep (ep.number)}
-                <m3e-list-action onclick={() => play({ type: "episode", season, episode: ep.number })}>
+                <m3e-list-action
+                  onclick={() => play({ type: "episode", season, episode: ep.number })}
+                  onmouseenter={() => warm({ type: "episode", season, episode: ep.number })}
+                  onmouseleave={() => clearTimeout(hoverTimer)}
+                >
                   <div slot="leading" class="ep-thumb" style:background-image={ep.thumbnail ? `url("${ep.thumbnail}")` : undefined}>
                     <span>{ep.number}</span>
                     {#if watched(ep.number) > 0}

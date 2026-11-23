@@ -16,6 +16,7 @@
     type MpvObservableProperty,
   } from "tauri-plugin-libmpv-api";
   import { webVideo } from "../lib/webvideo";
+  import { finder, lookupTitle } from "../lib/finder.svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import * as api from "../lib/api";
   import { MpvUnavailable, startMpv, stopMpv } from "../lib/mpv";
@@ -35,7 +36,17 @@
     detail,
     file,
     channel,
-  }: { title: TitleSummary; target: Target; mode: AudioMode; detail?: TitleDetail; file?: string; channel?: TvChannel } = $props();
+    source: preferred,
+  }: {
+    title: TitleSummary;
+    target: Target;
+    mode: AudioMode;
+    detail?: TitleDetail;
+    file?: string;
+    channel?: TvChannel;
+    /** A source to try first (picked from the title page's "Where to watch"). */
+    source?: string;
+  } = $props();
 
   /** A live TV channel: no seeking, no history, no "watched" sync. */
   const live = $derived(!!channel);
@@ -260,7 +271,9 @@
     }
 
     try {
-      report = await api.sources(title, target, mode);
+      // The title page usually started this search already (or finished it):
+      // Play takes that result instead of asking every site again.
+      report = await finder.get(lookupTitle(title, detail), target, mode);
     } catch (e) {
       fail(String(e));
       return;
@@ -270,7 +283,8 @@
       fail("No source has this one right now.");
       return;
     }
-    await play(0, library.resumeAt(title, target));
+    const first = preferred ? report.sources.findIndex((s) => s.url === preferred) : -1;
+    await play(Math.max(0, first), library.resumeAt(title, target));
   }
 
   function onProperty(ev: { name: string; data: unknown }) {
@@ -374,6 +388,8 @@
       return;
     }
     if (!failed.includes(current)) failed = [...failed, current];
+    // A remembered link that no longer plays: look afresh next time.
+    if (!file && !live) finder.forget(lookupTitle(title, detail), target, mode);
     const nextIndex = report.sources.findIndex((_, i) => !failed.includes(i));
     if (nextIndex < 0) {
       fail("Every source failed to play. Try again later.");
@@ -418,6 +434,8 @@
   }
 
   function retry() {
+    // Try again means ask the sites again, not reuse what failed.
+    if (!file && !live) finder.forget(lookupTitle(title, detail), target, mode);
     failed = [];
     phase = "sources";
     status = "Finding sources";

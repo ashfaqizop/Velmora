@@ -201,6 +201,32 @@ pub async fn sources(
     Ok(engine.sources(&title, target, mode).await)
 }
 
+/// [`sources`], with each provider reported over `on_event` as it finishes
+/// (the title page's "where to watch" row fills in from this).
+#[tauri::command]
+pub async fn sources_watch(
+    state: State<'_, AppState>,
+    title: TitleSummary,
+    target: Target,
+    mode: AudioMode,
+    on_event: Channel<universeapi::SourcesEvent>,
+) -> Result<SourcesReport, String> {
+    let engine = state.engine.clone();
+    // A page that's gone just stops listening; the search still finishes and
+    // is cached for when the title is opened again.
+    Ok(engine.sources_each(&title, target, mode, move |ev| {
+        let _ = on_event.send(ev);
+    })
+    .await)
+}
+
+/// A cached source didn't play: look them up afresh next time.
+#[tauri::command]
+pub async fn forget_sources(state: State<'_, AppState>, title: TitleSummary, target: Target, mode: AudioMode) -> Result<(), String> {
+    state.engine.clone().forget_sources(&title, target, mode).await;
+    Ok(())
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubtitleTrack {

@@ -39,6 +39,7 @@ import type {
   TvPage,
   TvQuery,
   WatchOption,
+  ProviderId,
   Source,
   SourcesReport,
   Target,
@@ -105,6 +106,21 @@ export const tvSources = (id: string) => invoke<Source[]>("tv_sources", { id });
 
 export const sources = (title: TitleSummary, target: Target, mode: AudioMode) =>
   invoke<SourcesReport>("sources", { title, target, mode });
+
+export type SourcesEvent =
+  | { kind: "plan"; providers: ProviderId[] }
+  | { kind: "batch"; provider: ProviderId; sources: Source[]; error?: string; cached: boolean };
+
+/** Sources, with each provider reported as it finishes. Resolves to the ranked report. */
+export function sourcesWatch(title: TitleSummary, target: Target, mode: AudioMode, onEvent: (e: SourcesEvent) => void) {
+  const channel = new Channel<SourcesEvent>();
+  channel.onmessage = onEvent;
+  return invoke<SourcesReport>("sources_watch", { title, target, mode, onEvent: channel });
+}
+
+/** A cached source didn't play: the next lookup goes to the sites again. */
+export const forgetSources = (title: TitleSummary, target: Target, mode: AudioMode) =>
+  invoke<void>("forget_sources", { title, target, mode });
 
 /** Hand a source to the loopback stream server; returns the URL for mpv. */
 export const openStream = (source: Source, episode: [number, number] | null) =>

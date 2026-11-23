@@ -17,6 +17,8 @@ pub mod ttl {
     pub const SEARCH: Duration = Duration::from_secs(10 * 60);
     pub const RAIL: Duration = Duration::from_secs(30 * 60);
     pub const DETAIL: Duration = Duration::from_secs(6 * 60 * 60);
+    /// Which page on a site has a title.
+    pub const LOCATE: Duration = Duration::from_secs(3 * 24 * 60 * 60);
     pub const MIRROR: Duration = Duration::from_secs(24 * 60 * 60);
     pub const SOURCES: Duration = Duration::from_secs(20 * 60);
     /// Sports days. Today refreshes often; the free APIs are delayed anyway.

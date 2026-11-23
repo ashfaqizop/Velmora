@@ -164,6 +164,8 @@ pub fn run() {
             commands::tv_sources,
             commands::detail,
             commands::sources,
+            commands::sources_watch,
+            commands::forget_sources,
             commands::open_stream,
             commands::close_stream,
             commands::torrent_status,

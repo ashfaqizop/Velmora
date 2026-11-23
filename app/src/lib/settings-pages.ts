@@ -78,6 +78,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
   { id: "normalize", page: "sound", label: "Even out volume", hint: "Steady level between scenes", words: "loudness normalize leveler" },
   { id: "boost", page: "sound", label: "Volume up to 200%", hint: "For quiet videos", words: "loud amplify" },
 
+  { id: "sources-ahead", page: "sources", label: "Find sources while I browse", hint: "Play starts at once", words: "prefetch preload ahead instant fast where to watch available cache" },
   { id: "torrents", page: "sources", label: "Torrents", hint: "YTS, EZTV and Nyaa", words: "p2p vpn" },
   { id: "french", page: "sources", label: "French sources", hint: "VF and VOSTFR", words: "france language" },
   { id: "verify", page: "sources", label: "Check links first", hint: "Drop dead links", words: "dead broken verify" },

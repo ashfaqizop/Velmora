@@ -54,6 +54,8 @@ export type Route =
       file?: string;
       /** A live TV channel: its streams stand in for the source search. */
       channel?: TvChannel;
+      /** A source to try first (picked from "Where to watch"), by URL. */
+      source?: string;
     };
 
 /** Music mode: the routes that belong to YouTube Music. */
