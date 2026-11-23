@@ -95,7 +95,7 @@
     // Sessions belong on the auth host only.
     const host = location.hostname;
     if (host !== AUTH_HOST && host !== "localhost" && host !== "127.0.0.1") {
-      location.replace(`https://${AUTH_HOST}/${location.search}`);
+      location.replace(`https://${AUTH_HOST}/auth/${location.search}`);
       return;
     }
     start().catch((e) => fail(e));
@@ -198,7 +198,7 @@
   async function oauth(provider: "google" | "discord") {
     busy = true;
     message = "";
-    const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/` } });
+    const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/auth/` } });
     if (error) {
       message = friendly(error.message);
       busy = false;

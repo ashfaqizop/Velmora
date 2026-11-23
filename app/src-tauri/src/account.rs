@@ -170,7 +170,7 @@ async fn wait_for_callback(listener: &TcpListener, state: &str) -> Result<String
         let target = head.lines().next().and_then(|l| l.split_whitespace().nth(1)).unwrap_or("").to_string();
         match parse_callback(&target, state) {
             Some(code) => {
-                respond(&mut sock, "302 Found", Some(&format!("{SITE}/?done=1"))).await;
+                respond(&mut sock, "302 Found", Some(&format!("{SITE}/auth/?done=1"))).await;
                 return Ok(code);
             }
             // A favicon request, or something else poking the port.
@@ -225,7 +225,7 @@ pub async fn account_begin(
         old.cancel.notify_one();
     }
 
-    let url = format!("{SITE}/?port={port}&state={csrf}&challenge={challenge}");
+    let url = format!("{SITE}/auth/?port={port}&state={csrf}&challenge={challenge}");
     if let Err(e) = app.opener().open_url(url, None::<&str>) {
         acct.take_attempt();
         return Err(format!("Couldn't open your browser: {e}"));

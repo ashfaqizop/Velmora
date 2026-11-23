@@ -86,7 +86,7 @@
       ]
     }
   ],
-  "rewrites": [
+  "redirects": [
     {
       "source": "/",
       "has": [
@@ -95,10 +95,20 @@
           "value": "auth.getvelmora.dpdns.org"
         }
       ],
-      "destination": "/auth/index.html"
-    }
-  ],
-  "redirects": [
+      "destination": "/auth/",
+      "permanent": false
+    },
+    {
+      "source": "/auth",
+      "has": [
+        {
+          "type": "host",
+          "value": "getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "https://auth.getvelmora.dpdns.org/auth/",
+      "permanent": false
+    },
     {
       "source": "/auth/:path*",
       "has": [
@@ -107,7 +117,7 @@
           "value": "getvelmora.dpdns.org"
         }
       ],
-      "destination": "https://auth.getvelmora.dpdns.org/",
+      "destination": "https://auth.getvelmora.dpdns.org/auth/",
       "permanent": false
     }
   ]
