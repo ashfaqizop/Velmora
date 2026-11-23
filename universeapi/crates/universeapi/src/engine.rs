@@ -825,7 +825,7 @@ mod tests {
         assert_send(m.ytdlp().update());
         assert_send(e.search_stream("x").collect::<Vec<_>>());
         assert_send(e.detail(r));
-        assert_send(e.sources(t, Target::Movie, AudioMode::Sub));
+        assert_send(e.sources(&t, Target::Movie, AudioMode::Sub));
         assert_send(e.verify(s));
         assert_send(e.refresh_registry("https://x"));
     }
