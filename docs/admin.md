@@ -69,7 +69,25 @@ Comms
 ## Needs new storage
 Algorithm knobs, capacity settings, the playback-error event, a `created_by` flag and `special` label on screenings.
 
-## Build order
-1. Access + MFA, overview, users, moderation, audit log.
-2. Theatre: tonight's board, pin/block, manual airing, ticket lookup, live-room kill switch, pause switch.
-3. Part 2 (Max online, ads, remote config, announcements, analytics, curation) and the rest of Theatre.
+## Build order (3 phases)
+
+**Phase 1: foundation and platform ops** (website only, no app release)
+- `admin.` host, `admins` table, TOTP MFA, sign-in gate, audit log, `api/admin/[action].js`, shell and nav on m3e.
+- Overview with free-tier meters and health.
+- Users: search, hide, ban, reset fields, verify, delete.
+- Moderation: profile report queue, reserved usernames, blocked words, rating and review moderation.
+- You do: DNS and Vercel domain for `admin.`, run `supabase/admin.sql`, turn on TOTP MFA in Supabase, add your user id to `admins`.
+
+**Phase 2: Theatre operations** (small app release for the pause and chat switches)
+- Tonight's board, 7-day calendar, pin or block a title.
+- Add an airing manually (movie search, exact time, overlap warning, source, seats, Special label, draft or publish, edit or cancel).
+- Swap, remove or cancel screenings (tickets released, bookers notified), run or regenerate the lineup with a dry-run preview.
+- Seats and tickets: capacity settings, ticket lookup, no-show penalties, grant or revoke a seat.
+- Live room: live-now panel, chat kill switch, forced slow or quiet mode, mute or remove, shared blocked words.
+- Comms: reminder text, Theatre banner, delay or cancel with a message, Pause Theatre switch.
+- You do: re-run `supabase/theatre.sql` (new columns and flags).
+
+**Phase 3: product control, analytics and tuning** (app release for the failure event)
+- Max licences fully online (signing key into Vercel env), ads controls, remote config on the `config` branch, announcements and maintenance message, social curation, platform analytics.
+- Theatre tuning and insight: algorithm knobs, source probe results and auto-skip, start-of-show failure rate, per-screening analytics, best slots and genres, app vs Social bookings, Max vs Public mix, lobby ad impressions.
+- You do: move the Max signing key into Vercel env, add a GitHub token limited to the `config` branch.
