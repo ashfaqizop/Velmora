@@ -1,11 +1,14 @@
 <script lang="ts">
   // Sign in to Velmora, in the browser.
   //
-  // The desktop app opens this page with ?port=&state=&challenge=. We sign the
-  // person in (Google, Discord or an emailed code), make their profile the
-  // first time, then hand the finished session back to the app: through a one
-  // time code sent to the app's local address, or typed in by hand as a short
-  // code if something blocks that. The session never stays in this browser.
+  // Two kinds of caller open this page:
+  //  - the desktop app, with ?port=&state=&challenge=: the finished session goes
+  //    back through a one-time code sent to the app's local address (or typed in
+  //    by hand as a short code if something blocks that);
+  //  - a Velmora website (social, admin), with ?return=&state=&challenge=: the
+  //    same one-time code goes back to that page, which trades it for the session.
+  // We sign the person in (Google, Discord or an emailed code) and make their
+  // profile the first time. The session never stays on this origin.
   import { onMount } from "svelte";
   import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
   import mark from "../assets/velmora-mark.webp";
@@ -13,14 +16,15 @@
   import NameStatus from "./NameStatus.svelte";
   import { fly } from "svelte/transition";
   import { AUTH_HOST, MAIN_SITE, SUPABASE_KEY, SUPABASE_URL, TURNSTILE_SITE_KEY } from "./config";
-  import { isPhotoUrl, PRESETS, presetId } from "./avatars";
+  import { ANIMALS, isPhotoUrl, randomAnimal } from "./avatars";
 
   type View = "loading" | "nocontext" | "signin" | "code" | "setup" | "return" | "done" | "error";
-  interface Ctx {
-    port: number;
-    state: string;
-    challenge: string;
-  }
+  type Ctx =
+    | { kind: "app"; port: number; state: string; challenge: string }
+    | { kind: "web"; back: string; state: string; challenge: string };
+
+  /** Velmora sites that may ask this page for a sign-in. */
+  const WEB_ORIGINS = ["https://social.getvelmora.dpdns.org", "https://admin.getvelmora.dpdns.org", "http://localhost:5173"];
   interface Back {
     short: string;
     url: string;
@@ -32,7 +36,7 @@
   const STORAGE_KEY = "velmora-auth";
 
   let sb: SupabaseClient;
-  let ctx: Ctx | null = null;
+  let ctx = $state<Ctx | null>(null);
 
   let view = $state<View>("loading");
   let busy = $state(false);
@@ -100,7 +104,7 @@
   let session: Session | null = null;
   let username = $state("");
   let display = $state("");
-  let avatar = $state(presetId(1));
+  let avatar = $state(ANIMALS[0].id);
   let photo = $state<string | null>(null);
   let nameCheck = $state<"idle" | "checking" | "free" | "taken" | "bad">("idle");
   let checkRun = 0;
@@ -138,13 +142,27 @@
   }
 
   function parseCtx(p: URLSearchParams): Ctx | null {
-    const port = Number(p.get("port"));
     const state = p.get("state") ?? "";
     const challenge = p.get("challenge") ?? "";
-    if (!Number.isInteger(port) || port < 1024 || port > 65535) return null;
     if (!/^[A-Za-z0-9_-]{16,64}$/.test(state) || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) return null;
-    return { port, state, challenge };
+    const ret = p.get("return");
+    if (ret) {
+      let url: URL;
+      try {
+        url = new URL(ret);
+      } catch {
+        return null;
+      }
+      if (!WEB_ORIGINS.includes(url.origin)) return null;
+      return { kind: "web", back: `${url.origin}${url.pathname}`, state, challenge };
+    }
+    const port = Number(p.get("port"));
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) return null;
+    return { kind: "app", port, state, challenge };
   }
+
+  /** Where the person came from, for the headings. */
+  const site = $derived(ctx?.kind === "web" ? (ctx.back.includes("admin.") ? "Velmora admin" : "Velmora Social") : "the Velmora app");
 
   onMount(() => {
     // Sessions belong on the auth host only.
@@ -188,7 +206,9 @@
       ctx = fresh;
     } else {
       try {
-        ctx = JSON.parse(store.get(CTX) ?? "null");
+        const saved = JSON.parse(store.get(CTX) ?? "null");
+        // Saved before web callers existed: those were always the app.
+        ctx = saved && !saved.kind ? { ...saved, kind: "app" } : saved;
       } catch {
         ctx = null;
       }
@@ -331,7 +351,7 @@
     display = (name || (s.user.email ?? "").split("@")[0] || "Fox").slice(0, 40);
     const pic = m.avatar_url ?? m.picture;
     photo = isPhotoUrl(pic) ? pic : null;
-    avatar = photo ?? presetId(1 + Math.floor(Math.random() * PRESETS.length));
+    avatar = photo ?? randomAnimal();
     suggest(text(m.user_name) || text(m.preferred_username) || name || (s.user.email ?? "").split("@")[0]);
   }
 
@@ -429,6 +449,13 @@
       return;
     }
     wipeSession();
+    if (ctx.kind === "web") {
+      // A Velmora website: straight back, it finishes the job itself.
+      sessionStorage.removeItem(CTX);
+      view = "loading";
+      location.replace(`${ctx.back}?vcode=${encodeURIComponent(j.code)}&vstate=${encodeURIComponent(ctx.state)}`);
+      return;
+    }
     const url = `http://127.0.0.1:${ctx.port}/callback?code=${encodeURIComponent(j.code)}&state=${encodeURIComponent(ctx.state)}`;
     back = { short: j.short, url, until: Date.now() + (j.expires_in - 5) * 1000 };
     store.set(BACK, JSON.stringify(back));
@@ -458,447 +485,345 @@
 </script>
 
 <div class="stage">
+  <div class="glow" aria-hidden="true"></div>
   <main class="card" aria-live="polite">
     <header class="brand">
-      <img src={mark} alt="" width="64" height="64" />
-      <span class="eyebrow">Velmora</span>
+      <img src={mark} alt="" width="56" height="56" />
+      <div class="brand-text">
+        <span class="eyebrow">Velmora</span>
+        {#if ctx}<span class="for">for {site}</span>{/if}
+      </div>
     </header>
 
     {#if view === "loading"}
-      <div class="center">
-        <span class="spinner" aria-hidden="true"></span>
+      <div class="center" in:fly={{ y: 8, duration: 220 }}>
+        <m3e-loading-indicator></m3e-loading-indicator>
         <p class="muted">One moment…</p>
       </div>
     {:else if view === "nocontext"}
-      <h1>Sign in from the app</h1>
-      <p class="muted">
-        Open Velmora on your PC and choose <strong>Sign in</strong>. It brings you back to this page, and finishes the job when you're done.
-      </p>
-      <a class="btn ghost" href={MAIN_SITE}>Get Velmora</a>
+      <section class="view" in:fly={{ y: 8, duration: 220 }}>
+        <m3e-heading variant="display" size="small" level={1}>Start where you are</m3e-heading>
+        <p class="muted">
+          Choose <strong>Sign in</strong> in the Velmora app on your PC, or on Velmora Social. Either one brings you here and finishes the job when you're done.
+        </p>
+        <div class="row">
+          <m3e-button variant="filled" href="https://social.getvelmora.dpdns.org/">
+            <m3e-icon slot="icon" name="groups"></m3e-icon>Open Velmora Social
+          </m3e-button>
+          <m3e-button variant="text" href={MAIN_SITE}>Get the app</m3e-button>
+        </div>
+      </section>
     {:else if view === "signin"}
-      <h1>Sign in or sign up</h1>
-      <p class="muted">One account for your list, your progress and what's coming next.</p>
-      {#if message}<p class="notice" role="alert">{message}</p>{/if}
+      <section class="view" in:fly={{ y: 8, duration: 220 }}>
+        <m3e-heading variant="display" size="small" level={1}>Sign in or sign up</m3e-heading>
+        <p class="muted">One account for your list, your progress and your profile.</p>
+        {#if message}<p class="notice" role="alert"><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
 
-      <div class="stack">
-        <button class="btn provider" disabled={busy} onclick={() => oauth("google")}>
-          <svg viewBox="0 0 48 48" aria-hidden="true">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-          </svg>
-          Continue with Google
-        </button>
-        <button class="btn provider" disabled={busy} onclick={() => oauth("discord")}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="#5865F2"
-              d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"
-            />
-          </svg>
-          Continue with Discord
-        </button>
-      </div>
+        <div class="stack">
+          <m3e-button class="wide" variant="outlined" size="medium" disabled={busy} onclick={() => oauth("google")}>
+            <span slot="icon" class="logo-wrap"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+            </svg></span>
+            Continue with Google
+          </m3e-button>
+          <m3e-button class="wide" variant="outlined" size="medium" disabled={busy} onclick={() => oauth("discord")}>
+            <span slot="icon" class="logo-wrap"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="#5865F2"
+                d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"
+              />
+            </svg></span>
+            Continue with Discord
+          </m3e-button>
+        </div>
 
-      <div class="or"><span>or use your email</span></div>
+        <m3e-divider class="or"></m3e-divider>
+        <span class="or-label">or use your email</span>
 
-      <form
-        class="stack"
-        onsubmit={(e) => {
-          e.preventDefault();
-          sendCode();
-        }}
-      >
-        <label class="field">
-          <span>Email</span>
-          <input type="email" autocomplete="email" placeholder="you@example.com" bind:value={email} disabled={busy} />
-        </label>
-        <button class="btn primary" disabled={busy || !email.trim() || !captcha}>
-          {busy ? "Sending…" : captcha ? "Email me a code" : captchaFailed ? "Security check failed" : "Checking…"}
-        </button>
-        {#if captchaFailed}
-          <p class="fine">The security check couldn't run. A blocker may be stopping it: try turning it off for this page, or use Google or Discord.</p>
-        {/if}
-      </form>
+        <div class="stack">
+          <m3e-form-field variant="outlined" class="field">
+            <m3e-icon slot="prefix" name="mail"></m3e-icon>
+            <label slot="label" for="email">Email</label>
+            <input id="email" type="email" autocomplete="email" bind:value={email} disabled={busy} onkeydown={(e) => e.key === "Enter" && captcha && sendCode()} />
+            {#if captchaFailed}
+              <span slot="hint">The security check couldn't run. A blocker may be stopping it; try Google or Discord instead.</span>
+            {/if}
+          </m3e-form-field>
+          <m3e-button class="wide" variant="filled" size="medium" disabled={busy || !email.trim() || !captcha} onclick={sendCode}>
+            {busy ? "Sending…" : captcha ? "Email me a code" : captchaFailed ? "Security check failed" : "Checking…"}
+          </m3e-button>
+        </div>
 
-      <p class="fine">
-        By continuing you agree to the <a href="{MAIN_SITE}/terms/">terms</a> and the <a href="{MAIN_SITE}/privacy/">privacy policy</a>.
-      </p>
+        <p class="fine">
+          By continuing you agree to the <a href="{MAIN_SITE}/terms/">terms</a> and the <a href="{MAIN_SITE}/privacy/">privacy policy</a>.
+        </p>
+      </section>
     {:else if view === "code"}
-      <h1>Check your email</h1>
-      <p class="muted">We sent a code to <strong>{email}</strong>. Type it here.</p>
-      {#if message}<p class="notice" role="alert">{message}</p>{/if}
-      <form
-        class="stack"
-        onsubmit={(e) => {
-          e.preventDefault();
-          verify();
-        }}
-      >
-        <label class="field">
-          <span>Code</span>
+      <section class="view" in:fly={{ y: 8, duration: 220 }}>
+        <m3e-heading variant="display" size="small" level={1}>Check your email</m3e-heading>
+        <p class="muted">We sent a code to <strong>{email}</strong>. Type it here.</p>
+        {#if message}<p class="notice" role="alert"><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
+        <m3e-form-field variant="outlined" class="field">
+          <label slot="label" for="otp">Code</label>
           <input
+            id="otp"
             class="code"
             inputmode="numeric"
             autocomplete="one-time-code"
             maxlength="10"
-            placeholder="123456"
             bind:value={token}
             disabled={busy}
+            onkeydown={(e) => e.key === "Enter" && verify()}
           />
-        </label>
-        <button class="btn primary" disabled={busy || token.replace(/\s/g, "").length < 6}>{busy ? "Checking…" : "Continue"}</button>
-      </form>
-      <div class="row">
-        <button class="link" disabled={cooldown > 0 || busy || !captcha} onclick={sendCode}>{cooldown > 0 ? `Send again in ${cooldown}s` : "Send a new code"}</button>
-        <button class="link" onclick={() => ((view = "signin"), (message = ""))}>Use a different email</button>
-      </div>
+        </m3e-form-field>
+        <m3e-button class="wide" variant="filled" size="medium" disabled={busy || token.replace(/\s/g, "").length < 6} onclick={verify}>
+          {busy ? "Checking…" : "Continue"}
+        </m3e-button>
+        <div class="row spread">
+          <m3e-button variant="text" disabled={cooldown > 0 || busy || !captcha} onclick={sendCode}>
+            {cooldown > 0 ? `Send again in ${cooldown}s` : "Send a new code"}
+          </m3e-button>
+          <m3e-button variant="text" onclick={() => ((view = "signin"), (message = ""))}>Use a different email</m3e-button>
+        </div>
+      </section>
     {:else if view === "setup"}
-      <h1>Make it yours</h1>
-      <p class="muted">Pick a username and a face. You can change both later.</p>
-      {#if message}<p class="notice" role="alert">{message}</p>{/if}
-      <form
-        class="stack"
-        onsubmit={(e) => {
-          e.preventDefault();
-          createProfile();
-        }}
-      >
+      <section class="view" in:fly={{ y: 8, duration: 220 }}>
+        <m3e-heading variant="display" size="small" level={1}>Make it yours</m3e-heading>
+        <p class="muted">Pick a username and a face. You can change both later.</p>
+        {#if message}<p class="notice" role="alert"><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
+
         <div class="me">
-          <Avatar value={avatar} size={72} />
-          <div class="grow">
-            <label class="field">
-              <span>Display name</span>
-              <input maxlength="40" bind:value={display} disabled={busy} />
-            </label>
-          </div>
+          {#key avatar}<span class="me-pic" in:fly={{ y: 6, duration: 200 }}><Avatar value={avatar} size={88} ring={3} /></span>{/key}
+          <m3e-form-field variant="outlined" class="field grow">
+            <label slot="label" for="display">Display name</label>
+            <input id="display" maxlength="40" bind:value={display} disabled={busy} />
+          </m3e-form-field>
         </div>
 
-        <label class="field">
-          <span>Username</span>
-          <div class="at">
-            <i>@</i>
-            <input
-              maxlength="20"
-              autocomplete="off"
-              autocapitalize="off"
-              spellcheck="false"
-              bind:value={username}
-              disabled={busy}
-              aria-describedby="name-hint"
-              class:good={nameCheck === "free"}
-              class:bad={nameCheck === "taken" || nameCheck === "bad"}
-            />
-            <span class="tail"><NameStatus state={nameCheck} /></span>
-          </div>
-          <small id="name-hint" class:good={nameCheck === "free"} class:bad={nameCheck === "taken" || nameCheck === "bad"}>
-            {#key nameHint}<span class="hint" in:fly={{ y: 4, duration: 180 }}>{nameHint}</span>{/key}
-          </small>
-        </label>
+        <m3e-form-field variant="outlined" class="field" error={nameCheck === "taken" || nameCheck === "bad"}>
+          <span slot="prefix" class="at">@</span>
+          <label slot="label" for="username">Username</label>
+          <input id="username" maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false" bind:value={username} disabled={busy} />
+          <span slot="suffix" class="tail"><NameStatus state={nameCheck} /></span>
+          <span slot="error-icon"></span>
+          <span slot="hint">{nameHint}</span>
+          <span slot="error">{nameHint}</span>
+        </m3e-form-field>
 
         <fieldset class="faces">
           <legend>Profile picture</legend>
           <div class="grid">
             {#if photo}
-              <button type="button" class="face" class:on={avatar === photo} aria-label="Your photo" onclick={() => (avatar = photo!)}>
-                <Avatar value={photo} size={48} />
+              <button type="button" class="face" class:on={avatar === photo} aria-label="Your photo" aria-pressed={avatar === photo} onclick={() => (avatar = photo!)}>
+                <Avatar value={photo} size={56} />
               </button>
             {/if}
-            {#each PRESETS as _, i (i)}
-              <button type="button" class="face" class:on={avatar === presetId(i + 1)} aria-label="Fox {i + 1}" onclick={() => (avatar = presetId(i + 1))}>
-                <Avatar value={presetId(i + 1)} size={48} />
+            {#each ANIMALS as a (a.id)}
+              <button type="button" class="face" class:on={avatar === a.id} aria-label={a.label} aria-pressed={avatar === a.id} title={a.label} style:--tint={a.color} onclick={() => (avatar = a.id)}>
+                <Avatar value={a.id} size={56} />
               </button>
             {/each}
           </div>
         </fieldset>
 
-        <button class="btn primary" disabled={busy || nameCheck !== "free" || !display.trim()}>{busy ? "Saving…" : "Finish"}</button>
-      </form>
+        <m3e-button class="wide" variant="filled" size="medium" disabled={busy || nameCheck !== "free" || !display.trim()} onclick={createProfile}>
+          <m3e-icon slot="icon" name="check"></m3e-icon>{busy ? "Saving…" : "Finish"}
+        </m3e-button>
+      </section>
     {:else if view === "return"}
-      <div class="center">
-        <span class="tick" aria-hidden="true">✓</span>
-        <h1>You're signed in</h1>
+      <section class="view center" in:fly={{ y: 8, duration: 220 }}>
+        <span class="badge ok" aria-hidden="true"><m3e-shape name="12-sided-cookie"></m3e-shape><m3e-icon name="check" filled></m3e-icon></span>
+        <m3e-heading variant="headline" size="large" level={1}>You're signed in</m3e-heading>
         <p class="muted">Taking you back to Velmora…</p>
-      </div>
+      </section>
       {#if back}
         <div class="manual">
-          <a class="btn primary" href={back.url}>Open Velmora</a>
+          <m3e-button class="wide" variant="filled" href={back.url}><m3e-icon slot="icon" name="open_in_new"></m3e-icon>Open Velmora</m3e-button>
           <p class="fine">
-            Nothing happened? In Velmora, choose <strong>Enter a code</strong> and type
+            Nothing happened? In Velmora, choose <strong>Enter a code instead</strong> and type
             <span class="short">{spaced(back.short)}</span>
             {#if secondsLeft > 0}<span class="muted">(good for {secondsLeft}s)</span>{:else}<span class="muted">(expired)</span>{/if}
           </p>
-          {#if secondsLeft <= 0}<button class="link" onclick={restart}>Sign in again</button>{/if}
+          {#if secondsLeft <= 0}<m3e-button variant="text" onclick={restart}>Sign in again</m3e-button>{/if}
         </div>
       {/if}
     {:else if view === "done"}
-      <div class="center">
-        <span class="tick" aria-hidden="true">✓</span>
-        <h1>All set</h1>
+      <section class="view center" in:fly={{ y: 8, duration: 220 }}>
+        <span class="badge ok" aria-hidden="true"><m3e-shape name="12-sided-cookie"></m3e-shape><m3e-icon name="check" filled></m3e-icon></span>
+        <m3e-heading variant="headline" size="large" level={1}>All set</m3e-heading>
         <p class="muted">You're signed in to Velmora. You can close this tab.</p>
-      </div>
+      </section>
     {:else}
-      <h1>That didn't work</h1>
-      <p class="muted">{message || "Something went wrong."}</p>
-      <button class="btn primary" onclick={restart}>Try again</button>
+      <section class="view center" in:fly={{ y: 8, duration: 220 }}>
+        <span class="badge bad" aria-hidden="true"><m3e-shape name="4-sided-cookie"></m3e-shape><m3e-icon name="priority_high"></m3e-icon></span>
+        <m3e-heading variant="headline" size="large" level={1}>That didn't work</m3e-heading>
+        <p class="muted">{message || "Something went wrong."}</p>
+        <m3e-button variant="filled" onclick={restart}>Try again</m3e-button>
+      </section>
     {/if}
-  <div class="ts" bind:this={tsEl}></div>
+    <div class="ts" bind:this={tsEl}></div>
   </main>
 </div>
 
 <style>
   .stage {
+    position: relative;
     min-height: 100vh;
     display: grid;
     place-items: center;
     padding: 32px 16px;
+    overflow: hidden;
+    background: var(--md-sys-color-surface, #0a0d16);
+  }
+  .glow {
+    position: absolute;
+    inset: -20%;
+    pointer-events: none;
     background:
-      radial-gradient(900px 500px at 15% -10%, color-mix(in srgb, var(--blue) 28%, transparent), transparent 60%),
-      radial-gradient(700px 480px at 100% 110%, color-mix(in srgb, var(--cream) 14%, transparent), transparent 60%),
-      var(--bg);
+      radial-gradient(42% 36% at 18% 12%, color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent), transparent 70%),
+      radial-gradient(36% 32% at 88% 92%, color-mix(in srgb, #f8e8c8 16%, transparent), transparent 70%);
+    filter: blur(10px);
   }
   .card {
-    width: min(440px, 100%);
+    position: relative;
+    width: min(460px, 100%);
     display: flex;
     flex-direction: column;
     gap: 16px;
     padding: 32px;
-    border-radius: 28px;
-    background: color-mix(in srgb, #121827 92%, transparent);
-    border: 1px solid var(--line);
+    border-radius: 32px;
+    background: color-mix(in srgb, var(--md-sys-color-surface-container) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant) 50%, transparent);
     box-shadow: 0 30px 80px -30px rgb(0 0 0 / 70%);
+    backdrop-filter: blur(18px);
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
   .brand img {
-    border-radius: 16px;
+    border-radius: 18px;
+  }
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
   .eyebrow {
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--cream);
+    color: #f8e8c8;
   }
-  h1 {
-    margin: 4px 0 0;
+  .for {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .view {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  m3e-heading {
     font-family: var(--display);
-    font-weight: 400;
-    font-size: 40px;
-    line-height: 1.05;
   }
   p {
     margin: 0;
     line-height: 1.6;
   }
   .muted {
-    color: var(--muted);
+    color: var(--md-sys-color-on-surface-variant);
   }
   .fine {
     font-size: 13px;
-    color: var(--muted);
     line-height: 1.6;
+    color: var(--md-sys-color-on-surface-variant);
   }
-  .fine a,
-  .link {
-    color: var(--violet);
+  .fine a {
+    color: var(--md-sys-color-primary);
   }
   .stack {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-  }
-  .notice {
-    padding: 12px 14px;
-    border-radius: 14px;
-    font-size: 14px;
-    background: color-mix(in srgb, #e5484d 18%, transparent);
-    color: #ffc9cb;
-  }
-  .btn {
-    all: unset;
-    box-sizing: border-box;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     gap: 10px;
-    min-height: 48px;
-    padding: 0 20px;
-    border-radius: 16px;
-    font-weight: 700;
-    font-size: 15px;
-    cursor: pointer;
-    text-align: center;
-    transition:
-      transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      background 160ms,
-      opacity 160ms;
   }
-  .btn:focus-visible,
-  .link:focus-visible,
-  .face:focus-visible {
-    outline: 2px solid var(--violet);
-    outline-offset: 2px;
+  .wide {
+    width: 100%;
   }
-  .btn:active:not(:disabled) {
-    transform: scale(0.97);
+  .logo-wrap {
+    display: inline-grid;
   }
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .btn svg {
+  .logo {
     width: 20px;
     height: 20px;
   }
-  .provider {
-    background: rgb(255 255 255 / 7%);
-    border: 1px solid var(--line);
-    color: var(--ink);
+  .row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
   }
-  .provider:hover:not(:disabled) {
-    background: rgb(255 255 255 / 12%);
-  }
-  .primary {
-    background: var(--blue);
-    color: #fff;
-  }
-  .primary:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--blue) 85%, white);
-  }
-  .ghost {
-    border: 1px solid var(--line);
-    color: var(--ink);
+  .spread {
+    justify-content: space-between;
   }
   .or {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    margin-top: 6px;
+  }
+  .or-label {
+    align-self: center;
+    margin-top: -24px;
+    padding: 0 12px;
     font-size: 12px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--muted);
-  }
-  .or::before,
-  .or::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--line);
+    color: var(--md-sys-color-on-surface-variant);
+    background: var(--md-sys-color-surface-container);
   }
   .field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted);
-  }
-  input {
-    all: unset;
-    box-sizing: border-box;
     width: 100%;
-    min-height: 48px;
-    padding: 0 14px;
-    border-radius: 14px;
-    border: 1px solid var(--line);
-    background: rgb(255 255 255 / 5%);
-    color: var(--ink);
-    font-size: 16px;
-  }
-  input:focus {
-    border-color: var(--violet);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--violet) 30%, transparent);
-  }
-  input::placeholder {
-    color: rgb(255 255 255 / 30%);
-  }
-  .code {
-    font-size: 28px;
-    letter-spacing: 0.3em;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-  }
-  .at {
-    position: relative;
-  }
-  .at i {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    translate: 0 -50%;
-    font-style: normal;
-    color: var(--muted);
-  }
-  .at input {
-    padding-left: 32px;
-    padding-right: 48px;
-    transition:
-      border-color 240ms ease,
-      box-shadow 240ms ease;
-  }
-  .at input.good {
-    border-color: #3ecf8e;
-    box-shadow: 0 0 0 3px color-mix(in srgb, #3ecf8e 22%, transparent);
-  }
-  .at input.bad {
-    border-color: #ff6b6b;
-    box-shadow: 0 0 0 3px color-mix(in srgb, #ff6b6b 20%, transparent);
-  }
-  .tail {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    translate: 0 -50%;
-    display: grid;
-  }
-  .hint {
-    display: inline-block;
-  }
-  small {
-    min-height: 1.4em;
-    transition: color 240ms ease;
-  }
-  small {
-    font-weight: 500;
-    font-size: 12.5px;
-    color: var(--muted);
-  }
-  small.good {
-    color: #3ecf8e;
-  }
-  small.bad {
-    color: #ff8a8a;
-  }
-  .row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .link {
-    all: unset;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--violet);
-  }
-  .link:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .me {
-    display: flex;
-    align-items: flex-end;
-    gap: 16px;
   }
   .grow {
     flex: 1;
     min-width: 0;
+  }
+  .notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+    --m3e-icon-size: 20px;
+  }
+  .code {
+    font-size: 24px;
+    letter-spacing: 0.3em;
+    font-variant-numeric: tabular-nums;
+  }
+  .at {
+    padding-left: 4px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .tail {
+    display: grid;
+    padding-right: 8px;
+    --status-busy: var(--md-sys-color-primary);
+    --status-no: var(--md-sys-color-error);
+  }
+  .me {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .me-pic {
+    display: inline-grid;
   }
   .faces {
     border: 0;
@@ -907,67 +832,69 @@
   }
   .faces legend {
     padding: 0;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     font-size: 13px;
     font-weight: 600;
-    color: var(--muted);
+    color: var(--md-sys-color-on-surface-variant);
   }
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 52px);
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 10px;
+    justify-items: center;
   }
   .face {
     all: unset;
     cursor: pointer;
     display: grid;
     place-items: center;
-    width: 52px;
-    height: 52px;
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
-    transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition:
+      transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 200ms ease;
   }
   .face:hover {
     transform: scale(1.08);
   }
+  .face:active {
+    transform: scale(0.94);
+  }
+  .face:focus-visible,
   .face.on {
-    box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--violet);
+    box-shadow:
+      0 0 0 3px var(--md-sys-color-surface-container),
+      0 0 0 6px var(--tint, var(--md-sys-color-primary));
   }
   .center {
-    display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 12px 0;
     text-align: center;
+    padding: 8px 0;
   }
-  .tick {
-    display: grid;
+  .badge {
+    display: inline-grid;
     place-items: center;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    font-size: 32px;
-    background: color-mix(in srgb, #3ecf8e 22%, transparent);
-    color: #3ecf8e;
+    --m3e-shape-size: 72px;
+    --m3e-icon-size: 34px;
   }
-  .ts:empty {
-    display: none;
+  .badge > * {
+    grid-area: 1 / 1;
   }
-  .spinner {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 3px solid rgb(255 255 255 / 14%);
-    border-top-color: var(--violet);
-    animation: spin 0.8s linear infinite;
+  .badge.ok {
+    --m3e-shape-container-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+  }
+  .badge.bad {
+    --m3e-shape-container-color: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
   }
   .manual {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding-top: 8px;
-    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
   }
   .short {
     display: inline-block;
@@ -976,19 +903,19 @@
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
     font-weight: 700;
     letter-spacing: 0.12em;
-    background: rgb(255 255 255 / 8%);
-    color: var(--ink);
+    background: var(--md-sys-color-surface-container-highest);
+    color: var(--md-sys-color-on-surface);
   }
-  @keyframes spin {
-    to {
-      rotate: 360deg;
+  .ts:empty {
+    display: none;
+  }
+  @media (max-width: 480px) {
+    .card {
+      padding: 24px 20px;
+      border-radius: 28px;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .spinner {
-      animation-duration: 2.4s;
-    }
-    .btn,
     .face {
       transition: none;
     }

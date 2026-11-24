@@ -16,7 +16,7 @@ export interface LegalDoc {
 export const PRIVACY: LegalDoc = {
   title: "Privacy policy",
   intro:
-    "Velmora works without an account and keeps what you watch on your PC. An account is optional. This page lists everything that does leave your PC, who receives it, and why. It covers the Velmora app for Windows, accounts, the license service and this website.",
+    "Velmora needs a free account, and keeps what you watch on your PC unless you sync it to that account. This page lists everything that does leave your PC, who receives it, and why. It covers the Velmora app for Windows, accounts, the license service and this website.",
   sections: [
     {
       heading: "What stays on your PC",
@@ -27,8 +27,8 @@ export const PRIVACY: LegalDoc = {
     {
       heading: "Your Velmora account",
       paragraphs: [
-        "An account is optional; Velmora works the same as a guest without one. You sign up on our sign-in page (auth.getvelmora.dpdns.org) with Google, Discord or an emailed code, and the page hands the result back to the app. The sign-in page loads no ads and no third-party scripts.",
-        "We store your email address, your username, your display name and your profile picture. With Google or Discord we receive the name, email address and photo you have there, and your picture can be that photo. Your username, display name and picture are visible to other signed-in Velmora users; your email address is not. Accounts are kept with Supabase, our database and sign-in provider, and codes sent by email go through Mailtrap.",
+        "From version 0.6.0 Velmora needs a free account; only the first sign-in needs the internet. You sign up on our sign-in page (auth.getvelmora.dpdns.org) with Google, Discord or an emailed code, and the page hands the result back to the app. The sign-in page loads no ads and no third-party scripts.",
+        "We store your email address, your username, your display name, your profile picture, and the bio and links you add. With Google or Discord we receive the name, email address and photo you have there, and your picture can be that photo. Your username, display name and picture are visible to other signed-in Velmora users; your email address is not. Accounts are kept with Supabase, our database and sign-in provider, and codes sent by email go through Mailtrap.",
         "The app keeps a sign-in token in Windows Credential Manager so you stay signed in, and a copy of your profile so it still shows when you are offline. Signing out removes both from your PC.",
         "If you link a Velmora Max key to your account, our license server stores that key's ID with your account ID, so Max can follow you to a new PC. Unlinking it, or deleting your account, removes that link; the key itself stays yours.",
         "In Settings, under Velmora account, you can copy everything we hold about you, or delete your account. Deleting removes your profile and sign-in from our database for good.",
@@ -37,7 +37,7 @@ export const PRIVACY: LegalDoc = {
     {
       heading: "Anonymous usage statistics",
       paragraphs: [
-        "Velmora counts, on your PC, which titles you watch for at least a minute, which site each play came from, which player ran (mpv or the built-in one) and the video quality. Once a day it sends those totals to our server, together with the day and the Velmora version. Titles are identified by their public TMDB number and counted once per day.",
+        "Velmora counts, on your PC, which titles you watch for at least a minute, which songs you listen to in Music, which site each play came from, which player ran (mpv or the built-in one) and the video quality. Once a day it sends those totals to our server, together with the day and the Velmora version. Titles are identified by their public TMDB number and counted once per day.",
         "The counts carry no ID, no account and nothing about your PC. Your IP address reaches our server like any website's; we keep only a short one-way hash of it for a day, to stop one address flooding the counts. This is separate from signing in: your account is never attached to these numbers.",
         "We use the totals for the \"Popular on Velmora\" row in the app and for the public stats page on this website. A title is only listed once several different installs have watched it. It is on by default, and you can turn it off in Settings, under Privacy, which also deletes any counts not yet sent and shows you exactly what would be sent.",
       ],

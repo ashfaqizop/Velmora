@@ -3,6 +3,7 @@
   import Splash from "./components/Splash.svelte";
   import Shell from "./components/Shell.svelte";
   import Onboarding from "./components/Onboarding.svelte";
+  import SignInGate from "./components/SignInGate.svelte";
   import TorrentNotice from "./components/TorrentNotice.svelte";
   import DownloadDialog from "./components/DownloadDialog.svelte";
   import Player from "./pages/Player.svelte";
@@ -12,6 +13,7 @@
   import { account } from "./lib/account.svelte";
   import { sync } from "./lib/sync.svelte";
   import { analytics } from "./lib/analytics.svelte";
+  import { startDeepLinks } from "./lib/deeplink";
   import { ads } from "./lib/ads.svelte";
   import { musicSession } from "./lib/music/session.svelte";
   import { musicPlayer } from "./lib/music/player.svelte";
@@ -81,6 +83,8 @@
     musicPlayer.restore();
     startMediaControls();
     musicExports.init();
+    // velmora:// links from the website ("Open in Velmora").
+    startDeepLinks();
     registerOverlays({
       torrentNotice: () => notice.ask(),
       download: (title, target) => downloadDialog.open(title, target),
@@ -129,7 +133,12 @@
   {/key}
 {/if}
 
-{#if onboarding}
+<!-- Velmora needs an account; only a PC with no saved sign-in sees this. -->
+{#if !splash && account.needsSignIn}
+  <SignInGate />
+{/if}
+
+{#if onboarding && !account.needsSignIn}
   <Onboarding ondone={() => (onboarding = false)} />
 {/if}
 

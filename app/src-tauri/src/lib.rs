@@ -67,7 +67,22 @@ pub fn run() {
         .try_init();
 
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+    // Must come first: a second launch hands its arguments (and any velmora://
+    // link) to the window that's already open, then quits.
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            use tauri::Manager;
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }));
+    }
+    builder = builder
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init());
@@ -81,6 +96,14 @@ pub fn run() {
     builder
         .setup(|app| {
             create_main_window(app)?;
+            // The installer registers velmora:// too; this covers portable copies and dev runs.
+            #[cfg(desktop)]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register_all() {
+                    tracing::warn!("velmora:// links: {e}");
+                }
+            }
             // Windows media controls, bound to the main window (needs it to exist).
             media::init(app.handle());
             let paths = app.path();

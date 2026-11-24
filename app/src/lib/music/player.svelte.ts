@@ -19,6 +19,7 @@ import {
 } from "tauri-plugin-libmpv-api";
 import { SvelteSet } from "svelte/reactivity";
 import * as api from "../api";
+import { analytics } from "../analytics.svelte";
 import { sound } from "../audio.svelte";
 import { playerEngine } from "../engine.svelte";
 import { MpvUnavailable, startMpv, stopMpv } from "../mpv";
@@ -1176,6 +1177,7 @@ class MusicPlayer {
     const len = item.duration ?? 0;
     if (secs >= PLAY_COUNTS_AT || (len > 0 && secs >= len / 2)) {
       api.musicPlayLog($state.snapshot(item) as MusicItem, secs).catch(() => {});
+      analytics.listened(item.id);
     }
   }
 

@@ -6,6 +6,8 @@
 // Guest stays fully usable: nothing in the app requires an account.
 import { createClient, isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import * as api from "./api";
+import { isPhotoUrl } from "./avatars";
+import type { ProfileLink } from "./links";
 
 // Public by design: the publishable key can only do what the row level
 // security rules in supabase/schema.sql allow. Keep in step with
@@ -17,8 +19,14 @@ export interface Profile {
   id: string;
   username: string;
   display_name: string;
-  /** "preset:1" to "preset:12", or a Google or Discord photo URL. */
+  /** "animal:panda" and the other eight animals, or a Google or Discord photo URL. */
   avatar: string;
+  bio?: string;
+  links?: ProfileLink[];
+  verified?: boolean;
+  followers_count?: number;
+  following_count?: number;
+  share_activity?: boolean;
   username_changed_at: string | null;
   created_at: string;
 }
@@ -31,6 +39,8 @@ export const USERNAME = /^[A-Za-z0-9_]{3,20}$/;
 // are. It is only a picture of the profile; the real session is checked once
 // the network is back.
 const CACHE = "velmora.account.cache";
+/** Someone has signed in on this PC before (changes what the sign-in screen says). */
+const EVER = "velmora.account.ever";
 
 function readCache(): { profile: Profile; email: string | null } | null {
   try {
@@ -69,6 +79,8 @@ function describe(e: unknown): string {
   if (code === "23505") return "That username is taken.";
   if (text.includes("username_reserved")) return "That name isn't available.";
   if (text.includes("username_cooldown")) return "You changed your username recently. You can change it again 30 days after the last change.";
+  if (code === "23514" && text.includes("links")) return "One of the links doesn't match its site. Check the address.";
+  if (code === "23514" && text.includes("bio")) return "The bio is too long (160 characters at most).";
   if (code === "23514") return "One of those values isn't allowed.";
   if (/network|fetch|failed to/i.test(text)) return "Couldn't reach Velmora's server. Check your connection and try again.";
   return text || "Something went wrong. Try again.";
@@ -82,6 +94,14 @@ class Account {
   error = $state<string | null>(null);
   /** Signed in from what was saved, but the server hasn't confirmed it yet (no internet). */
   offline = $state(false);
+  /**
+   * A sign-in is saved on this PC. Velmora needs an account, but only the first
+   * launch needs the internet: with a saved sign-in the app opens straight away,
+   * online or not, and the server checks it in the background.
+   */
+  saved = $state(false);
+  /** The photo from Google or Discord, if the sign-in has one (offered as an avatar). */
+  photo = $state<string | null>(null);
 
   private sb: SupabaseClient | null = null;
   private lastSaved = "";
@@ -94,6 +114,21 @@ class Account {
   async accessToken(): Promise<string | null> {
     const { data } = await this.client.auth.getSession();
     return data.session?.access_token ?? null;
+  }
+
+  /** No account on this PC yet: the sign-in screen covers the app. */
+  get needsSignIn() {
+    return this.status !== "loading" && !this.saved && this.status !== "signed-in";
+  }
+
+  /** Why the sign-in screen is showing: a new install, an update from a version without accounts, or after signing out. */
+  get gateReason(): "new" | "upgrade" | "returning" {
+    try {
+      if (localStorage.getItem(EVER)) return "returning";
+      return localStorage.getItem("velmora.onboarded") === "1" ? "upgrade" : "new";
+    } catch {
+      return "new";
+    }
   }
 
   get signedIn() {
@@ -116,16 +151,22 @@ class Account {
           this.offline = false;
           writeCache(null, null);
           this.status = "guest";
-          api.accountVaultClear().catch(() => {});
+          this.forgetSaved();
         }
       });
     }
     return this.sb;
   }
 
+  private forgetSaved() {
+    this.saved = false;
+    api.accountVaultClear().catch(() => {});
+  }
+
   private remember(token: string) {
     if (token === this.lastSaved) return;
     this.lastSaved = token;
+    this.saved = true;
     api.accountVaultWrite(token).catch((e) => console.warn("account: couldn't keep the session", e));
   }
 
@@ -146,6 +187,7 @@ class Account {
     } catch {
       // No vault, so no saved sign-in.
     }
+    this.saved = !!token;
     if (!token) {
       writeCache(null, null);
       this.status = "guest";
@@ -192,7 +234,7 @@ class Account {
       this.profile = null;
       this.email = null;
       writeCache(null, null);
-      api.accountVaultClear().catch(() => {});
+      this.forgetSaved();
       this.status = "guest";
     }
   }
@@ -259,8 +301,16 @@ class Account {
     }
     this.profile = data as Profile;
     this.email = session.user.email ?? null;
+    const meta = (session.user.user_metadata ?? {}) as Record<string, unknown>;
+    const pic = meta.avatar_url ?? meta.picture;
+    this.photo = isPhotoUrl(pic) ? pic : null;
     this.offline = false;
     writeCache(this.profile, this.email);
+    try {
+      localStorage.setItem(EVER, "1");
+    } catch {
+      // Only changes the wording of a later sign-in screen.
+    }
     this.status = "signed-in";
     this.onSignedIn?.();
   }
@@ -274,7 +324,7 @@ class Account {
     }
     this.lastSaved = "";
     clearTimeout(this.retry);
-    api.accountVaultClear().catch(() => {});
+    this.forgetSaved();
     writeCache(null, null);
     this.profile = null;
     this.email = null;
@@ -289,8 +339,8 @@ class Account {
     return data === true;
   }
 
-  /** Change the display name, avatar or username. Rejects with a readable message. */
-  async update(patch: Partial<Pick<Profile, "display_name" | "avatar" | "username">>) {
+  /** Change the name, avatar, username, bio or links. Rejects with a readable message. */
+  async update(patch: Partial<Pick<Profile, "display_name" | "avatar" | "username" | "bio" | "links" | "share_activity">>) {
     if (!this.profile) return;
     const { data, error } = await this.client.from("profiles").update(patch).eq("id", this.profile.id).select("*").single();
     if (error) throw new Error(describe(error));

@@ -20,11 +20,11 @@
     ],
     [
       "Do I need an account?",
-      "No. Velmora works fully as a guest. A free Velmora account (Google, Discord or an emailed code) gives you a username and profile, keeps your list, progress and settings in step across PCs, and brings Max with you to a new one. You can also connect AniList or Trakt separately for your progress there.",
+      "Yes, from Velmora 0.6.0: a free account, made once in your browser with Google, Discord or an emailed code. It gives you a username and profile, keeps your list, progress and settings in step across PCs, and brings Max with you to a new one. Only that first sign-in needs the internet; after it, Velmora opens offline too. AniList and Trakt can still be connected separately.",
     ],
     [
       "What does Velmora collect?",
-      "Nothing, unless you opt in by signing in. An account stores your email, username, display name and picture, and what you choose to sync. Separately, the app sends once a day anonymous totals (which sites and players get used, which titles get watched) with no ID and no account attached; one switch in Settings, under Privacy, turns that off. The privacy policy has the details, and the public numbers are on the stats page.",
+      "Your account stores your email, username, display name and picture, bio and links, and your list, progress and settings so they sync. Separately, the app sends once a day anonymous totals (which sites and players get used, which titles get watched) with no ID and no account attached; one switch in Settings, under Privacy, turns that off. The privacy policy has the details, and the public numbers are on the stats page.",
     ],
     [
       "What is Ani, and does it cost anything?",

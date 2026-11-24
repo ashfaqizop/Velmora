@@ -26,7 +26,7 @@
   const STATS = [
     ["10+", "sources searched at once"],
     ["4K", "HEVC, AV1 and HDR in the player"],
-    ["0", "accounts required"],
+    ["1", "free account, then offline is fine"],
     ["100%", "open source, GPL-3.0"],
   ];
 </script>

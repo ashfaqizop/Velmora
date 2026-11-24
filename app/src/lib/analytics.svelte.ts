@@ -16,6 +16,8 @@ interface Day {
   sources: Counts;
   engines: Counts;
   quality: Counts;
+  /** Songs listened to (YouTube video ids), counted once a day. */
+  music?: Counts;
   app: string;
 }
 type Pending = Record<string, Day>;
@@ -67,6 +69,7 @@ function batch(day: string, d: Day) {
     sources: list(d.sources),
     engines: list(d.engines),
     quality: list(d.quality),
+    music: Object.keys(d.music ?? {}).map((k) => ({ k })),
   };
 }
 
@@ -108,6 +111,15 @@ class Analytics {
     bump(day.sources, String(source.provider));
     bump(day.engines, engine);
     bump(day.quality, qualityBucket(source.tags?.resolution));
+    writePending(pending);
+  }
+
+  /** A song was heard properly (the same rule as the play history). */
+  listened(videoId: string) {
+    if (!this.enabled || !this.version || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) return;
+    const pending = readPending();
+    const day = (pending[utcDay()] ??= { titles: {}, sources: {}, engines: {}, quality: {}, music: {}, app: this.version });
+    bump((day.music ??= {}), videoId);
     writePending(pending);
   }
 

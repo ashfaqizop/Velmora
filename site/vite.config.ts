@@ -14,6 +14,7 @@ const ICONS = [
   "schedule", "search", "settings", "star", "sticky_note_2", "swap_horiz", "sync", "toggle_off",
   "travel_explore", "trending_up", "verified", "video_library", "view_carousel", "visibility", "visibility_off",
   "volume_up", "wand_stars", "workspace_premium",
+  "groups", "mail", "error", "check", "open_in_new", "priority_high", "logout", "edit", "public", "person_add", "insights", "login", "account_circle", "shield", "favorite", "explore", "music_note", "tv", "local_fire_department", "emoji_events", "link_off", "star_rate", "more_vert", "arrow_back",
 ];
 
 const icons = (): Plugin => ({
@@ -32,7 +33,7 @@ const icons = (): Plugin => ({
 });
 
 // One HTML file per page.
-const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html"];
+const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html"];
 
 export default defineConfig({
   plugins: [svelte(), icons()],

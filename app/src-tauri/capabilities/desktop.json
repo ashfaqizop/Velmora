@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop",
-  "description": "OTA updates and the mpv player (desktop only)",
+  "description": "OTA updates, the mpv player and velmora:// links (desktop only)",
   "platforms": [
     "windows",
     "macOS",
@@ -12,6 +12,7 @@
   ],
   "permissions": [
     "updater:default",
-    "libmpv:default"
+    "libmpv:default",
+    "deep-link:default"
   ]
 }

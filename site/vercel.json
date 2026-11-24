@@ -84,6 +84,25 @@
           "value": "DENY"
         }
       ]
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://lh3.googleusercontent.com https://cdn.discordapp.com https://image.tmdb.org https://i.ytimg.com; connect-src 'self' https://htvirqckkhfekgfwxops.supabase.co wss://htvirqckkhfekgfwxops.supabase.co; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
+      ]
     }
   ],
   "redirects": [
@@ -118,6 +137,28 @@
         }
       ],
       "destination": "https://auth.getvelmora.dpdns.org/auth/",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/",
+      "permanent": false
+    },
+    {
+      "source": "/social/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "https://social.getvelmora.dpdns.org/social/",
       "permanent": false
     }
   ]
