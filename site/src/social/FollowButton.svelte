@@ -36,7 +36,7 @@
     class:on
     {size}
     variant={on ? "tonal" : "filled"}
-    disabled-interactive={busy}
+    disabled={busy}
     onclick={toggle}
     onpointerenter={() => (hover = true)}
     onpointerleave={() => (hover = false)}
