@@ -11,6 +11,7 @@
   import { LINK_KINDS, MAX_BIO, MAX_LINKS, linkLabel, validLink, type LinkKind, type ProfileLink } from "../lib/links";
   import { auth, myListFavorites, saveProfile, usernameFree, type Favorite } from "./data.svelte";
   import { go } from "./nav.svelte";
+  import { clearActivity, setSharing } from "./activity.svelte";
 
   const NAME = /^[A-Za-z0-9_]{3,20}$/;
   const MAX_FAVS = 6;
@@ -132,6 +133,30 @@
     const next = [...favorites];
     [next[i], next[j]] = [next[j], next[i]];
     favorites = next;
+  }
+
+  let sharingBusy = $state(false);
+
+  async function share(on: boolean) {
+    sharingBusy = true;
+    try {
+      await setSharing(on);
+      M3eSnackbar.open(on ? "Sharing is on. What you watch shows on your profile and in followers' feeds." : "Sharing is off. Your activity is hidden.");
+    } catch (e) {
+      M3eSnackbar.open((e as Error).message);
+    } finally {
+      sharingBusy = false;
+    }
+  }
+
+  async function wipe() {
+    if (!confirm("Clear all your activity? Ratings, reviews and lists stay.")) return;
+    try {
+      await clearActivity();
+      M3eSnackbar.open("Your activity is cleared.");
+    } catch (e) {
+      M3eSnackbar.open((e as Error).message);
+    }
   }
 
   async function save() {
@@ -285,6 +310,18 @@
           {/each}
         </div>
       {/if}
+    </div>
+
+    <div class="card">
+      <h2>Activity</h2>
+      <label class="share">
+        <span class="share-text">
+          <strong>Share what I watch</strong>
+          <span>Titles you start, finish, add to My List and rate show on your profile, in your followers' feeds and in your stats. 18+ titles are never shared.</span>
+        </span>
+        <m3e-switch checked={auth.me.share_activity !== false} disabled={sharingBusy} onchange={(e: Event) => share((e.currentTarget as HTMLElement & { checked: boolean }).checked)}></m3e-switch>
+      </label>
+      <div><m3e-button variant="text" onclick={wipe}><m3e-icon slot="icon" name="delete_sweep"></m3e-icon>Clear my activity</m3e-button></div>
     </div>
 
     <div class="savebar" class:show={dirty}>
@@ -540,6 +577,22 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  .share {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .share-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .share-text span {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--md-sys-color-on-surface-variant);
+  }
   .savebar {
     position: fixed;
     left: 50%;
@@ -595,6 +648,9 @@
     }
     .savebar span {
       display: none;
+    }
+    .savebar {
+      bottom: 82px;
     }
   }
 </style>

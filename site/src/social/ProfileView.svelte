@@ -5,15 +5,19 @@
   import { M3eSnackbar } from "@m3e/web/snackbar";
   import Avatar from "../auth/Avatar.svelte";
   import { animalOf } from "../auth/avatars";
-  import { MAIN_SITE } from "../auth/config";
   import { beginSignIn } from "../lib/session";
   import { linkLabel, shortUrl } from "../lib/links";
   import Badges from "./Badges.svelte";
   import FollowButton from "./FollowButton.svelte";
   import PeopleList from "./PeopleList.svelte";
   import ReportDialog from "./ReportDialog.svelte";
+  import ActivityList from "./ActivityList.svelte";
+  import RatingsList from "./RatingsList.svelte";
+  import ListsGrid from "./ListsGrid.svelte";
+  import StatsPanel from "./StatsPanel.svelte";
+  import { userActivity } from "./activity.svelte";
   import { ago, count, monthYear, plural } from "./format";
-  import { go, href, profileHref, profileUrl, type Tab } from "./nav.svelte";
+  import { go, href, profileHref, profileUrl, titleHref, type Tab } from "./nav.svelte";
   import {
     auth,
     checkFollowing,
@@ -63,7 +67,7 @@
         phase = "ready";
         document.title = `${found.display_name} (@${found.username}) · Velmora Social`;
         // The address keeps the username as it's written on the profile.
-        if (found.username !== name) go(`/@${found.username}${tab === "favorites" ? "" : `/${tab}`}`, { replace: true, keepScroll: true });
+        if (found.username !== name) go(`/@${found.username}${tab === "activity" ? "" : `/${tab}`}`, { replace: true, keepScroll: true });
         loadMax([found.id]);
         if (signedIn !== "loading") {
           checkFollowing([found.id]);
@@ -82,7 +86,7 @@
 
   function pick(t: Tab) {
     if (!p || t === tab) return;
-    go(`/@${p.username}${t === "favorites" ? "" : `/${t}`}`, { replace: true, keepScroll: true });
+    go(`/@${p.username}${t === "activity" ? "" : `/${t}`}`, { replace: true, keepScroll: true });
   }
 
   async function share() {
@@ -113,7 +117,10 @@
   }
 
   const TABS = $derived<{ id: Tab; label: string; icon: string }[]>([
-    { id: "favorites", label: "Favourites", icon: "favorite" },
+    { id: "activity", label: "Activity", icon: "history" },
+    { id: "reviews", label: "Reviews", icon: "star" },
+    { id: "lists", label: "Lists", icon: "list" },
+    { id: "stats", label: "Stats", icon: "insights" },
     { id: "followers", label: "Followers", icon: "group" },
     { id: "following", label: "Following", icon: "person_heart" },
     ...(isMe ? [{ id: "visitors" as Tab, label: "Visitors", icon: "visibility" }] : []),
@@ -208,8 +215,35 @@
     </div>
   </article>
 
+  {#if p.favorites.length || isMe}
+    <section class="showcase">
+      <h2><m3e-icon name="favorite" filled></m3e-icon>Favourites</h2>
+      {#if p.favorites.length}
+        <div class="favs">
+          {#each p.favorites as f, i (f.k)}
+            <a class="fav" href={titleHref(f.k)} style:--i={i} title={f.name}>
+              <span class="poster">
+                {#if f.poster}<img src={f.poster} alt="" loading="lazy" decoding="async" />{:else}<m3e-icon name="movie"></m3e-icon>{/if}
+                <span class="play" aria-hidden="true"><m3e-icon name="play_arrow" filled></m3e-icon></span>
+              </span>
+              <span class="fav-name">{f.name}</span>
+              {#if f.year}<span class="fav-year">{f.year}</span>{/if}
+            </a>
+          {/each}
+        </div>
+      {:else if isMe}
+        <div class="empty-cta">
+          <p>Show off up to six favourites from your My List.</p>
+          <m3e-button variant="tonal" href={href("/settings")}><m3e-icon slot="icon" name="favorite"></m3e-icon>Pick favourites</m3e-button>
+        </div>
+      {:else}
+        <p class="empty">@{p.username} hasn't picked favourites yet.</p>
+      {/if}
+    </section>
+  {/if}
+
   <section class="tabs-wrap">
-    <m3e-tabs class="tabs" stretch>
+    <m3e-tabs class="tabs">
       {#each TABS as t (t.id)}
         <m3e-tab selected={tab === t.id} onclick={() => pick(t.id)}>
           <m3e-icon slot="icon" name={t.icon}></m3e-icon>{t.label}
@@ -220,28 +254,18 @@
     <div class="panel">
       {#key `${p.id}:${tab}`}
         <div in:fade={{ duration: 180 }}>
-          {#if tab === "favorites"}
-            {#if p.favorites.length}
-              <div class="favs">
-                {#each p.favorites as f, i (f.k)}
-                  <a class="fav" href="{MAIN_SITE}/open/?to=title/{f.k}" target="_blank" rel="noopener" style:--i={i} title="Open {f.name} in Velmora">
-                    <span class="poster">
-                      {#if f.poster}<img src={f.poster} alt="" loading="lazy" decoding="async" />{:else}<m3e-icon name="movie"></m3e-icon>{/if}
-                      <span class="play" aria-hidden="true"><m3e-icon name="play_arrow" filled></m3e-icon></span>
-                    </span>
-                    <span class="fav-name">{f.name}</span>
-                    {#if f.year}<span class="fav-year">{f.year}</span>{/if}
-                  </a>
-                {/each}
-              </div>
-            {:else if isMe}
-              <div class="empty-cta">
-                <p>Show off up to six favourites from your My List.</p>
-                <m3e-button variant="tonal" href={href("/settings")}><m3e-icon slot="icon" name="favorite"></m3e-icon>Pick favourites</m3e-button>
-              </div>
-            {:else}
-              <p class="empty">@{p.username} hasn't picked favourites yet.</p>
-            {/if}
+          {#if tab === "activity"}
+            <ActivityList load={(before) => userActivity(p.id, before)}>
+              {#snippet empty()}
+                <p class="empty">{isMe ? (auth.me?.share_activity === false ? "Sharing is off, so nothing you watch shows here. Turn it on in Edit profile." : "Nothing yet. What you watch, finish, add and rate in Velmora shows up here.") : `Nothing from @${p.username} yet.`}</p>
+              {/snippet}
+            </ActivityList>
+          {:else if tab === "reviews"}
+            <RatingsList userId={p.id} empty={isMe ? "Rate titles here or in the app and they show up here." : `@${p.username} hasn't rated anything yet.`} />
+          {:else if tab === "lists"}
+            <ListsGrid userId={p.id} mine={isMe} name={`@${p.username}`} />
+          {:else if tab === "stats"}
+            <StatsPanel id={p.id} mine={isMe} name={`@${p.username}`} />
           {:else if tab === "followers"}
             <PeopleList load={(from) => followersOf(p.id, from)} empty={isMe ? "No followers yet. Share your profile to get some." : `No one follows @${p.username} yet.`} />
           {:else if tab === "following"}
@@ -416,6 +440,22 @@
   }
   .meta .ver {
     color: var(--md-sys-color-primary);
+  }
+  .showcase {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .showcase h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 4px;
+    font-size: 18px;
+    --m3e-icon-size: 20px;
+  }
+  .showcase h2 m3e-icon {
+    color: #ff7aa2;
   }
   .tabs-wrap {
     border-radius: 32px;

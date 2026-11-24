@@ -22,6 +22,7 @@ export interface Profile {
   links: ProfileLink[];
   favorites: Favorite[];
   verified: boolean;
+  share_activity: boolean;
   followers_count: number;
   following_count: number;
   username_changed_at: string | null;

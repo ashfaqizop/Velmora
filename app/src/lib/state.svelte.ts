@@ -306,6 +306,8 @@ class Library {
 
   /** Told about every change made on this PC, so sync can send it (see sync.svelte.ts). */
   onChange: ((e: { table: "list" | "progress"; key: string; deleted: boolean }) => void) | null = null;
+  /** Told when you add something to My List yourself (Velmora Social activity). */
+  onAdd: ((t: TitleSummary) => void) | null = null;
 
   has(t: TitleSummary) {
     const k = keyOf(t);
@@ -318,6 +320,7 @@ class Library {
     this.watchlist = removing ? this.watchlist.filter((w) => keyOf(w) !== k) : [$state.snapshot(t), ...this.watchlist];
     save("watchlist", this.watchlist);
     this.onChange?.({ table: "list", key: k, deleted: removing });
+    if (!removing) this.onAdd?.(t);
   }
 
   /** Unfinished titles, most recent first (one entry per title). */

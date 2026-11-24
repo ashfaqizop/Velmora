@@ -1,6 +1,24 @@
 <script lang="ts">
-  // Settings > Privacy: the anonymous usage statistics, and exactly what they are.
+  // Settings > Privacy: sharing what you watch on Velmora Social, and the
+  // anonymous usage statistics (and exactly what they are).
+  import { M3eSnackbar } from "@m3e/web/snackbar";
   import { analytics } from "../lib/analytics.svelte";
+  import { account } from "../lib/account.svelte";
+  import { activity } from "../lib/activity.svelte";
+
+  let sharingBusy = $state(false);
+
+  async function setSharing(on: boolean) {
+    sharingBusy = true;
+    try {
+      await account.update({ share_activity: on });
+      if (!on) activity.clear();
+    } catch (e) {
+      M3eSnackbar.open((e as Error).message);
+    } finally {
+      sharingBusy = false;
+    }
+  }
 
   let preview = $state<string | null>(null);
 
@@ -13,6 +31,26 @@
 </script>
 
 <div class="rows">
+  {#if account.signedIn}
+    <label class="row" data-setting="share-activity">
+      <div class="text">
+        <strong>Share what I watch on Velmora Social</strong>
+        <span>
+          What you start, finish, add to My List and rate shows on your profile, in your followers' feeds and in your stats. 18+
+          titles are never shared. Turning this off hides what was shared and stops new posts.
+        </span>
+      </div>
+      <m3e-switch
+        checked={account.profile?.share_activity !== false}
+        disabled={sharingBusy || account.offline}
+        aria-label="Share what I watch on Velmora Social"
+        onchange={(e: Event) => setSharing(checked(e))}
+      ></m3e-switch>
+    </label>
+
+    <m3e-divider></m3e-divider>
+  {/if}
+
   <label class="row" data-setting="analytics">
     <div class="text">
       <strong>Share anonymous usage statistics</strong>

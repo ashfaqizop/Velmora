@@ -3,6 +3,7 @@
   import { personalize } from "../lib/ani/personalize.svelte";
   import { fade } from "svelte/transition";
   import Poster from "../components/Poster.svelte";
+  import RateButton from "../components/RateButton.svelte";
   import WhereToWatch from "../components/WhereToWatch.svelte";
   import { finder, lookupTitle, type Finding } from "../lib/finder.svelte";
   import type { Source } from "../lib/types";
@@ -261,6 +262,7 @@
           <m3e-icon slot="selected-icon" name="check"></m3e-icon>
           My List
         </m3e-button>
+        <RateButton {title} />
         {#if trailerSrc}
           <m3e-button variant="tonal" size="medium" onclick={openTrailer}>
             <m3e-icon slot="icon" name="smart_display"></m3e-icon>

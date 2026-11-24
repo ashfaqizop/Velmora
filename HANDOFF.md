@@ -1,4 +1,4 @@
-# Handoff: where Velmora stands (2026-11-24)
+# Handoff: where Velmora stands (2026-11-24, after 0.6.0)
 
 Notes for the next session, so work can carry on without re-reading the whole
 history. Memory files in `~/.claude/projects/g--1AA-Velmora/memory/` hold the
@@ -78,12 +78,25 @@ The changelog has a 0.6.0 entry marked `soon` ("In testing") in
    `valid_favorites`, `search_profiles(q, lim)`, follow limits (120/hour,
    5000 total, not to hidden/banned), report limits (one open per reason,
    20/day). App: Settings > Velmora account has "View profile".
-3. **Discovery + activity.** Trending movies / shows+anime / music pages with
-   "Open in Velmora" (`/open/?to=`); activity from the app, shared by default
-   with an off switch (`profiles.share_activity`), **18+ titles never shared**;
-   public lists; stats (hours, top genres); ratings and short reviews; feed of
-   people you follow; suggested people; leaderboards.
-4. **Admin part 1** at `admin.getvelmora.dpdns.org`: admin role (`admins`
+3. **Discovery + activity: done, released in 0.6.0.** SQL in
+   `supabase/activity.sql` (run after social.sql): `activity` (rows only via
+   `post_activity`, episodes fold into one row per 12 h, hidden when
+   `share_activity` is off), `ratings` (1-10, review <= 500, spoiler flag,
+   trigger posts a `rated` activity), `lists` (<= 100 items, public or
+   private, 50 per person), `my_feed`, `user_activity`, `profile_stats`,
+   `title_score`, `top_rated`, `suggested_people`, `leaderboard`. Server:
+   `api/social/[action].js` actions `titles` (TMDB, cached in Redis `tm:<k>`
+   for a week, needs `TMDB_READ_TOKEN` or `TMDB_API_KEY` in Vercel env) and
+   `songs` (YouTube oEmbed, `yt:<id>`). Web: feed + suggestions + trending
+   strip on home, `/trending[/shows|music|rated]`, `/leaderboards`,
+   `/title/movie/603` (score, rate, reviews, add to list), `/list/<id>` and
+   `/list/new`, profile tabs Activity, Reviews, Lists, Stats. App:
+   `lib/activity.svelte.ts` (queue in localStorage tagged with the user id,
+   posts watching after 1 min, finished at 95%, listed via
+   `library.onAdd`; skips 18+ and titles without a TMDB number),
+   Privacy switch for sharing, `components/RateButton.svelte` on the title
+   page. Genres are not stored; the website derives top genres from TMDB.
+4. **Admin part 1 (deferred by the user on 2026-11-24, wait for them)** at `admin.getvelmora.dpdns.org`: admin role (`admins`
    table) + Supabase TOTP MFA, own origin, all writes through server code with
    the service key (user pastes it into Vercel), overview with free-tier meters
    (Supabase, Upstash, Mailtrap 150/day) and health (CI, providers, mpv
@@ -107,6 +120,12 @@ this twice). `account.gateReason` picks the wording: `new`, `upgrade` (was
 onboarded on 0.5.0: "From now on, Velmora needs an account"), `returning`.
 
 ## Waiting on the user
+
+- Run `supabase/activity.sql` (after social.sql). Until then the feed,
+  activity, ratings, lists, stats and leaderboards show errors or stay empty.
+- Add `TMDB_READ_TOKEN` (the same TMDB v4 read token the release workflow
+  uses) to Vercel's environment variables and redeploy. Without it title
+  pages, posters in the feed and trending show "couldn't find this title".
 
 - Run `supabase/social.sql` (after `schema.sql`, `sync.sql`). Until then,
   saving animal avatars, bio, links or favourites fails and the social site

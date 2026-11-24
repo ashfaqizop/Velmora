@@ -79,6 +79,7 @@ export const SETTINGS_INDEX: SettingEntry[] = [
 
   { id: "account-profile", page: "account", label: "Velmora account", hint: "Sign in, your profile and username", words: "login log in sign in sign up register profile username avatar picture google discord email name logout sign out" },
   { id: "account-sync", page: "account", label: "Sync my data", hint: "My List, progress and settings across your PCs", words: "backup restore cloud devices computers history continue watching list" },
+  { id: "share-activity", page: "privacy", label: "Share what I watch on Velmora Social", hint: "Your profile, followers' feeds and stats", words: "social activity feed share profile followers watching private" },
   { id: "analytics", page: "privacy", label: "Share anonymous usage statistics", hint: "Daily totals of what gets played, never who", words: "analytics telemetry tracking privacy stats data collection opt out popular trending" },
   { id: "account-data", page: "account", label: "Your data and deleting your account", hint: "Copy or delete what Velmora holds about you", words: "export delete remove privacy gdpr" },
 

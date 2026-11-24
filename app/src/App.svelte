@@ -8,7 +8,7 @@
   import DownloadDialog from "./components/DownloadDialog.svelte";
   import Player from "./pages/Player.svelte";
   import { registerOverlays } from "./lib/overlays";
-  import { downloads, feed, nav } from "./lib/state.svelte";
+  import { downloads, feed, library, nav } from "./lib/state.svelte";
   import { license } from "./lib/license.svelte";
   import { account } from "./lib/account.svelte";
   import { sync } from "./lib/sync.svelte";
@@ -25,6 +25,7 @@
   import FullPlayer from "./components/music/FullPlayer.svelte";
   import SongMenu from "./components/music/SongMenu.svelte";
   import AddToPlaylist from "./components/music/AddToPlaylist.svelte";
+  import { activity } from "./lib/activity.svelte";
 
   let splash = $state(true);
   let onboarding = $state(false);
@@ -42,6 +43,8 @@
   };
   sync.start();
   analytics.start();
+  activity.start();
+  library.onAdd = (t) => activity.listed(t);
   account.init().catch((e) => console.warn("account", e));
   // YouTube Music sign-in state (only the Music pages need it).
   musicSession.init();

@@ -11,16 +11,28 @@
   import { auth, mostFollowed, newestPeople, type Person } from "./data.svelte";
   import { count, plural } from "./format";
   import { href, profileHref } from "./nav.svelte";
+  import ActivityList from "./ActivityList.svelte";
+  import Poster from "./Poster.svelte";
+  import { myFeed, suggestedPeople, trendingTitles, type Trend } from "./activity.svelte";
 
   let top = $state<Person[] | null>(null);
   let fresh = $state<Person[] | null>(null);
   let busy = $state(false);
+  let suggested = $state<Person[] | null>(null);
+  let trend = $state<Trend[] | null>(null);
 
   $effect(() => {
     document.title = "Velmora Social";
     void auth.phase;
     mostFollowed().then((l) => (top = l)).catch(() => (top = []));
     newestPeople().then((l) => (fresh = l)).catch(() => (fresh = []));
+    if (auth.me) suggestedPeople().then((l) => (suggested = l)).catch(() => (suggested = []));
+    trendingTitles("movie")
+      .then(async (m) => {
+        const t = await trendingTitles("tv");
+        trend = [...m.slice(0, 6), ...t.slice(0, 6)].sort((a, b) => b.people - a.people).slice(0, 8);
+      })
+      .catch(() => (trend = []));
   });
 
   const me = $derived(auth.me);
@@ -34,8 +46,8 @@
   const FEATURES = [
     { icon: "account_circle", shape: "12-sided-cookie", title: "Your page", text: "A profile at @you with your picture, bio, links and six favourite titles." },
     { icon: "person_add", shape: "flower", title: "Follow anyone", text: "Follow people, see who follows you back, and who dropped by this month." },
-    { icon: "explore", shape: "soft-burst", title: "A feed", text: "What the people you follow are watching and finishing. Coming next." },
-    { icon: "local_fire_department", shape: "sunny", title: "Trending", text: "What everyone on Velmora plays most, one click from the app. Coming next." },
+    { icon: "explore", shape: "soft-burst", title: "A feed", text: "What the people you follow are watching, finishing and rating, with their reviews." },
+    { icon: "local_fire_department", shape: "sunny", title: "Trending", text: "What everyone on Velmora plays most, one click from the app." },
   ];
 </script>
 
@@ -89,6 +101,54 @@
   </section>
 {/if}
 
+{#if trend?.length}
+  <section class="trend">
+    <header>
+      <m3e-icon name="local_fire_department"></m3e-icon><h2>Trending this week</h2>
+      <m3e-button variant="text" href={href("/trending")}>See all<m3e-icon slot="trailing-icon" name="arrow_forward"></m3e-icon></m3e-button>
+    </header>
+    <div class="strip">
+      {#each trend as t, i (t.k)}<Poster k={t.k} rank={i + 1} {i} note="{t.people} watching" />{/each}
+    </div>
+  </section>
+{/if}
+
+{#if auth.phase === "in" && me}
+  <div class="home-grid">
+    <section class="block feed">
+      <header><m3e-icon name="explore"></m3e-icon><h2>Your feed</h2></header>
+      <ActivityList load={(before) => myFeed(before)}>
+        {#snippet empty()}
+          <div class="feed-empty">
+            <p>Your feed fills up with what the people you follow watch, finish, add and rate. Follow a few people to get started.</p>
+            <m3e-button variant="tonal" href={href("/search")}><m3e-icon slot="icon" name="search"></m3e-icon>Find people</m3e-button>
+          </div>
+        {/snippet}
+      </ActivityList>
+    </section>
+    <aside class="side">
+      {#if suggested?.length}
+        <section class="block">
+          <header><m3e-icon name="person_add"></m3e-icon><h2>Suggested for you</h2></header>
+          {#each suggested as p, i (p.id)}
+            <div in:fly={{ y: 8, duration: 240, delay: i * 30 }}><PersonRow person={p} /></div>
+          {/each}
+        </section>
+      {/if}
+      <section class="block">
+        <header><m3e-icon name="emoji_events"></m3e-icon><h2>Most followed</h2></header>
+        {#if top === null}
+          <div class="center"><m3e-loading-indicator></m3e-loading-indicator></div>
+        {:else if !others(top).length}
+          <p class="empty">No one here yet.</p>
+        {:else}
+          {#each others(top).slice(0, 6) as p (p.id)}<PersonRow person={p} />{/each}
+        {/if}
+        <m3e-button variant="text" class="lb" href={href("/leaderboards")}><m3e-icon slot="icon" name="leaderboard"></m3e-icon>Leaderboards</m3e-button>
+      </section>
+    </aside>
+  </div>
+{:else}
 <div class="columns">
   <section class="block">
     <header><m3e-icon name="emoji_events"></m3e-icon><h2>Most followed</h2></header>
@@ -115,6 +175,7 @@
     {/if}
   </section>
 </div>
+{/if}
 
 <style>
   .hero {
@@ -253,6 +314,73 @@
   .tile-icon > * {
     grid-area: 1 / 1;
   }
+  .trend {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .trend header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #ff9a5a;
+  }
+  .trend h2 {
+    margin: 0;
+    flex: 1;
+    font-size: 18px;
+    color: var(--md-sys-color-on-surface);
+  }
+  .strip {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(130px, 150px);
+    gap: 16px;
+    overflow-x: auto;
+    padding: 4px 4px 12px;
+    scroll-snap-type: x mandatory;
+  }
+  .strip > :global(*) {
+    scroll-snap-align: start;
+  }
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 16px;
+    align-items: start;
+  }
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: sticky;
+    top: 84px;
+  }
+  .feed-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 12px;
+    text-align: center;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .feed-empty p {
+    margin: 0;
+    max-width: 44ch;
+  }
+  .lb {
+    align-self: flex-start;
+    margin-left: 4px;
+  }
+  @media (max-width: 860px) {
+    .home-grid {
+      grid-template-columns: 1fr;
+    }
+    .side {
+      position: static;
+    }
+  }
   .columns {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
@@ -296,7 +424,74 @@
     }
   }
   @media (max-width: 400px) {
-    .columns {
+    .trend {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .trend header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #ff9a5a;
+  }
+  .trend h2 {
+    margin: 0;
+    flex: 1;
+    font-size: 18px;
+    color: var(--md-sys-color-on-surface);
+  }
+  .strip {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(130px, 150px);
+    gap: 16px;
+    overflow-x: auto;
+    padding: 4px 4px 12px;
+    scroll-snap-type: x mandatory;
+  }
+  .strip > :global(*) {
+    scroll-snap-align: start;
+  }
+  .home-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 16px;
+    align-items: start;
+  }
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: sticky;
+    top: 84px;
+  }
+  .feed-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 12px;
+    text-align: center;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+  .feed-empty p {
+    margin: 0;
+    max-width: 44ch;
+  }
+  .lb {
+    align-self: flex-start;
+    margin-left: 4px;
+  }
+  @media (max-width: 860px) {
+    .home-grid {
+      grid-template-columns: 1fr;
+    }
+    .side {
+      position: static;
+    }
+  }
+  .columns {
       grid-template-columns: 1fr;
     }
   }

@@ -29,6 +29,7 @@
   import { slider } from "../lib/slider";
   import type { AudioMode, OpenedStream, Source, SourcesReport, Target, TitleDetail, TitleSummary, TvChannel } from "../lib/types";
   import { formatTime, library, nav, nextEpisode, targetLabel } from "../lib/state.svelte";
+  import { activity } from "../lib/activity.svelte";
 
   let {
     title,
@@ -459,10 +460,12 @@
     if (!counted && time >= 60 && source) {
       counted = true;
       analytics.watched(title, source, playerEngine.builtin || playerEngine.mpvDown ? "builtin" : "mpv");
+      if (!file) activity.watching(title, target);
     }
     if (!finished && time / duration >= 0.95) {
       finished = true;
       personalize.finish(title, target);
+      if (!file) activity.finished(title, target, duration);
     }
     // Mostly watched: tell AniList / Trakt once per playback.
     if (!synced && !file && time / duration >= 0.85) {

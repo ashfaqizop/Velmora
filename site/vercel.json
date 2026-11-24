@@ -202,6 +202,56 @@
         }
       ],
       "destination": "/social/"
+    },
+    {
+      "source": "/trending",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/"
+    },
+    {
+      "source": "/trending/:tab",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/"
+    },
+    {
+      "source": "/leaderboards",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/"
+    },
+    {
+      "source": "/title/:kind/:id",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/"
+    },
+    {
+      "source": "/list/:id",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/"
     }
   ]
 }

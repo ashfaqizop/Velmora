@@ -13,6 +13,10 @@
   import ProfileView from "./ProfileView.svelte";
   import SearchView from "./SearchView.svelte";
   import SettingsView from "./SettingsView.svelte";
+  import TrendingView from "./TrendingView.svelte";
+  import LeaderboardView from "./LeaderboardView.svelte";
+  import TitleView from "./TitleView.svelte";
+  import ListView from "./ListView.svelte";
 
   const SOCIAL_HOST = "social.getvelmora.dpdns.org";
 
@@ -50,7 +54,21 @@
     go(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
   }
 
-  const key = $derived(nav.route.name === "profile" ? `profile:${nav.route.user.toLowerCase()}` : nav.route.name);
+  const key = $derived(
+    nav.route.name === "profile"
+      ? `profile:${nav.route.user.toLowerCase()}`
+      : nav.route.name === "title"
+        ? `title:${nav.route.k}`
+        : nav.route.name === "list"
+          ? `list:${nav.route.id}`
+          : nav.route.name,
+  );
+
+  const LINKS = [
+    { path: "/social/", name: "home", label: "Home", icon: "home" },
+    { path: "/trending", name: "trending", label: "Trending", icon: "local_fire_department" },
+    { path: "/leaderboards", name: "leaderboards", label: "Leaderboards", icon: "leaderboard" },
+  ];
 </script>
 
 <div class="page">
@@ -61,6 +79,14 @@
       <img src={mark} alt="" width="36" height="36" />
       <span class="word">Velmora <em>Social</em></span>
     </a>
+
+    <nav class="links" aria-label="Sections">
+      {#each LINKS as l (l.name)}
+        <a href={href(l.path)} class:on={nav.route.name === l.name} aria-current={nav.route.name === l.name ? "page" : undefined}>
+          <m3e-icon name={l.icon} filled={nav.route.name === l.name}></m3e-icon><span>{l.label}</span>
+        </a>
+      {/each}
+    </nav>
 
     {#if nav.route.name !== "search"}
       <form class="quick" role="search" onsubmit={search}>
@@ -117,6 +143,14 @@
             <SearchView q={nav.route.q} />
           {:else if nav.route.name === "settings"}
             <SettingsView />
+          {:else if nav.route.name === "trending"}
+            <TrendingView tab={nav.route.tab} />
+          {:else if nav.route.name === "leaderboards"}
+            <LeaderboardView />
+          {:else if nav.route.name === "title"}
+            <TitleView k={nav.route.k} />
+          {:else if nav.route.name === "list"}
+            <ListView id={nav.route.id} />
           {:else}
             <section class="lost">
               <m3e-heading variant="headline" size="medium" level={1}>This page doesn't exist</m3e-heading>
@@ -185,6 +219,34 @@
     font-style: italic;
     font-weight: 400;
     color: #f8e8c8;
+  }
+  .links {
+    display: flex;
+    gap: 2px;
+  }
+  .links a {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    color: var(--md-sys-color-on-surface-variant);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+    --m3e-icon-size: 20px;
+  }
+  .links a:hover {
+    background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
+    color: var(--md-sys-color-on-surface);
+  }
+  .links a.on {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
   }
   .quick {
     flex: 1;
@@ -280,9 +342,35 @@
   .foot a:hover {
     color: var(--md-sys-color-on-surface);
   }
+  @media (max-width: 1040px) {
+    .links span {
+      display: none;
+    }
+    .links a {
+      padding: 0 10px;
+    }
+  }
   @media (max-width: 720px) {
     .quick {
       display: none;
+    }
+    .links {
+      position: fixed;
+      left: 50%;
+      bottom: 14px;
+      z-index: 30;
+      transform: translateX(-50%);
+      padding: 6px;
+      border-radius: 999px;
+      background: var(--md-sys-color-surface-container-highest);
+      box-shadow: 0 16px 40px -16px rgb(0 0 0 / 80%);
+    }
+    .links a {
+      height: 44px;
+      padding: 0 18px;
+    }
+    .wrap {
+      padding-bottom: 110px;
     }
     .search-btn {
       display: inline-flex;
