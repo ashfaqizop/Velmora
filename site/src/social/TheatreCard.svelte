@@ -6,7 +6,7 @@
   import { titleHref } from "./nav.svelte";
   import { clock, dayLabel, openInApp, runtime, span, theatre, type Screening } from "./theatre.svelte";
 
-  let { s, big = false, onmessage }: { s: Screening; big?: boolean; onmessage: (m: string) => void } = $props();
+  let { s, big = false, onmessage, onchat }: { s: Screening; big?: boolean; onmessage: (m: string) => void; onchat?: (s: Screening) => void } = $props();
 
   const phase = $derived(theatre.phase(s));
   const ticket = $derived(theatre.tickets[s.id] ?? null);
@@ -67,6 +67,11 @@
     {#if phase === "over"}
       <span class="meta">Finished</span>
     {:else if canWatch}
+      {#if auth.me}
+        <m3e-button variant="tonal" size={big ? "medium" : "small"} onclick={() => onchat?.(s)}>
+          <m3e-icon slot="icon" name="forum"></m3e-icon>Live chat
+        </m3e-button>
+      {/if}
       <m3e-button variant="filled" size={big ? "medium" : "small"} href={openInApp(s.id)}>
         <m3e-icon slot="icon" name="play_arrow" filled></m3e-icon>{phase === "live" ? "Watch in Velmora" : "Open in Velmora"}
       </m3e-button>
@@ -261,6 +266,10 @@
   }
   .actions {
     flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
   }
   @keyframes pulse {
     50% {

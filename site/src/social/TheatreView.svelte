@@ -3,6 +3,7 @@
   // and your tickets. Watching opens the Velmora app.
   import { fly } from "svelte/transition";
   import TheatreCard from "./TheatreCard.svelte";
+  import LiveChat from "./LiveChat.svelte";
   import { auth, loadMax } from "./data.svelte";
   import { beginSignIn } from "../lib/session";
   import { MAIN_SITE } from "../auth/config";
@@ -10,6 +11,8 @@
 
   let tab = $state<"lineup" | "tickets">("lineup");
   let message = $state("");
+  let chatting = $state<Screening | null>(null);
+  const openChat = (s: Screening) => (chatting = s);
   let msgTimer: ReturnType<typeof setTimeout> | undefined;
 
   $effect(() => {
@@ -68,16 +71,16 @@
   {:else if !mine.length}
     <p class="empty">No tickets yet. Book a screening from the lineup.</p>
   {:else}
-    <div class="list">{#each mine as s (s.id)}<TheatreCard {s} onmessage={say} />{/each}</div>
+    <div class="list">{#each mine as s (s.id)}<TheatreCard {s} onmessage={say} onchat={openChat} />{/each}</div>
   {/if}
 {:else if !featured}
   <p class="empty">Nothing is scheduled right now. Velmora puts together a new lineup every day.</p>
 {:else}
-  <div in:fly={{ y: 12, duration: 320 }}><TheatreCard s={featured} big onmessage={say} /></div>
+  <div in:fly={{ y: 12, duration: 320 }}><TheatreCard s={featured} big onmessage={say} onchat={openChat} /></div>
   {#each days as d, i (d.label)}
     <section class="day" in:fly={{ y: 12, duration: 320, delay: 80 + i * 60 }}>
       <h2>{d.label}</h2>
-      <div class="list">{#each d.items as s (s.id)}<TheatreCard {s} onmessage={say} />{/each}</div>
+      <div class="list">{#each d.items as s (s.id)}<TheatreCard {s} onmessage={say} onchat={openChat} />{/each}</div>
     </section>
   {/each}
   <p class="note">
@@ -85,6 +88,8 @@
     Don't have the app? <a href={MAIN_SITE}>Get Velmora</a>.
   </p>
 {/if}
+
+{#if chatting}<LiveChat s={chatting} onclose={() => (chatting = null)} />{/if}
 
 <style>
   .head {
