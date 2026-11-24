@@ -38,6 +38,31 @@ export const KIND_ICON: Record<ChangeKind, string> = { new: "add_circle", improv
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.6.5",
+    date: "2026-11-24",
+    name: "Theatre",
+    summary: "Velmora now puts on movies everyone watches at the same moment. Every day a new lineup goes up: what people on Velmora are watching, plus one hidden gem. Book a seat in the app or on Velmora Social, meet in the lobby, count down together, and talk in a live chat that's never saved.",
+    color: "#e5484d",
+    shape: "flower",
+    highlights: [
+      { icon: "theaters", title: "Theatre", text: "Up to twelve screenings a day, picked by Velmora, each at one moment worldwide and shown in your own time." },
+      { icon: "forum", title: "Live chat that vanishes", text: "Chat, @mentions and floating reactions during the movie, over it or beside it. Nothing is saved; it closes 30 minutes after the end." },
+      { icon: "confirmation_number", title: "Book anywhere", text: "Book in the app or on Velmora Social. Busy screenings are ticketed with a waitlist; quiet ones are open to drop in." },
+      { icon: "local_activity", title: "Stamps", text: "Every screening you attend puts a stamp on your Velmora Social profile, and the end screen asks how it was." },
+    ],
+    changes: [
+      { kind: "new", title: "Theatre in the app", text: "A Theatre section with the lineup, your tickets, a Home row and a LIVE badge. Title pages say when a movie is screening." },
+      { kind: "new", title: "The lobby", text: "Opens 30 minutes before with the chat and who's there. Velmora finds a source and loads the movie ahead while you wait, then the last five seconds count down into full screen." },
+      { kind: "new", title: "Watching live", text: "Everyone is at the same point. Join late and you start where everyone is; pause and you fall behind, with Back to live to catch up." },
+      { kind: "new", title: "Who's watching", text: "A live count and list, people you follow first. Hover a name for their profile, with a link to Velmora Social and a mute switch." },
+      { kind: "new", title: "Reminders", text: "Windows notifications when the lobby opens, five minutes before, and when a waitlist seat frees up." },
+      { kind: "new", title: "Theatre on Velmora Social", text: "The lineup and booking on the website, a countdown banner when your screening is near, and booked and attended screenings in your followers' feeds." },
+      { kind: "new", title: "Max in Theatre", text: "No lobby ad, booking six hours before everyone else, and the front of every waitlist." },
+      { kind: "improved", title: "Live and Sports together", text: "Live TV and Sports share one Live item in the sidebar, with a switch at the top of both pages." },
+      { kind: "improved", title: "A new sign-in page", text: "Clearer Google and Discord buttons, a security check that only shows when it needs you, and one box per digit for emailed codes." },
+    ],
+  },
+  {
     version: "0.6.0",
     date: "2026-11-24",
     name: "One account, every PC, and Velmora Social",
