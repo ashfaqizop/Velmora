@@ -1,7 +1,7 @@
 <script lang="ts">
   // A screening's live chat on Velmora Social, read-only: messages, movie-time
   // stamps, @mentions and reactions as they happen. Chatting is in the app.
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import Avatar from "../auth/Avatar.svelte";
@@ -17,9 +17,12 @@
   let seq = 0;
   const recent: { e: string; t: number }[] = [];
 
+  // Runs again only when the screening changes. open()/close() read and write
+  // the room's own state; untracked, so they can't re-trigger this (that
+  // looped open/close forever and froze the page).
   $effect(() => {
     const id = s.id;
-    liveRoom.open(id);
+    untrack(() => liveRoom.open(id));
     liveRoom.onReact = (e) => {
       const now = Date.now();
       recent.push({ e, t: now });
@@ -31,7 +34,7 @@
     };
     return () => {
       liveRoom.onReact = null;
-      liveRoom.close();
+      untrack(() => liveRoom.close());
     };
   });
 

@@ -6,7 +6,7 @@
   //    them back.
   // Messages carry the movie time they were sent at, @mentions light up,
   // and reactions float over the video. Nothing is saved.
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import Avatar from "../Avatar.svelte";
@@ -41,12 +41,16 @@
   const MAX = 200;
 
   // Follow new messages unless you scrolled up to read.
+  // Only a new message re-runs this; reading `stuck` / `unseen` here is untracked
+  // (otherwise `unseen += 1` would re-trigger itself forever).
   $effect(() => {
     const n = room.messages.length;
     void n;
     if (!list) return;
-    if (stuck) tick().then(() => list && (list.scrollTop = list.scrollHeight));
-    else unseen += 1;
+    untrack(() => {
+      if (stuck) tick().then(() => list && (list.scrollTop = list.scrollHeight));
+      else unseen += 1;
+    });
   });
 
   function onScroll() {
