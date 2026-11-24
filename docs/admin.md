@@ -107,3 +107,5 @@ Owner steps before it works:
 3. Supabase > Authentication > MFA: TOTP enabled.
 4. Sign in once on the admin site (it will say "not an admin"), then add yourself with the insert at the top of admin.sql.
 5. Reload, scan the QR code, type the code.
+
+Deploy check: the admin host serves the same Vercel project as the other hosts, so a push to main deploys it.
