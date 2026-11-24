@@ -119,7 +119,17 @@ sign-in the app opens straight in, **online or offline** (the user stressed
 this twice). `account.gateReason` picks the wording: `new`, `upgrade` (was
 onboarded on 0.5.0: "From now on, Velmora needs an account"), `returning`.
 
+## Theatre (next big feature)
+
+Spec and build status: `docs/theatre.md` (read it first). Phase 1 of 5 is
+done (database, daily lineup algorithm, probes, hourly stats). Next is
+phase 2: the app's Theatre section.
+
 ## Waiting on the user
+
+- Theatre setup: enable pg_cron, run `supabase/theatre.sql`, add
+  `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` to Vercel, then trigger the
+  first lineup by hand (see docs/theatre.md, Build status).
 
 - Run `supabase/activity.sql` (after social.sql). Until then the feed,
   activity, ratings, lists, stats and leaderboards show errors or stay empty.

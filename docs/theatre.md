@@ -151,3 +151,38 @@ everyone else), front of waitlists. Nothing else differs.
 - **Max early booking:** 6 hours before everyone else.
 - **Pre-cache:** at most 2 GB on disk; buffer as many minutes ahead as fit,
   drop played parts, delete everything when the screening ends.
+- **Watchers:** a live count and a list of who's watching (lobby and during
+  the show). Hovering a name or avatar, in the list or in chat, shows a small
+  profile card (picture, name, badges, bio, followers) with a link to their
+  Velmora Social profile.
+
+## Build status
+
+**Phase 1 (groundwork): done.**
+- `supabase/theatre.sql`: `theatre_screenings`, `theatre_tickets`,
+  `theatre_overrides` (pin/block, edit in the Table Editor), `max_accounts`
+  (mirrored from the license server), `theatre_now`, `theatre_book`,
+  `theatre_cancel`, `theatre_enter`, `theatre_say` (chat via
+  `realtime.send`, nothing stored), Realtime Authorization policies for
+  `theatre:<id>` (presence, reactions) and `theatre-chat:<id>` (listen only),
+  and `theatre_tick` scheduled every minute with pg_cron (surge to fixed,
+  no-show release at +10 min with waitlist promotion, settle attended /
+  noshow after the chat closes).
+- `site/api/theatre/[action].js`: `cron` (daily at 00:10 UTC via Vercel
+  cron; finalizes tomorrow, drafts the day after; on the first run also sets
+  up today and tomorrow; re-syncs Max), `probes` (titles to check),
+  `probe` (anonymous found/miss counts in Redis `th:probe:<k>`).
+- `site/api/_lib/tmdb.js` (shared TMDB + cache), `_lib/supabase.js` `db()` and
+  `setMax()` (service key), license `account` link/restore/unlink mirror Max.
+- Anonymous stats gained `hr` (plays per UTC hour); app sends it.
+
+**Setup (owner):**
+1. Supabase: enable `pg_cron` (Database > Extensions), then run
+   `supabase/theatre.sql`.
+2. Vercel env: `SUPABASE_SERVICE_ROLE_KEY` (Supabase > Settings > API keys,
+   the secret/service_role key), `CRON_SECRET` (any long random string),
+   `TMDB_READ_TOKEN` if not set yet. Redeploy.
+3. First lineup without waiting for midnight:
+   `curl -H "Authorization: Bearer <LICENSE_ADMIN_TOKEN>" https://getvelmora.dpdns.org/api/theatre/cron`
+
+**Next: phase 2** (the app's Theatre section, booking, reminders, probing).

@@ -16,7 +16,7 @@
 // rl:<ip>:<minute> (rate limit).
 
 import { activationToken, hash, isAdmin, parseKey, rateLimited, redis, validDevice } from "../_lib/license.js";
-import { verifyUser } from "../_lib/supabase.js";
+import { setMax, verifyUser } from "../_lib/supabase.js";
 
 /** Moving Max to another PC through the account: at most once in this long. */
 const MOVE_COOLDOWN = 12 * 3600;
@@ -88,6 +88,7 @@ async function account(body, res) {
       if (before && before !== lic.id) await redis("HDEL", `lic:${before}`, "owner");
       await redis("HSET", k, "owner", user.id);
       await redis("HSET", a, "id", lic.id, "key", body.key.trim(), "linked", String(now));
+      await setMax(user.id, true);
       return res.status(200).json({ ok: true, result: owner === user.id ? "already" : "linked" });
     }
 
@@ -118,6 +119,7 @@ async function account(body, res) {
       }
       await redis("HSET", k, "name", lic.n ?? "", "seen", String(now));
       await redis("SADD", "lic:ids", lic.id);
+      await setMax(user.id, true);
       const token = activationToken(lic.id, body.device);
       if (!token) return fail(res, 503, "not_configured", "Activation isn't set up on the server yet.");
       return res.status(200).json({ ok: true, result, key: rec.key, token });
@@ -127,6 +129,7 @@ async function account(body, res) {
       const id = await redis("HGET", a, "id");
       if (id && (await redis("HGET", `lic:${id}`, "owner")) === user.id) await redis("HDEL", `lic:${id}`, "owner");
       await redis("DEL", a);
+      await setMax(user.id, false);
       return res.status(200).json({ ok: true, result: "unlinked" });
     }
 

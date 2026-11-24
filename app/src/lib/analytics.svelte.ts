@@ -18,6 +18,8 @@ interface Day {
   quality: Counts;
   /** Songs listened to (YouTube video ids), counted once a day. */
   music?: Counts;
+  /** Plays started per UTC hour ("00".."23"), so Theatre can put screenings at busy hours. */
+  hours?: Counts;
   app: string;
 }
 type Pending = Record<string, Day>;
@@ -70,6 +72,7 @@ function batch(day: string, d: Day) {
     engines: list(d.engines),
     quality: list(d.quality),
     music: Object.keys(d.music ?? {}).map((k) => ({ k })),
+    hours: list(d.hours ?? {}),
   };
 }
 
@@ -111,6 +114,7 @@ class Analytics {
     bump(day.sources, String(source.provider));
     bump(day.engines, engine);
     bump(day.quality, qualityBucket(source.tags?.resolution));
+    bump((day.hours ??= {}), String(new Date().getUTCHours()).padStart(2, "0"));
     writePending(pending);
   }
 

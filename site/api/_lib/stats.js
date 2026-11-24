@@ -10,6 +10,8 @@
 //   an:<day>:ver     member app version                      -> people
 //   an:<day>:inst    member "all"                            -> people (reporting that day)
 //   an:<day>:mus     member YouTube video id                 -> people who listened to it
+//   an:<day>:hr      member UTC hour "00".."23"             -> plays started in that hour
+//                    (Theatre schedules screenings at the busiest hours)
 //
 // "People" counts one per batch, so it is the number of installs, not plays.
 
@@ -19,7 +21,7 @@ import { redis } from "./license.js";
 export const KEEP_DAYS = 40;
 /** A title only shows up once this many different installs watched it. */
 export const MIN_PEOPLE = 3;
-export const GROUPS = ["title", "src", "eng", "q", "ver", "inst", "mus"];
+export const GROUPS = ["title", "src", "eng", "q", "ver", "inst", "mus", "hr"];
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const TITLE = /^(movie|tv)\/\d{1,9}$/;
@@ -28,6 +30,7 @@ const ENGINES = new Set(["mpv", "builtin"]);
 const QUALITY = new Set(["480", "720", "1080", "1440", "2160", "other"]);
 const VERSION = /^\d{1,2}\.\d{1,3}\.\d{1,3}$/;
 const VIDEO = /^[A-Za-z0-9_-]{11}$/;
+const HOUR = /^([01]\d|2[0-3])$/;
 
 export const today = () => new Date().toISOString().slice(0, 10);
 
@@ -60,8 +63,9 @@ export function cleanReport(body) {
   const eng = pairs(body.engines, (k) => ENGINES.has(k), 2);
   const q = pairs(body.quality, (k) => QUALITY.has(k), 6);
   const music = pairs(body.music, (k) => VIDEO.test(k), 80).map(([k]) => [k, 1]);
+  const hours = pairs(body.hours, (k) => HOUR.test(k), 24);
   if (!titles.length && !src.length && !music.length) return null;
-  return { day: body.day, groups: [titles, src, eng, q, [[body.app, 1]], [["all", 1]], music] };
+  return { day: body.day, groups: [titles, src, eng, q, [[body.app, 1]], [["all", 1]], music, hours] };
 }
 
 const STORE_SCRIPT = `

@@ -71,6 +71,7 @@
         <li>The titles watched for at least a minute, by their TMDB number, counted once per day.</li>
         <li>The site each play came from, which player ran (mpv or the built-in one), and the video quality.</li>
         <li>The songs you listened to in Music, by their YouTube number, counted once per day.</li>
+        <li>How many plays started in each hour of the day (in UTC), so Theatre can schedule screenings when people watch.</li>
         <li>The Velmora version and the day.</li>
       </ul>
     </div>

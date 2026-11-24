@@ -253,5 +253,16 @@
       ],
       "destination": "/social/"
     }
-  ]
+  ],
+  "crons": [
+    {
+      "path": "/api/theatre/cron",
+      "schedule": "10 0 * * *"
+    }
+  ],
+  "functions": {
+    "api/theatre/[action].js": {
+      "maxDuration": 60
+    }
+  }
 }
