@@ -15,7 +15,7 @@ const ICONS = [
   "travel_explore", "trending_up", "verified", "video_library", "view_carousel", "visibility", "visibility_off",
   "volume_up", "wand_stars", "workspace_premium",
   "groups", "mail", "error", "check", "open_in_new", "priority_high", "logout", "edit", "public", "person_add", "insights", "login", "account_circle", "shield", "favorite", "explore", "music_note", "tv", "local_fire_department", "emoji_events", "link_off", "star_rate", "more_vert", "arrow_back",
-  "dashboard", "rate_review", "spellcheck", "block", "monitoring", "health_and_safety", "manage_accounts", "restart_alt", "lock_open", "delete_forever", "task_alt", "undo", "storage",
+  "dashboard", "rate_review", "spellcheck", "block", "monitoring", "health_and_safety", "manage_accounts", "restart_alt", "lock_open", "delete_forever", "task_alt", "undo", "storage", "event_busy", "event", "event_available", "pause_circle", "play_circle", "campaign", "forum", "confirmation_number", "pin_drop", "push_pin", "chat_bubble", "mic_off", "person_remove", "sensors", "calendar_month", "preview", "auto_mode",
   "share", "flag", "content_copy", "group", "person_remove", "how_to_reg", "add_link", "playlist_add", "list", "delete", "delete_sweep", "desktop_windows", "send", "refresh", "theaters", "confirmation_number", "lock_clock", "auto_awesome", "local_activity", "forum",
 ];
 
@@ -27,7 +27,7 @@ const icons = (): Plugin => ({
       tag: "link",
       attrs: {
         rel: "stylesheet",
-        href: `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&icon_names=${[...ICONS].sort().join(",")}&display=block`,
+        href: `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&icon_names=${[...new Set(ICONS)].sort().join(",")}&display=block`,
       },
       injectTo: "head",
     },

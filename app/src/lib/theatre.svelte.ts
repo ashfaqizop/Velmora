@@ -28,6 +28,17 @@ export interface Screening {
   waitlisted: number;
   opens_at: string | null;
   max_opens_at: string | null;
+  /** Added by hand from the admin site. */
+  special: boolean;
+  /** A short public message, such as "Delayed to 9 pm". */
+  note: string;
+  chat_mode: "normal" | "slow" | "closed";
+}
+
+export interface TheatreSettings {
+  paused: boolean;
+  banner: string;
+  reminder: string;
 }
 
 export type TicketStatus = "booked" | "waitlist" | "cancelled" | "released" | "attended" | "noshow";
@@ -49,7 +60,7 @@ const PROBE_KEY = "velmora.theatre.probe";
 const PROBED_KEY = "velmora.theatre.probed";
 const REMINDED_KEY = "velmora.theatre.reminded";
 
-const COLUMNS = "id,day,k,name,year,poster,backdrop,runtime,kind,starts_at,ends_at,status,mode,capacity,booked,waitlisted,opens_at,max_opens_at";
+const COLUMNS = "id,day,k,name,year,poster,backdrop,runtime,kind,starts_at,ends_at,status,mode,capacity,booked,waitlisted,opens_at,max_opens_at,special,note,chat_mode";
 
 function readSet(key: string): Set<string> {
   try {
@@ -69,6 +80,7 @@ function writeSet(key: string, s: Set<string>) {
 /** Readable words for the server's refusals. */
 function friendly(e: { message?: string } | null | undefined): string {
   const m = e?.message ?? "";
+  if (m.includes("paused")) return "Theatre is paused for a bit. Booking will be back soon.";
   if (m.includes("not_open_yet")) return "Booking for this screening hasn't opened yet.";
   if (m.includes("not_bookable")) return "This screening isn't taking bookings.";
   if (m.includes("over")) return "This screening has finished.";
@@ -88,6 +100,8 @@ class Theatre {
   following = $state<Set<string>>(new Set());
   loaded = $state(false);
   failed = $state(false);
+  /** Switches from the admin site: pause, banner, reminder wording. */
+  settings = $state<TheatreSettings>({ paused: false, banner: "", reminder: "" });
   busy = $state<string | null>(null);
   /** Ticks every 15 s so phases and countdowns move. */
   now = $state(Date.now());
@@ -145,7 +159,7 @@ class Theatre {
   /** Booked or waitlisted for a screening that hasn't finished. */
   holding(s: Screening) {
     const t = this.tickets[s.id];
-    return (t === "booked" || t === "waitlist") && this.phase(s) !== "over";
+    return (t === "booked" || t === "waitlist") && s.status === "scheduled" && this.phase(s) !== "over";
   }
 
   /** A screening you hold a seat for is in its lobby or playing: the sidebar's LIVE pulse. */
@@ -169,17 +183,21 @@ class Theatre {
     try {
       const sb = account.client;
       const since = new Date(this.serverNow() - 4 * 3_600_000 - AFTER_MS).toISOString();
-      const [lineup, clock] = await Promise.all([
+      const [lineup, clock, settings] = await Promise.all([
         sb.from("theatre_screenings").select(COLUMNS).gte("ends_at", since).order("starts_at").limit(60),
         this.syncClock(),
+        sb.from("theatre_settings").select("paused,banner,reminder").maybeSingle(),
       ]);
       if (lineup.error) throw lineup.error;
       void clock;
+      if (settings.data) this.settings = settings.data as TheatreSettings;
       const list = (lineup.data ?? []) as Screening[];
+      const before = this.lineup;
       this.lineup = list;
       this.now = this.serverNow();
       this.failed = false;
       await Promise.all([this.loadTickets(list), this.loadFriends(list)]);
+      this.announce(before, list);
       this.loaded = true;
       this.schedule();
     } catch {
@@ -303,6 +321,24 @@ class Theatre {
 
   // ── Reminders ──
 
+  /** Tell ticket holders when a screening they hold was cancelled or moved. */
+  private announce(before: Screening[], list: Screening[]) {
+    const was = new Map(before.map((s) => [s.id, s]));
+    for (const s of list) {
+      const t = this.tickets[s.id];
+      if ((t !== "booked" && t !== "waitlist") || this.phase(s) === "over") continue;
+      if (s.status === "cancelled") {
+        this.notify("Theatre: screening cancelled", `${s.name} was cancelled.${s.note ? ` ${s.note}` : ""}`, `cancel:${s.id}`);
+        continue;
+      }
+      const old = was.get(s.id);
+      if (old && old.starts_at !== s.starts_at) {
+        const at = new Date(s.starts_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        this.notify("Theatre: new start time", `${s.name} now starts at ${at}.${s.note ? ` ${s.note}` : ""}`, `moved:${s.id}:${s.starts_at}`);
+      }
+    }
+  }
+
   private async askToNotify() {
     try {
       if (!(await isPermissionGranted())) await requestPermission();
@@ -337,10 +373,10 @@ class Theatre {
       const soon = at(start - 5 * 60_000);
       // setTimeout can't wait beyond ~24 days; reloads reschedule anyway.
       if (lobby > -60_000 && lobby < 2 * 86_400_000) {
-        list.push(setTimeout(() => this.notify("Theatre: the lobby is open", `${s.name} starts in 30 minutes. Chat is open.`, `lobby:${s.id}`), Math.max(0, lobby)));
+        list.push(setTimeout(() => this.notify("Theatre: the lobby is open", (this.settings.reminder || "{title} starts in 30 minutes. Chat is open.").replace("{title}", s.name), `lobby:${s.id}:${s.starts_at}`), Math.max(0, lobby)));
       }
       if (soon > -60_000 && soon < 2 * 86_400_000) {
-        list.push(setTimeout(() => this.notify("Theatre: starting soon", `${s.name} starts in 5 minutes.`, `soon:${s.id}`), Math.max(0, soon)));
+        list.push(setTimeout(() => this.notify("Theatre: starting soon", `${s.name} starts in 5 minutes.`, `soon:${s.id}:${s.starts_at}`), Math.max(0, soon)));
       }
       this.timers.set(s.id, list);
     }

@@ -48,13 +48,15 @@
     <div class="tags">
       {#if phase === "live"}<span class="tag on-air"><span class="dot"></span>Live</span>
       {:else if phase === "lobby"}<span class="tag lobby">Lobby open</span>{/if}
-      {#if s.kind === "pick"}<span class="tag pick"><m3e-icon name="auto_awesome" filled></m3e-icon>Tonight's pick</span>{/if}
+      {#if s.special}<span class="tag pick"><m3e-icon name="auto_awesome" filled></m3e-icon>Special</span>{/if}
+      {#if s.kind === "pick" && !s.special}<span class="tag pick"><m3e-icon name="auto_awesome" filled></m3e-icon>Tonight's pick</span>{/if}
       {#if ticket === "booked"}<span class="tag mine"><m3e-icon name="confirmation_number" filled></m3e-icon>Your ticket</span>{/if}
       {#if ticket === "waitlist"}<span class="tag wait">On the waitlist</span>{/if}
     </div>
     <h3><a href={titleHref(s.k)}>{s.name}</a>{#if s.year}<span class="year">{s.year}</span>{/if}</h3>
     <p class="when"><m3e-icon name="schedule"></m3e-icon>{when}</p>
     <p class="meta">{runtime(s.runtime)} · {seats}</p>
+    {#if s.note}<p class="meta">{s.note}</p>{/if}
     {#if phase === "live"}<span class="bar" aria-hidden="true"><span style:width="{progress * 100}%"></span></span>{/if}
     {#if going.length}
       <div class="going">
@@ -84,8 +86,8 @@
         <m3e-icon slot="icon" name="lock_clock"></m3e-icon>Booking opens {clock(opens)}
       </m3e-button>
     {:else}
-      <m3e-button variant="filled" size={big ? "medium" : "small"} disabled={busy} onclick={book}>
-        <m3e-icon slot="icon" name="confirmation_number"></m3e-icon>{s.mode === "fixed" && left <= 0 ? "Join waitlist" : "Book"}
+      <m3e-button variant="filled" size={big ? "medium" : "small"} disabled={busy || theatre.settings.paused} onclick={book}>
+        <m3e-icon slot="icon" name="confirmation_number"></m3e-icon>{theatre.settings.paused ? "Booking paused" : s.mode === "fixed" && left <= 0 ? "Join waitlist" : "Book"}
       </m3e-button>
     {/if}
   </div>

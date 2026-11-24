@@ -13,13 +13,12 @@
 
 import { rateLimited, redis } from "../_lib/license.js";
 import { totals } from "../_lib/stats.js";
+import { audit, isAdminUser, must, num, PAGE, quote, Refusal, TITLE, UUID } from "../_lib/admin-kit.js";
+import { theatreActions } from "../_lib/admin-theatre.js";
 import { authAdmin, db, verifyUser } from "../_lib/supabase.js";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const TITLE = /^(movie|tv)\/\d{1,9}$/;
 const NAME = /^[a-z0-9_]{2,20}$/;
 const WORD = /^[\p{L}\p{N}' _-]{2,40}$/u;
-const PAGE = 30;
 const REPO = "ashfaqizop/Velmora";
 const ADMIN_HOSTS = new Set(["https://admin.getvelmora.dpdns.org", "http://localhost:5173"]);
 
@@ -31,18 +30,6 @@ const LIMITS = {
   emailsPerDay: 150,
 };
 
-class Refusal extends Error {
-  constructor(message, status = 400) {
-    super(message);
-    this.status = status;
-  }
-}
-
-const must = (cond, message = "That doesn't look right.") => {
-  if (!cond) throw new Refusal(message);
-};
-const num = (v, lo, hi, fallback) => (Number.isInteger(v) && v >= lo && v <= hi ? v : fallback);
-const quote = (s) => encodeURIComponent(String(s));
 
 function claims(token) {
   try {
@@ -52,14 +39,6 @@ function claims(token) {
   }
 }
 
-async function audit(admin, action, target, details = {}) {
-  await db("audit_log", { method: "POST", body: { admin_id: admin, action, target: target ?? null, details }, prefer: "return=minimal" });
-}
-
-async function isAdminUser(id) {
-  const rows = await db(`admins?user_id=eq.${id}&select=user_id`);
-  return rows.length > 0;
-}
 
 // ── Overview ──────────────────────────────────────────────────────────────
 
@@ -320,7 +299,7 @@ async function auditList(b) {
   return { rows: rows.map((r) => ({ ...r, admin_name: who[r.admin_id] ?? null, target_name: who[r.target] ?? null })), page, size: PAGE };
 }
 
-const ACTIONS = { overview, users, user, userSet, reports, reportSet, reviews, reviewSet, names, namesSet, audit: auditList };
+const ACTIONS = { ...theatreActions, overview, users, user, userSet, reports, reportSet, reviews, reviewSet, names, namesSet, audit: auditList };
 
 // ── Request ───────────────────────────────────────────────────────────────
 

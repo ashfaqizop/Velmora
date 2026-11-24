@@ -606,3 +606,289 @@ begin
 end;
 $$;
 revoke all on function public.theatre_tick() from public, anon, authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- Phase 6: the admin site's hand on Theatre (docs/admin.md, phase 2).
+-- Special airings, a pause switch, a banner, per-screening chat modes and
+-- room mutes. Everything people can't change is written with the service key.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Screenings the owner added by hand are "special": outside the daily lineup,
+-- left alone by the algorithm. `note` is a short public message ("Delayed to
+-- 9 pm"); `chat_mode` is normal, slow (10 s between messages) or closed.
+alter table public.theatre_screenings add column if not exists special boolean not null default false;
+alter table public.theatre_screenings add column if not exists created_by uuid references auth.users (id) on delete set null;
+alter table public.theatre_screenings add column if not exists note text not null default '' check (char_length(note) <= 200);
+alter table public.theatre_screenings add column if not exists chat_mode text not null default 'normal';
+alter table public.theatre_screenings drop constraint if exists theatre_chat_mode_ok;
+alter table public.theatre_screenings add constraint theatre_chat_mode_ok check (chat_mode in ('normal', 'slow', 'closed'));
+
+-- One row of switches. Everyone may read it (the apps show the banner and the
+-- pause notice); only the service key writes it.
+create table if not exists public.theatre_settings (
+  id boolean primary key default true check (id),
+  paused boolean not null default false,
+  banner text not null default '' check (char_length(banner) <= 200),
+  -- Lobby reminder text; {title} becomes the film. Empty means the default.
+  reminder text not null default '' check (char_length(reminder) <= 160),
+  updated_at timestamptz not null default now()
+);
+insert into public.theatre_settings (id) values (true) on conflict do nothing;
+alter table public.theatre_settings enable row level security;
+drop policy if exists "theatre settings are public" on public.theatre_settings;
+create policy "theatre settings are public" on public.theatre_settings for select to anon, authenticated using (true);
+
+-- Muted people can watch but not chat; removed people are out of the room.
+create table if not exists public.theatre_room_bans (
+  screening_id uuid not null references public.theatre_screenings (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  kind text not null check (kind in ('mute', 'remove')),
+  created_at timestamptz not null default now(),
+  primary key (screening_id, user_id)
+);
+alter table public.theatre_room_bans enable row level security;
+
+-- Removed people may not enter (this also closes the Realtime topics).
+create or replace function public.theatre_can_enter(sid uuid, uid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.theatre_screenings s
+    where s.id = sid
+      and public.theatre_window_open(s)
+      and public.profile_visible(uid)
+      and not exists (select 1 from public.theatre_room_bans b where b.screening_id = s.id and b.user_id = uid and b.kind = 'remove')
+      and (s.mode = 'open'
+           or exists (select 1 from public.theatre_tickets t
+                      where t.screening_id = s.id and t.user_id = uid and t.status in ('booked', 'attended')))
+  )
+$$;
+
+-- Chat now honours the room's mode and mutes.
+create or replace function public.theatre_say(sid uuid, body text, movie_ms integer default null)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  p public.profiles;
+  msg text := btrim(regexp_replace(coalesce(body, ''), '\s+', ' ', 'g'));
+  room text;
+  busy integer;
+  gap interval;
+  st public.theatre_chat_state;
+  h text;
+  w text;
+begin
+  if me is null then raise exception 'sign_in' using errcode = 'P0001'; end if;
+  if not public.theatre_can_enter(sid, me) then raise exception 'not_in_screening' using errcode = 'P0001'; end if;
+  select chat_mode into room from public.theatre_screenings where id = sid;
+  if room = 'closed' then raise exception 'chat_closed' using errcode = 'P0001'; end if;
+  if exists (select 1 from public.theatre_room_bans b where b.screening_id = sid and b.user_id = me and b.kind = 'mute') then
+    raise exception 'chat_muted' using errcode = 'P0001';
+  end if;
+  if char_length(msg) not between 1 and 200 then raise exception 'chat_length' using errcode = 'P0001'; end if;
+  if msg ~* '(https?://|www\.|[a-z0-9-]+\.(com|net|org|io|gg|xyz|ru|me|tv|co|ly|link)\b)' then
+    raise exception 'chat_link' using errcode = 'P0001';
+  end if;
+  for w in select b.word from public.blocked_words b loop
+    if msg ~* ('(^|[^a-z0-9])' || regexp_replace(w, '([.*+?^${}()|\[\]\\])', '\\\1', 'g') || '($|[^a-z0-9])') then
+      raise exception 'chat_blocked' using errcode = 'P0001';
+    end if;
+  end loop;
+
+  select coalesce(sum(r.n), 0) into busy from public.theatre_chat_rate r
+  where r.screening_id = sid and r.minute > now() - interval '1 minute';
+  gap := case when busy > 300 then interval '10 seconds' when busy > 120 then interval '5 seconds'
+              when busy > 40 then interval '2.5 seconds' else interval '1 second' end;
+  if room = 'slow' and gap < interval '10 seconds' then gap := interval '10 seconds'; end if;
+  h := md5(lower(msg));
+  select * into st from public.theatre_chat_state where screening_id = sid and user_id = me;
+  if found then
+    if st.last_at > now() - gap then raise exception 'chat_slow' using errcode = 'P0001', detail = ceil(extract(epoch from (st.last_at + gap - now())))::text; end if;
+    if st.last_hash = h and st.last_at > now() - interval '60 seconds' then raise exception 'chat_repeat' using errcode = 'P0001'; end if;
+  end if;
+  insert into public.theatre_chat_state (screening_id, user_id, last_at, last_hash) values (sid, me, now(), h)
+    on conflict (screening_id, user_id) do update set last_at = now(), last_hash = h;
+  insert into public.theatre_chat_rate (screening_id, minute, n) values (sid, date_trunc('minute', now()), 1)
+    on conflict (screening_id, minute) do update set n = public.theatre_chat_rate.n + 1;
+
+  select * into p from public.profiles where id = me;
+  perform realtime.send(
+    jsonb_build_object(
+      'id', gen_random_uuid(),
+      'uid', p.id, 'username', p.username, 'display_name', p.display_name, 'avatar', p.avatar, 'verified', p.verified,
+      'body', msg,
+      'at', movie_ms,
+      'ts', now()
+    ),
+    'chat',
+    'theatre-chat:' || sid::text,
+    true
+  );
+end;
+$$;
+revoke all on function public.theatre_say(uuid, text, integer) from public, anon;
+grant execute on function public.theatre_say(uuid, text, integer) to authenticated;
+
+-- Booking stops while Theatre is paused (people already in a show stay in).
+create or replace function public.theatre_book(sid uuid)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  s public.theatre_screenings;
+  current text;
+  result text;
+begin
+  if me is null then raise exception 'sign_in' using errcode = 'P0001'; end if;
+  if exists (select 1 from public.theatre_settings t where t.paused) then raise exception 'paused' using errcode = 'P0001'; end if;
+  if not public.profile_visible(me) then raise exception 'not_allowed' using errcode = 'P0001'; end if;
+  select * into s from public.theatre_screenings where id = sid for update;
+  if not found or s.status <> 'scheduled' then raise exception 'not_bookable' using errcode = 'P0001'; end if;
+  if now() >= s.ends_at then raise exception 'over' using errcode = 'P0001'; end if;
+  if s.opens_at is not null and now() < public.theatre_opens_for(s, me) then
+    raise exception 'not_open_yet' using errcode = 'P0001';
+  end if;
+
+  select status into current from public.theatre_tickets where screening_id = sid and user_id = me;
+  if current in ('booked', 'waitlist', 'attended') then return 'already'; end if;
+
+  result := case when s.mode = 'fixed' and (s.booked >= s.capacity or s.released) then 'waitlist' else 'booked' end;
+  insert into public.theatre_tickets (screening_id, user_id, status, is_max, created_at)
+  values (sid, me, result, public.is_max(me), now())
+  on conflict (screening_id, user_id) do update set status = excluded.status, is_max = excluded.is_max, created_at = now(), joined_at = null;
+
+  if result = 'booked' then
+    update public.theatre_screenings set booked = booked + 1 where id = sid;
+    perform public.theatre_post(me, 'booked', s.k);
+  else
+    update public.theatre_screenings set waitlisted = waitlisted + 1 where id = sid;
+  end if;
+  return result;
+end;
+$$;
+revoke all on function public.theatre_book(uuid) from public, anon;
+grant execute on function public.theatre_book(uuid) to authenticated;
+
+-- ── Admin functions (service key only) ─────────────────────────────────────
+
+-- Cancel a screening. Tickets stay as they are, so people who held one can be
+-- told it was cancelled; a cancelled screening is never settled, so nobody
+-- gets a no-show for it.
+create or replace function public.admin_theatre_cancel(sid uuid, why text default '')
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.theatre_screenings
+  set status = 'cancelled', note = left(coalesce(nullif(btrim(why), ''), note), 200)
+  where id = sid and status in ('draft', 'scheduled');
+  if not found then raise exception 'not_cancellable' using errcode = 'P0001'; end if;
+end;
+$$;
+
+-- Give someone a seat whether or not it is full.
+create or replace function public.admin_theatre_grant(sid uuid, uid uuid)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  s public.theatre_screenings;
+  cur text;
+begin
+  select * into s from public.theatre_screenings where id = sid for update;
+  if not found or s.status <> 'scheduled' then raise exception 'not_bookable' using errcode = 'P0001'; end if;
+  if now() >= s.ends_at then raise exception 'over' using errcode = 'P0001'; end if;
+  select status into cur from public.theatre_tickets where screening_id = sid and user_id = uid;
+  if cur in ('booked', 'attended') then return 'already'; end if;
+  insert into public.theatre_tickets (screening_id, user_id, status, is_max, created_at)
+  values (sid, uid, 'booked', public.is_max(uid), now())
+  on conflict (screening_id, user_id) do update set status = 'booked', is_max = excluded.is_max, created_at = now();
+  update public.theatre_screenings
+  set booked = booked + 1, waitlisted = greatest(waitlisted - (case when cur = 'waitlist' then 1 else 0 end), 0)
+  where id = sid;
+  return 'booked';
+end;
+$$;
+
+-- Take a seat or a waitlist place away; a freed seat goes to the waitlist.
+create or replace function public.admin_theatre_revoke(sid uuid, uid uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  cur text;
+begin
+  perform 1 from public.theatre_screenings where id = sid for update;
+  select status into cur from public.theatre_tickets where screening_id = sid and user_id = uid;
+  if cur not in ('booked', 'waitlist') then return; end if;
+  update public.theatre_tickets set status = 'cancelled' where screening_id = sid and user_id = uid;
+  if cur = 'booked' then
+    update public.theatre_screenings set booked = greatest(booked - 1, 0) where id = sid;
+    perform public.theatre_promote(sid);
+  else
+    update public.theatre_screenings set waitlisted = greatest(waitlisted - 1, 0) where id = sid;
+  end if;
+end;
+$$;
+
+-- Set the room's chat mode and tell everyone in it right away.
+create or replace function public.admin_theatre_chat(sid uuid, mode text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if mode not in ('normal', 'slow', 'closed') then raise exception 'bad_mode' using errcode = 'P0001'; end if;
+  update public.theatre_screenings set chat_mode = mode where id = sid;
+  if not found then raise exception 'not_found' using errcode = 'P0001'; end if;
+  perform realtime.send(jsonb_build_object('mode', mode), 'mode', 'theatre-chat:' || sid::text, true);
+end;
+$$;
+
+-- Mute, remove or restore one person in one room.
+create or replace function public.admin_theatre_room(sid uuid, uid uuid, what text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if what = 'clear' then
+    delete from public.theatre_room_bans where screening_id = sid and user_id = uid;
+  elsif what in ('mute', 'remove') then
+    insert into public.theatre_room_bans (screening_id, user_id, kind) values (sid, uid, what)
+    on conflict (screening_id, user_id) do update set kind = excluded.kind, created_at = now();
+  else
+    raise exception 'bad_kind' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+revoke all on function public.admin_theatre_cancel(uuid, text) from public, anon, authenticated;
+revoke all on function public.admin_theatre_grant(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.admin_theatre_revoke(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.admin_theatre_chat(uuid, text) from public, anon, authenticated;
+revoke all on function public.admin_theatre_room(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.admin_theatre_cancel(uuid, text) to service_role;
+grant execute on function public.admin_theatre_grant(uuid, uuid) to service_role;
+grant execute on function public.admin_theatre_revoke(uuid, uuid) to service_role;
+grant execute on function public.admin_theatre_chat(uuid, text) to service_role;
+grant execute on function public.admin_theatre_room(uuid, uuid, text) to service_role;

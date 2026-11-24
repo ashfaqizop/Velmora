@@ -41,6 +41,8 @@ const QUIET_RETRY_MS = 2 * 60_000;
 
 function friendly(e: { message?: string; details?: string } | null): string {
   const m = e?.message ?? "";
+  if (m.includes("chat_closed")) return "Text chat is off for this screening. Reactions still work.";
+  if (m.includes("chat_muted")) return "You've been muted in this room.";
   if (m.includes("chat_slow")) return `Slow mode: wait ${e?.details ?? "a few"} s.`;
   if (m.includes("chat_link")) return "Links can't be posted in Theatre chat.";
   if (m.includes("chat_blocked")) return "That message has a word that isn't allowed.";
@@ -64,6 +66,8 @@ class Room {
   sending = $state(false);
   /** Shown under the box: slow mode, a refused message. */
   notice = $state("");
+  /** The room's chat mode, set from the admin site. */
+  mode = $state<"normal" | "slow" | "closed">("normal");
   /** Reactions arrive here (the page floats them over the video). */
   onReact: ((emoji: Reaction, from: string) => void) | null = null;
 
@@ -126,6 +130,12 @@ class Room {
 
     const chat = sb.channel(`theatre-chat:${id}`, { config: { private: true } });
     chat.on("broadcast", { event: "chat" }, ({ payload }) => this.receive(payload));
+    chat.on("broadcast", { event: "mode" }, ({ payload }) => {
+      const m = (payload as { mode?: string })?.mode;
+      if (m !== "normal" && m !== "slow" && m !== "closed") return;
+      this.mode = m;
+      this.notice = m === "closed" ? "Text chat was turned off for this screening. Reactions still work." : m === "slow" ? "Slow mode is on: one message every 10 seconds." : "Chat is back to normal.";
+    });
     chat.subscribe();
 
     this.room = room;

@@ -7,6 +7,7 @@
   import { boot, gate, leave } from "./access.svelte";
   import { go, PAGES, route, startRoute } from "./route.svelte";
   import OverviewView from "./OverviewView.svelte";
+  import TheatreView from "./theatre/TheatreView.svelte";
   import UsersView from "./UsersView.svelte";
   import ReportsView from "./ReportsView.svelte";
   import ReviewsView from "./ReviewsView.svelte";
@@ -52,6 +53,8 @@
         <div class="view" in:fade={{ duration: 200 }}>
           {#if route.page === "overview"}
             <OverviewView />
+          {:else if route.page === "theatre"}
+            <TheatreView />
           {:else if route.page === "users"}
             <UsersView />
           {:else if route.page === "reports"}

@@ -1,9 +1,10 @@
 // Admin pages live behind the hash (#/users/<id>), so one static page serves
 // all of them and nothing needs a server rewrite.
-export type Page = "overview" | "users" | "reports" | "reviews" | "names" | "audit";
+export type Page = "overview" | "theatre" | "users" | "reports" | "reviews" | "names" | "audit";
 
 export const PAGES: { id: Page; label: string; icon: string }[] = [
   { id: "overview", label: "Overview", icon: "dashboard" },
+  { id: "theatre", label: "Theatre", icon: "theaters" },
   { id: "users", label: "People", icon: "group" },
   { id: "reports", label: "Reports", icon: "flag" },
   { id: "reviews", label: "Reviews", icon: "rate_review" },

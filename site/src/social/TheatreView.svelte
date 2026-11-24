@@ -51,6 +51,19 @@
   <p class="lead">Every day Velmora puts on movies everyone watches at the same moment, with a live chat that's never saved. Book here; watching happens in the Velmora app.</p>
 </section>
 
+{#if theatre.settings.paused || theatre.settings.banner}
+  <div class="announce" role="status">
+    <m3e-icon name={theatre.settings.paused ? "pause_circle" : "campaign"}></m3e-icon>
+    <span>{#if theatre.settings.paused}<strong>Theatre is paused.</strong> Nobody can book right now. {/if}{theatre.settings.banner}</span>
+  </div>
+{/if}
+{#each theatre.cancelledMine as c (c.id)}
+  <div class="announce" role="status">
+    <m3e-icon name="event_busy"></m3e-icon>
+    <span><strong>{c.name} was cancelled.</strong> {c.note}</span>
+  </div>
+{/each}
+
 <m3e-tabs class="tabs">
   <m3e-tab selected={tab === "lineup"} onclick={() => (tab = "lineup")}><m3e-icon slot="icon" name="theaters"></m3e-icon>Lineup</m3e-tab>
   <m3e-tab selected={tab === "tickets"} onclick={() => (tab = "tickets")}><m3e-icon slot="icon" name="confirmation_number"></m3e-icon>My tickets{mine.length ? ` · ${mine.length}` : ""}</m3e-tab>
@@ -92,6 +105,16 @@
 {#if chatting}<LiveChat s={chatting} onclose={() => (chatting = null)} />{/if}
 
 <style>
+  .announce {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 18px;
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+    font-size: 14px;
+  }
   .head {
     display: flex;
     flex-direction: column;

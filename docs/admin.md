@@ -1,7 +1,7 @@
 # Admin site plan
 
 `admin.getvelmora.dpdns.org`. Only the owner is admin, no moderator role.
-Deferred on 2026-11-24, restarted the same day. Phase 1 is built (see Status below); phases 2 and 3 are not.
+Deferred on 2026-11-24, restarted the same day. Phases 1 and 2 are built (see Status below); phase 3 is not.
 
 ## Access and safety
 - `admins` table in Supabase plus TOTP MFA. Own origin, no third-party scripts, no ads.
@@ -109,3 +109,14 @@ Owner steps before it works:
 5. Reload, scan the QR code, type the code.
 
 Deploy check: the admin host serves the same Vercel project as the other hosts, so a push to main deploys it.
+
+**Phase 2: Theatre operations, built, not yet deployed.**
+- SQL: appended to `supabase/theatre.sql` ("Phase 6"). Re-run the whole file. New: `special`, `created_by`, `note`, `chat_mode` on screenings; `theatre_settings` (pause, banner, reminder text, public read); `theatre_room_bans` (mute/remove); `theatre_say` honours chat mode and mutes; `theatre_can_enter` honours removals; `theatre_book` refuses while paused; service-only `admin_theatre_cancel|grant|revoke|chat|room`.
+- Server: the lineup algorithm moved to `api/_lib/lineup.js` (shared by the cron and the admin site; ignores `special` rows; `draft` can `force` and `dry`-run). `api/_lib/admin-kit.js` (shared helpers) and `api/_lib/admin-theatre.js` (16 actions, prefixed `theatre`). The daily cron skips drafting while paused. The admin function gets maxDuration 60.
+- Admin pages (`site/src/admin/theatre/`): Lineup (7 days, add/edit/cancel, algorithm preview/run/redo), Live now + room panel (chat mode, mute/remove, give or take a seat), Tickets (per-person, no-show fixes), Pins & blocks, Controls (pause, banner, lobby reminder text).
+- App and website: Special label and note on cards, banner and pause notice, "Booking paused", cancelled/moved notices for ticket holders, reminder text from settings, chat-closed/muted messages and a live "mode" broadcast in the app room.
+- Chat modes are Normal, Slow (10 s) and Reactions only. "Quiet" and "kill switch" are the same thing in effect, so there is one control.
+- Cancelling keeps tickets as they are (so holders can be told); a cancelled screening is never settled, so nobody gets a no-show. Delay = edit the start time.
+- Live-now "came in" counts people who entered the lobby or show (it doesn't drop on leave). True concurrent presence isn't shown.
+- Removing someone takes effect when their Realtime connection re-checks, so it can lag by a minute.
+- Run `supabase/theatre.sql` BEFORE deploying: the app and site now select the new columns, and the cron filters on `special`.

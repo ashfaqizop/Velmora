@@ -5,6 +5,7 @@ import "@fontsource/instrument-serif/400.css";
 import "@fontsource/instrument-serif/400-italic.css";
 import "./lib/m3e";
 import "@m3e/web/dialog";
+import "@m3e/web/switch";
 import "./base.css";
 import "./admin/admin.css";
 

@@ -46,6 +46,13 @@
     </div>
   </header>
 
+  {#if theatre.settings.paused || theatre.settings.banner}
+    <div class="announce" role="status">
+      <m3e-icon name={theatre.settings.paused ? "pause_circle" : "campaign"}></m3e-icon>
+      <span>{#if theatre.settings.paused}<strong>Theatre is paused.</strong> Nobody can book right now; screenings already running carry on. {/if}{theatre.settings.banner}</span>
+    </div>
+  {/if}
+
   <m3e-tabs class="tabs">
     <m3e-tab selected={tab === "lineup"} onclick={() => setTab("lineup")}>
       <m3e-icon slot="icon" name="theaters"></m3e-icon>Lineup
@@ -105,6 +112,16 @@
 </div>
 
 <style>
+  .announce {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 18px;
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+    font-size: 14px;
+  }
   .page {
     display: flex;
     flex-direction: column;
