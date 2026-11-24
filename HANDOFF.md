@@ -63,13 +63,21 @@ The changelog has a 0.6.0 entry marked `soon` ("In testing") in
    plugins, `app/src/lib/deeplink.ts`, website fallback `/open/?to=`), music
    listens in stats (group `mus`, `/api/stats/trending?kind=music`),
    `supabase/social.sql`.
-2. **Social core (next).** Public profile pages `/@username` on the social
-   host: avatar, name, bio, links, follower/following/visit counts, badges
-   (Max, verified, member since), favourites showcase; follow/unfollow (open to
-   all); follower and following lists; visits (count public via
-   `visits_this_month`, visitor list visible only to the owner via
-   `profile_visitors`; record with `record_visit`); edit profile on the web;
-   user search; report button (`reports` table). No ads, m3e UI.
+2. **Social core: done.** Single-page app in
+   `site/src/social/`: `nav.svelte.ts` (routes `/social/`, `/@name`,
+   `/@name/followers|following|visitors`, `/search?q=`, `/settings`; dev and
+   fallback use `/social/?at=/@name`), `data.svelte.ts` (all Supabase reads and
+   writes, follow state, Max badges, reports, favourites from My List),
+   views `HomeView` (most followed, new people), `ProfileView`, `SearchView`,
+   `SettingsView` (edit picture, names, username with 30-day cooldown, bio,
+   links, six favourites), `ReportDialog`, `PeopleList`, `PersonRow`,
+   `FollowButton`, `Badges`. Server: `site/api/social/[action].js` (`max`:
+   which accounts hold Max, from Redis `acct:<uid>`; `page`: serves the
+   shell with link-preview meta for `/@name`). `vercel.json` rewrites on the
+   social host. SQL appended to `supabase/social.sql`: `profiles.favorites` +
+   `valid_favorites`, `search_profiles(q, lim)`, follow limits (120/hour,
+   5000 total, not to hidden/banned), report limits (one open per reason,
+   20/day). App: Settings > Velmora account has "View profile".
 3. **Discovery + activity.** Trending movies / shows+anime / music pages with
    "Open in Velmora" (`/open/?to=`); activity from the app, shared by default
    with an off switch (`profiles.share_activity`), **18+ titles never shared**;
@@ -101,7 +109,8 @@ onboarded on 0.5.0: "From now on, Velmora needs an account"), `returning`.
 ## Waiting on the user
 
 - Run `supabase/social.sql` (after `schema.sql`, `sync.sql`). Until then,
-  saving animal avatars, bio or links fails.
+  saving animal avatars, bio, links or favourites fails and the social site
+  can't follow, search or count visits. It is safe to run again.
 - Cloudflare CNAME `social` (proxy off) + Vercel domain
   `social.getvelmora.dpdns.org`.
 - Test from the installed CI build: fresh install shows the gate; offline

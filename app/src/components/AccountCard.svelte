@@ -5,6 +5,7 @@
   import NameStatus from "./NameStatus.svelte";
   import { account, USERNAME } from "../lib/account.svelte";
   import { sync } from "../lib/sync.svelte";
+  import { openExternal } from "../lib/api";
   import { ANIMALS, isPhotoUrl } from "../lib/avatars";
   import { LINK_KINDS, MAX_BIO, MAX_LINKS, linkLabel, shortUrl, validLink, type LinkKind, type ProfileLink } from "../lib/links";
 
@@ -186,6 +187,9 @@
     </div>
     {#if !editing}
       <m3e-button variant="tonal" onclick={edit}><m3e-icon slot="icon" name="edit"></m3e-icon>Edit profile</m3e-button>
+      <m3e-button variant="text" onclick={() => openExternal(`https://social.getvelmora.dpdns.org/@${p.username}`).catch(() => {})}>
+        <m3e-icon slot="icon" name="open_in_new"></m3e-icon>View profile
+      </m3e-button>
       <m3e-button variant="text" onclick={() => account.signOut()}>Sign out</m3e-button>
     {/if}
   </div>

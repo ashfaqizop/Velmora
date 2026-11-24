@@ -320,3 +320,124 @@ as $$
   left join public.profiles p on p.id = u.id
   where u.id = auth.uid();
 $$;
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- Phase 2: profile pages. Favourites, search, and limits on follows and reports.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ── Favourites: up to six titles shown on the profile ──────────────────────
+
+-- [{ "k": "movie/603", "name": "The Matrix", "year": 1999,
+--    "poster": "https://image.tmdb.org/t/p/w342/....jpg" }]
+create or replace function public.valid_favorites(items jsonb)
+returns boolean
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  item jsonb;
+begin
+  if jsonb_typeof(items) <> 'array' or jsonb_array_length(items) > 6 then return false; end if;
+  for item in select value from jsonb_array_elements(items) loop
+    if jsonb_typeof(item) <> 'object' then return false; end if;
+    if coalesce(item ->> 'k', '') !~ '^(movie|tv)/[0-9]{1,9}$' then return false; end if;
+    if char_length(coalesce(item ->> 'name', '')) not between 1 and 200 then return false; end if;
+    if item ? 'year' and jsonb_typeof(item -> 'year') not in ('number', 'null') then return false; end if;
+    if item ? 'poster' and jsonb_typeof(item -> 'poster') <> 'null'
+       and coalesce(item ->> 'poster', '') !~ '^https://image\.tmdb\.org/t/p/[a-z0-9]{2,10}/[A-Za-z0-9_.-]{1,80}$' then
+      return false;
+    end if;
+  end loop;
+  return true;
+end;
+$$;
+
+alter table public.profiles add column if not exists favorites jsonb not null default '[]'::jsonb;
+alter table public.profiles drop constraint if exists profiles_favorites_ok;
+alter table public.profiles add constraint profiles_favorites_ok check (public.valid_favorites(favorites));
+
+-- ── Search ─────────────────────────────────────────────────────────────────
+
+-- People whose username or display name matches. Exact and starting matches
+-- come first, then the most followed. Hidden and banned profiles never show.
+create or replace function public.search_profiles(q text, lim integer default 20)
+returns table (
+  id uuid,
+  username text,
+  display_name text,
+  avatar text,
+  bio text,
+  verified boolean,
+  followers_count integer
+)
+language sql
+stable
+set search_path = ''
+as $$
+  with term as (
+    select lower(regexp_replace(coalesce(q, ''), '[^A-Za-z0-9_ ]', '', 'g')) as t
+  )
+  select p.id, p.username, p.display_name, p.avatar, p.bio, p.verified, p.followers_count
+  from public.profiles p, term
+  where char_length(term.t) between 1 and 40
+    and not p.hidden and not p.banned
+    and (p.username_key like '%' || replace(term.t, ' ', '') || '%' or lower(p.display_name) like '%' || term.t || '%')
+  order by
+    (p.username_key = replace(term.t, ' ', '')) desc,
+    (p.username_key like replace(term.t, ' ', '') || '%') desc,
+    (lower(p.display_name) like term.t || '%') desc,
+    p.verified desc,
+    p.followers_count desc,
+    p.username_key
+  limit least(greatest(coalesce(lim, 20), 1), 50);
+$$;
+revoke all on function public.search_profiles(text, integer) from public;
+grant execute on function public.search_profiles(text, integer) to anon, authenticated;
+
+-- ── Limits, so nobody can flood follows or reports ─────────────────────────
+
+create or replace function public.follows_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select count(*) from public.follows f where f.follower = new.follower and f.created_at > now() - interval '1 hour') >= 120 then
+    raise exception 'follow_limit' using errcode = 'P0001';
+  end if;
+  if (select following_count from public.profiles where id = new.follower) >= 5000 then
+    raise exception 'follow_max' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.profiles p where p.id = new.followee and (p.hidden or p.banned)) then
+    raise exception 'follow_unavailable' using errcode = 'P0001';
+  end if;
+  new.created_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists follows_limit on public.follows;
+create trigger follows_limit before insert on public.follows
+  for each row execute function public.follows_limit();
+
+-- One open report per person, target and reason; at most 20 a day.
+create unique index if not exists reports_one_open on public.reports (reporter, target, reason) where status = 'open';
+
+create or replace function public.reports_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select count(*) from public.reports r where r.reporter = new.reporter and r.created_at > now() - interval '1 day') >= 20 then
+    raise exception 'report_limit' using errcode = 'P0001';
+  end if;
+  new.created_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists reports_limit on public.reports;
+create trigger reports_limit before insert on public.reports
+  for each row execute function public.reports_limit();

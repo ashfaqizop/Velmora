@@ -161,5 +161,47 @@
       "destination": "https://social.getvelmora.dpdns.org/social/",
       "permanent": false
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/@:user",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/api/social/page?u=:user"
+    },
+    {
+      "source": "/@:user/:tab",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/api/social/page?u=:user"
+    },
+    {
+      "source": "/search",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/"
+    },
+    {
+      "source": "/settings",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/"
+    }
   ]
 }
