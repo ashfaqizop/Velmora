@@ -15,9 +15,10 @@
   import Avatar from "./Avatar.svelte";
   import NameStatus from "./NameStatus.svelte";
   import { fly } from "svelte/transition";
-  import { quintOut } from "svelte/easing";
+  import { backOut, quintOut } from "svelte/easing";
+  import { scale } from "svelte/transition";
   import { AUTH_HOST, MAIN_SITE, SUPABASE_KEY, SUPABASE_URL, TURNSTILE_SITE_KEY } from "./config";
-  import { ANIMALS, isPhotoUrl, randomAnimal } from "./avatars";
+  import { ANIMALS, animalOf, isPhotoUrl, randomAnimal } from "./avatars";
 
   type View = "loading" | "nocontext" | "signin" | "code" | "setup" | "return" | "done" | "error";
   type Ctx =
@@ -148,6 +149,61 @@
   let email = $state("");
   let token = $state("");
   let cooldown = $state(0);
+  const RESEND_AFTER = 30;
+
+  // The emailed code, one box per digit. Paste or autofill fills them all.
+  let codeLen = $state(6);
+  let digits = $state<string[]>(Array(6).fill(""));
+  let boxes: HTMLInputElement[] = $state([]);
+  let shake = $state(false);
+
+  function setDigits(from: number, text: string) {
+    const clean = text.replace(/\D/g, "");
+    if (!clean) return;
+    if (from === 0 && (clean.length === 8 || clean.length === 10) && clean.length !== codeLen) {
+      codeLen = clean.length;
+      digits = Array(codeLen).fill("");
+    }
+    const next = [...digits];
+    let i = from;
+    for (const ch of clean) {
+      if (i >= codeLen) break;
+      next[i++] = ch;
+    }
+    digits = next;
+    token = next.join("");
+    boxes[Math.min(i, codeLen - 1)]?.focus();
+    if (next.every((d) => d) && !busy) verify();
+  }
+
+  function onBox(e: Event, i: number) {
+    const el = e.currentTarget as HTMLInputElement;
+    const v = el.value;
+    if (!v) {
+      digits[i] = "";
+      token = digits.join("");
+      return;
+    }
+    el.value = digits[i] ?? "";
+    setDigits(i, v.length > 1 && v.startsWith(digits[i]) ? v.slice(digits[i].length) : v);
+  }
+
+  function onBoxKey(e: KeyboardEvent, i: number) {
+    if (e.key === "Backspace" && !digits[i] && i > 0) {
+      e.preventDefault();
+      digits[i - 1] = "";
+      token = digits.join("");
+      boxes[i - 1]?.focus();
+    } else if (e.key === "ArrowLeft" && i > 0) boxes[i - 1]?.focus();
+    else if (e.key === "ArrowRight" && i < codeLen - 1) boxes[i + 1]?.focus();
+    else if (e.key === "Enter") verify();
+  }
+
+  function resetCode() {
+    codeLen = 6;
+    digits = Array(6).fill("");
+    token = "";
+  }
 
   // Profile
   let session: Session | null = null;
@@ -212,6 +268,7 @@
 
   /** Where the person came from, for the headings. */
   const site = $derived(ctx?.kind === "web" ? (ctx.back.includes("admin.") ? "Velmora admin" : "Velmora Social") : "the Velmora app");
+  const tintOf = (a: string) => animalOf(a)?.color ?? "#3271fe";
   const siteIcon = $derived(ctx?.kind === "web" ? (ctx.back.includes("admin.") ? "shield" : "groups") : "desktop_windows");
 
   // The art leans toward the pointer a little.
@@ -245,6 +302,22 @@
 
   async function start() {
     const params = new URLSearchParams(location.search);
+
+    // Local design previews of each step (?preview=code, setup, return, done, error). Never on the real host.
+    const preview = params.get("preview") as View | null;
+    if (preview && (location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
+      ctx = { kind: "app", port: 5000, state: "preview", challenge: "preview" };
+      email = "you@example.com";
+      display = "Azam";
+      username = "azam";
+      avatar = "animal:owl";
+      cooldown = 18;
+      back = { short: "K7QP2XWM", url: "#", until: Date.now() + 90_000 };
+      if (preview === "return") tick();
+      if (preview === "error") message = "Sign-in couldn't finish. Try again.";
+      view = preview;
+      return;
+    }
 
     if (params.get("done")) {
       wipeSession();
@@ -378,9 +451,9 @@
     }
     email = address;
     remember("email");
-    token = "";
+    resetCode();
     view = "code";
-    cooldown = 30;
+    cooldown = RESEND_AFTER;
     const timer = setInterval(() => {
       cooldown -= 1;
       if (cooldown <= 0) clearInterval(timer);
@@ -399,6 +472,10 @@
     if (error || !data.session) {
       busy = false;
       message = friendly(error?.message ?? "That code didn't work.");
+      shake = true;
+      setTimeout(() => (shake = false), 500);
+      resetCode();
+      setTimeout(() => boxes[0]?.focus(), 30);
       return;
     }
     await proceed(data.session);
@@ -540,7 +617,11 @@
     view = "return";
     tick();
     // Give the page a moment to show, then go back to the app.
-    setTimeout(() => back && location.assign(back.url), 900);
+    setTimeout(() => {
+      if (!back) return;
+      location.assign(back.url);
+      setTimeout(() => (handedBack = true), 1600);
+    }, 900);
   }
 
   function tick() {
@@ -551,7 +632,19 @@
     secondsLeft = Math.max(0, Math.round(((back?.until ?? 0) - Date.now()) / 1000));
   }
 
-  const spaced = (s: string) => `${s.slice(0, 4)} ${s.slice(4)}`;
+  let copied = $state(false);
+  async function copyShort() {
+    if (!back) return;
+    try {
+      await navigator.clipboard.writeText(back.short);
+      copied = true;
+      setTimeout(() => (copied = false), 1600);
+    } catch {
+      // Clipboard blocked; the code is on screen to type.
+    }
+  }
+  /** The page has sent you back to the app; say so instead of "taking you back". */
+  let handedBack = $state(false);
 
   function restart() {
     sessionStorage.removeItem(BACK);
@@ -575,9 +668,9 @@
     <div class="pitch">
       <p class="pitch-title">One account.<br /><em>Every PC.</em></p>
       <ul>
-        <li><m3e-icon name="sync"></m3e-icon><span>My List, progress and settings on every PC you sign in on</span></li>
-        <li><m3e-icon name="person_heart"></m3e-icon><span>Your page on Velmora Social: follow people, rate and review</span></li>
-        <li><m3e-icon name="workspace_premium"></m3e-icon><span>Velmora Max goes wherever you do</span></li>
+        <li><span class="pi"><m3e-icon name="sync"></m3e-icon></span><span>My List, progress and settings on every PC you sign in on</span></li>
+        <li><span class="pi"><m3e-icon name="person_heart"></m3e-icon></span><span>Your page on Velmora Social: follow people, rate and review</span></li>
+        <li><span class="pi"><m3e-icon name="workspace_premium"></m3e-icon></span><span>Velmora Max goes wherever you do</span></li>
       </ul>
     </div>
   </aside>
@@ -661,45 +754,78 @@
       </section>
     {:else if view === "code"}
       <section class="view" in:step>
-        <h1 class="title">Check your email</h1>
-        <p class="muted">We sent a code to <strong>{email}</strong>. Type it here.</p>
+        <div class="head">
+          <m3e-icon-button class="back" aria-label="Use a different email" onclick={() => ((view = "signin"), (message = ""))}><m3e-icon name="arrow_back"></m3e-icon></m3e-icon-button>
+          <h1 class="title">Check your email</h1>
+          <p class="muted">We sent a {codeLen}-digit code to <strong class="addr">{email}</strong>. It can take a minute; check spam too.</p>
+        </div>
         {#if message}<p class="notice" role="alert" in:fly={{ y: -6, duration: 260, easing: quintOut }}><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
-        <m3e-form-field variant="outlined" class="field">
-          <label slot="label" for="otp">Code</label>
-          <input
-            id="otp"
-            class="code"
-            inputmode="numeric"
-            autocomplete="one-time-code"
-            maxlength="10"
-            bind:value={token}
-            disabled={busy}
-            onkeydown={(e) => e.key === "Enter" && verify()}
-          />
-        </m3e-form-field>
-        <m3e-button class="wide" variant="filled" size="medium" disabled={busy || token.replace(/\s/g, "").length < 6} onclick={verify}>
+
+        <div class="digits" class:shake class:busy role="group" aria-label="Code from the email" style:--n={codeLen}>
+          {#each digits as d, i (i)}
+            <input
+              bind:this={boxes[i]}
+              class="digit"
+              class:filled={!!d}
+              value={d}
+              inputmode="numeric"
+              autocomplete={i === 0 ? "one-time-code" : "off"}
+              maxlength={i === 0 ? codeLen : 2}
+              aria-label="Digit {i + 1}"
+              disabled={busy}
+              oninput={(e) => onBox(e, i)}
+              onkeydown={(e) => onBoxKey(e, i)}
+              onpaste={(e) => (e.preventDefault(), setDigits(i, e.clipboardData?.getData("text") ?? ""))}
+              onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
+              {@attach (el) => {
+                if (i === 0) setTimeout(() => el.focus(), 450);
+              }}
+            />
+          {/each}
+        </div>
+
+        <m3e-button class="wide send" variant="filled" size="medium" disabled={busy || token.length < codeLen} onclick={verify}>
+          <span slot="icon" class="logo-wrap">{#if busy}<m3e-loading-indicator class="spin light"></m3e-loading-indicator>{:else}<m3e-icon name="check"></m3e-icon>{/if}</span>
           {busy ? "Checking…" : "Continue"}
         </m3e-button>
-        <div class="row spread">
-          <m3e-button variant="text" disabled={cooldown > 0 || busy || !captcha} onclick={sendCode}>
-            {cooldown > 0 ? `Send again in ${cooldown}s` : "Send a new code"}
-          </m3e-button>
-          <m3e-button variant="text" onclick={() => ((view = "signin"), (message = ""))}>Use a different email</m3e-button>
+
+        <div class="resend">
+          {#if cooldown > 0}
+            <span class="ring" aria-hidden="true">
+              <svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="track" /><circle cx="18" cy="18" r="15" class="left" style:stroke-dashoffset={94.25 * (1 - cooldown / RESEND_AFTER)} /></svg>
+              <span>{cooldown}</span>
+            </span>
+            <span class="muted small-text">You can ask for a new code in {cooldown}s</span>
+          {:else}
+            <m3e-button variant="text" disabled={busy || waitingCheck} onclick={sendCode}>
+              <m3e-icon slot="icon" name="refresh"></m3e-icon>{waitingCheck ? "Checking you're human…" : "Send a new code"}
+            </m3e-button>
+          {/if}
         </div>
       </section>
     {:else if view === "setup"}
       <section class="view" in:step>
-        <h1 class="title">Make it yours</h1>
-        <p class="muted">Pick a username and a face. You can change both later.</p>
+        <div class="head">
+          <h1 class="title">Make it yours</h1>
+          <p class="muted">This is how people will see you on Velmora Social. You can change it any time.</p>
+        </div>
         {#if message}<p class="notice" role="alert" in:fly={{ y: -6, duration: 260, easing: quintOut }}><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
 
-        <div class="me">
-          {#key avatar}<span class="me-pic" in:fly={{ y: 6, duration: 200 }}><Avatar value={avatar} size={88} ring={3} /></span>{/key}
-          <m3e-form-field variant="outlined" class="field grow">
-            <label slot="label" for="display">Display name</label>
-            <input id="display" maxlength="40" bind:value={display} disabled={busy} />
-          </m3e-form-field>
+        <div class="preview" style:--tint={tintOf(avatar)}>
+          <span class="pv-cover" aria-hidden="true"></span>
+          <div class="pv-row">
+            {#key avatar}<span class="pv-pic" in:scale={{ start: 0.8, duration: 380, easing: backOut }}><Avatar value={avatar} size={76} ring={3} /></span>{/key}
+            <span class="pv-text">
+              <strong>{display.trim() || "Your name"}</strong>
+              <span>@{username || "username"}</span>
+            </span>
+          </div>
         </div>
+
+        <m3e-form-field variant="outlined" class="field">
+          <label slot="label" for="display">Display name</label>
+          <input id="display" maxlength="40" bind:value={display} disabled={busy} />
+        </m3e-form-field>
 
         <m3e-form-field variant="outlined" class="field" error={nameCheck === "taken" || nameCheck === "bad"}>
           <span slot="prefix" class="at">@</span>
@@ -727,41 +853,69 @@
           </div>
         </fieldset>
 
-        <m3e-button class="wide" variant="filled" size="medium" disabled={busy || nameCheck !== "free" || !display.trim()} onclick={createProfile}>
-          <m3e-icon slot="icon" name="check"></m3e-icon>{busy ? "Saving…" : "Finish"}
+        <m3e-button class="wide send" variant="filled" size="medium" disabled={busy || nameCheck !== "free" || !display.trim()} onclick={createProfile}>
+          <span slot="icon" class="logo-wrap">{#if busy}<m3e-loading-indicator class="spin light"></m3e-loading-indicator>{:else}<m3e-icon name="check"></m3e-icon>{/if}</span>
+          {busy ? "Saving…" : "Finish"}
         </m3e-button>
       </section>
     {:else if view === "return"}
       <section class="view center" in:step>
-        <span class="badge ok" aria-hidden="true"><m3e-shape name="12-sided-cookie"></m3e-shape><m3e-icon name="check" filled></m3e-icon></span>
+        {@render success()}
         <h1 class="title small">You're signed in</h1>
-        <p class="muted">Taking you back to Velmora…</p>
+        <p class="muted">{handedBack ? "Velmora should be open now. You can close this tab." : "Taking you back to Velmora…"}</p>
+        {#if !handedBack}<span class="progress" aria-hidden="true"><span></span></span>{/if}
       </section>
       {#if back}
-        <div class="manual">
-          <m3e-button class="wide" variant="filled" href={back.url}><m3e-icon slot="icon" name="open_in_new"></m3e-icon>Open Velmora</m3e-button>
-          <p class="fine">
-            Nothing happened? In Velmora, choose <strong>Enter a code instead</strong> and type
-            <span class="short">{spaced(back.short)}</span>
-            {#if secondsLeft > 0}<span class="muted">(good for {secondsLeft}s)</span>{:else}<span class="muted">(expired)</span>{/if}
-          </p>
-          {#if secondsLeft <= 0}<m3e-button variant="text" onclick={restart}>Sign in again</m3e-button>{/if}
+        <div class="manual" in:fly={{ y: 10, duration: 360, delay: 260, easing: quintOut }}>
+          <div class="manual-head">
+            <strong>Didn't open?</strong>
+            <span class="muted">In Velmora choose <em>Enter a code instead</em> and type this:</span>
+          </div>
+          <div class="short-row" class:expired={secondsLeft <= 0}>
+            <span class="chars" aria-label="Code {back.short}">
+              {#each back.short.split("") as c, i (i)}<span class="ch" class:gap={i === 4} style:--i={i}>{c}</span>{/each}
+            </span>
+            <m3e-icon-button variant="tonal" aria-label="Copy the code" disabled={secondsLeft <= 0} onclick={copyShort}>
+              <m3e-icon name={copied ? "check" : "content_copy"}></m3e-icon>
+            </m3e-icon-button>
+          </div>
+          <div class="manual-foot">
+            {#if secondsLeft > 0}
+              <span class="muted small-text">Works for {secondsLeft}s</span>
+              <m3e-button variant="tonal" href={back.url}><m3e-icon slot="icon" name="open_in_new"></m3e-icon>Open Velmora</m3e-button>
+            {:else}
+              <span class="muted small-text">This code has expired.</span>
+              <m3e-button variant="filled" onclick={restart}><m3e-icon slot="icon" name="refresh"></m3e-icon>Sign in again</m3e-button>
+            {/if}
+          </div>
         </div>
       {/if}
     {:else if view === "done"}
       <section class="view center" in:step>
-        <span class="badge ok" aria-hidden="true"><m3e-shape name="12-sided-cookie"></m3e-shape><m3e-icon name="check" filled></m3e-icon></span>
+        {@render success()}
         <h1 class="title small">All set</h1>
         <p class="muted">You're signed in to Velmora. You can close this tab.</p>
+        <div class="row center-row">
+          <m3e-button variant="tonal" href="https://social.getvelmora.dpdns.org/"><m3e-icon slot="icon" name="groups"></m3e-icon>Open Velmora Social</m3e-button>
+        </div>
       </section>
     {:else}
       <section class="view center" in:step>
         <span class="badge bad" aria-hidden="true"><m3e-shape name="4-sided-cookie"></m3e-shape><m3e-icon name="priority_high"></m3e-icon></span>
         <h1 class="title small">That didn't work</h1>
         <p class="muted">{message || "Something went wrong."}</p>
-        <m3e-button variant="filled" onclick={restart}>Try again</m3e-button>
+        <div class="row center-row">
+          <m3e-button variant="filled" onclick={restart}><m3e-icon slot="icon" name="refresh"></m3e-icon>Try again</m3e-button>
+        </div>
       </section>
     {/if}
+
+    {#snippet success()}
+      <span class="badge ok" aria-hidden="true">
+        <m3e-shape name="12-sided-cookie" class="spin-shape"></m3e-shape>
+        <svg viewBox="0 0 24 24" class="tick"><path d="M5.5 12.5l4.2 4.2L18.5 8" pathLength="1" /></svg>
+      </span>
+    {/snippet}
     <div class="check" class:show={needsCheck} aria-hidden={!needsCheck}>
       <div class="check-in">
         <span class="check-label"><m3e-icon name="shield"></m3e-icon>One quick check before we email you</span>
@@ -846,6 +1000,9 @@
     align-items: flex-start;
     gap: clamp(18px, 3.4vh, 36px);
     justify-self: end;
+    align-self: start;
+    position: sticky;
+    top: max(24px, calc(50vh - 300px));
     width: min(460px, 100%);
     animation: art-in 900ms cubic-bezier(0.05, 0.7, 0.1, 1) both;
   }
@@ -929,7 +1086,7 @@
     color: color-mix(in srgb, #eef1fb 78%, transparent);
     --m3e-icon-size: 20px;
   }
-  .pitch li m3e-icon {
+  .pi {
     flex: none;
     display: grid;
     place-items: center;
@@ -938,6 +1095,10 @@
     border-radius: 12px;
     background: rgb(50 113 254 / 18%);
     color: #9db8ff;
+  }
+  .pi m3e-icon {
+    display: block;
+    line-height: 0;
   }
 
   .card {
@@ -1117,6 +1278,311 @@
     --m3e-button-medium-label-text-font-weight: 600;
   }
 
+  /* ── Code step ── */
+  .back {
+    align-self: flex-start;
+    margin: -6px 0 2px -8px;
+  }
+  .addr {
+    color: var(--md-sys-color-on-surface);
+    overflow-wrap: anywhere;
+  }
+  .digits {
+    display: grid;
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+    gap: 10px;
+  }
+  .digit {
+    width: 100%;
+    min-width: 0;
+    height: 64px;
+    border: 1px solid rgb(255 255 255 / 14%);
+    border-radius: 18px;
+    background: rgb(255 255 255 / 4%);
+    color: var(--md-sys-color-on-surface);
+    font: inherit;
+    font-size: 28px;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    caret-color: var(--md-sys-color-primary);
+    outline: none;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      box-shadow 200ms ease,
+      transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1.4);
+  }
+  .digit:focus {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 4px rgb(50 113 254 / 22%);
+    transform: translateY(-2px);
+  }
+  .digit.filled {
+    background: rgb(50 113 254 / 12%);
+    border-color: rgb(50 113 254 / 45%);
+  }
+  .digits.busy .digit {
+    animation: pulse 1s ease-in-out infinite alternate;
+  }
+  .digits.shake {
+    animation: shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  }
+  @keyframes shake {
+    20%,
+    60% {
+      transform: translateX(-8px);
+    }
+    40%,
+    80% {
+      transform: translateX(8px);
+    }
+  }
+  @keyframes pulse {
+    to {
+      opacity: 0.55;
+    }
+  }
+  .resend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 40px;
+  }
+  .small-text {
+    font-size: 13px;
+  }
+  .ring {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #b9ccff;
+  }
+  .ring svg {
+    position: absolute;
+    inset: 0;
+    transform: rotate(-90deg);
+  }
+  .ring circle {
+    fill: none;
+    stroke-width: 3;
+  }
+  .ring .track {
+    stroke: rgb(255 255 255 / 10%);
+  }
+  .ring .left {
+    stroke: var(--md-sys-color-primary);
+    stroke-linecap: round;
+    stroke-dasharray: 94.25;
+    transition: stroke-dashoffset 1s linear;
+  }
+  .spin.light {
+    --m3e-loading-indicator-color: currentColor;
+  }
+
+  /* ── Setup step: a live preview of the profile ── */
+  .preview {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    background: rgb(255 255 255 / 4%);
+    border: 1px solid rgb(255 255 255 / 8%);
+    transition: border-color 400ms ease;
+  }
+  .pv-cover {
+    display: block;
+    height: 64px;
+    background:
+      radial-gradient(70% 160% at 15% 0%, color-mix(in srgb, var(--tint) 70%, transparent), transparent 70%),
+      linear-gradient(120deg, color-mix(in srgb, var(--tint) 35%, #0a0d16), #10162a);
+    transition: background 500ms ease;
+  }
+  .pv-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    padding: 0 16px 14px;
+    margin-top: -34px;
+  }
+  .pv-pic {
+    display: inline-grid;
+    border-radius: 50%;
+    padding: 4px;
+    background: #121a30;
+  }
+  .pv-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 4px;
+  }
+  .pv-text strong {
+    font-size: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pv-text span {
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Finish screens ── */
+  .badge {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 84px;
+    height: 84px;
+    --m3e-shape-size: 84px;
+    --m3e-icon-size: 36px;
+    animation: pop 620ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .badge > * {
+    grid-area: 1 / 1;
+  }
+  .badge.ok {
+    --m3e-shape-container-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    filter: drop-shadow(0 12px 28px rgb(50 113 254 / 45%));
+  }
+  .badge.bad {
+    --m3e-shape-container-color: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+  }
+  .spin-shape {
+    animation: turn 18s linear infinite;
+  }
+  .tick,
+  .badge m3e-icon {
+    position: relative;
+    z-index: 1;
+  }
+  .tick {
+    width: 40px;
+    height: 40px;
+  }
+  .tick path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 520ms cubic-bezier(0.65, 0, 0.35, 1) 320ms forwards;
+  }
+  @keyframes pop {
+    from {
+      transform: scale(0.4) rotate(-30deg);
+      opacity: 0;
+    }
+  }
+  @keyframes turn {
+    to {
+      rotate: 1turn;
+    }
+  }
+  @keyframes draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  .progress {
+    position: relative;
+    width: 140px;
+    height: 4px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgb(255 255 255 / 10%);
+  }
+  .progress span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 40%;
+    border-radius: 4px;
+    background: var(--md-sys-color-primary);
+    animation: slide 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+  @keyframes slide {
+    from {
+      transform: translateX(-110%);
+    }
+    to {
+      transform: translateX(260%);
+    }
+  }
+  .manual {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 24px;
+    background: rgb(255 255 255 / 4%);
+    border: 1px solid rgb(255 255 255 / 8%);
+  }
+  .manual-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 14px;
+  }
+  .short-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    transition: opacity 300ms ease;
+  }
+  .short-row.expired {
+    opacity: 0.4;
+  }
+  .chars {
+    display: flex;
+    gap: 5px;
+  }
+  .ch {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 42px;
+    border-radius: 10px;
+    background: rgb(50 113 254 / 14%);
+    border: 1px solid rgb(50 113 254 / 30%);
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 20px;
+    font-weight: 700;
+    animation: rise-ch 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: calc(320ms + var(--i) * 40ms);
+  }
+  .ch.gap {
+    margin-left: 8px;
+  }
+  @keyframes rise-ch {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  .manual-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .center-row {
+    justify-content: center;
+  }
+
   /* The Turnstile box unfolds only when Cloudflare needs a click. */
   .check {
     display: grid;
@@ -1196,15 +1662,8 @@
     flex-wrap: wrap;
     align-items: center;
   }
-  .spread {
-    justify-content: space-between;
-  }
   .field {
     width: 100%;
-  }
-  .grow {
-    flex: 1;
-    min-width: 0;
   }
   .notice {
     display: flex;
@@ -1217,11 +1676,6 @@
     color: var(--md-sys-color-on-error-container);
     --m3e-icon-size: 20px;
   }
-  .code {
-    font-size: 24px;
-    letter-spacing: 0.3em;
-    font-variant-numeric: tabular-nums;
-  }
   .at {
     padding-left: 4px;
     color: var(--md-sys-color-on-surface-variant);
@@ -1231,14 +1685,6 @@
     padding-right: 8px;
     --status-busy: var(--md-sys-color-primary);
     --status-no: var(--md-sys-color-error);
-  }
-  .me {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-  }
-  .me-pic {
-    display: inline-grid;
   }
   .faces {
     border: 0;
@@ -1254,7 +1700,7 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
     gap: 10px;
     justify-items: center;
   }
@@ -1287,40 +1733,6 @@
     text-align: center;
     padding: 8px 0;
   }
-  .badge {
-    display: inline-grid;
-    place-items: center;
-    --m3e-shape-size: 72px;
-    --m3e-icon-size: 34px;
-  }
-  .badge > * {
-    grid-area: 1 / 1;
-  }
-  .badge.ok {
-    --m3e-shape-container-color: var(--md-sys-color-primary);
-    color: var(--md-sys-color-on-primary);
-  }
-  .badge.bad {
-    --m3e-shape-container-color: var(--md-sys-color-error-container);
-    color: var(--md-sys-color-on-error-container);
-  }
-  .manual {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding-top: 14px;
-    border-top: 1px solid var(--md-sys-color-outline-variant);
-  }
-  .short {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 8px;
-    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    background: var(--md-sys-color-surface-container-highest);
-    color: var(--md-sys-color-on-surface);
-  }
   .ts:empty {
     display: none;
   }
@@ -1350,6 +1762,8 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
+    .digit,
+    .digits,
     .face,
     .frame,
     .viewport,
@@ -1358,6 +1772,10 @@
       transition: none;
     }
     .aurora span,
+    .badge,
+    .spin-shape,
+    .ch,
+    .progress span,
     .frame,
     .sheen,
     .art,
