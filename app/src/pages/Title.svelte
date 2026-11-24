@@ -4,6 +4,9 @@
   import { fade } from "svelte/transition";
   import Poster from "../components/Poster.svelte";
   import RateButton from "../components/RateButton.svelte";
+  import { theatre } from "../lib/theatre.svelte";
+  import { titleKey } from "../lib/analytics.svelte";
+  import { clock, dayLabel } from "../components/theatre/time";
   import WhereToWatch from "../components/WhereToWatch.svelte";
   import { finder, lookupTitle, type Finding } from "../lib/finder.svelte";
   import type { Source } from "../lib/types";
@@ -16,6 +19,9 @@
   import { formatLeft, keyOf, kindLabel, library, nav, nextEpisode, settings, targetLabel } from "../lib/state.svelte";
 
   let { title }: { title: TitleSummary } = $props();
+
+  // Showing in Theatre soon: a link on the page.
+  const screening = $derived(title.kind === "movie" ? theatre.forTitle(titleKey(title)) : null);
 
   let detail = $state<TitleDetail | null>(null);
   let error = $state<string | null>(null);
@@ -263,6 +269,12 @@
           My List
         </m3e-button>
         <RateButton {title} />
+        {#if screening}
+          <m3e-button variant="tonal" size="medium" class="in-theatre" onclick={() => nav.go({ name: "theatre" })}>
+            <m3e-icon slot="icon" name="theaters"></m3e-icon>
+            {theatre.phase(screening) === "live" ? "Live in Theatre now" : `In Theatre ${dayLabel(screening.starts_at, theatre.now).toLowerCase()}, ${clock(screening.starts_at)}`}
+          </m3e-button>
+        {/if}
         {#if trailerSrc}
           <m3e-button variant="tonal" size="medium" onclick={openTrailer}>
             <m3e-icon slot="icon" name="smart_display"></m3e-icon>

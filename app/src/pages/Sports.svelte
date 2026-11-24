@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import MatchCard from "../components/MatchCard.svelte";
   import AdSlot from "../components/AdSlot.svelte";
+  import LiveSwitch from "../components/LiveSwitch.svelte";
   import { sports } from "../lib/live.svelte";
   import { groupByLeague } from "../lib/sports";
 
@@ -35,9 +36,12 @@
       <m3e-heading variant="headline" size="large" level={1}>Sports</m3e-heading>
       <p class="sub">Live scores, fixtures and results. Free sources run a few minutes behind.</p>
     </div>
-    <m3e-icon-button aria-label="Refresh" disabled={sports.loading} onclick={() => sports.load(true)}>
-      <m3e-icon name="refresh"></m3e-icon>
-    </m3e-icon-button>
+    <div class="head-actions">
+      <LiveSwitch current="sports" />
+      <m3e-icon-button aria-label="Refresh" disabled={sports.loading} onclick={() => sports.load(true)}>
+        <m3e-icon name="refresh"></m3e-icon>
+      </m3e-icon-button>
+    </div>
   </header>
 
   <m3e-tabs class="tabs">
@@ -98,6 +102,12 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+    flex-wrap: wrap;
+  }
+  .head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .sub {
     margin: 4px 0 0;

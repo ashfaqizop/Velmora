@@ -5,6 +5,7 @@
   import { analytics } from "../lib/analytics.svelte";
   import { account } from "../lib/account.svelte";
   import { activity } from "../lib/activity.svelte";
+  import { theatre } from "../lib/theatre.svelte";
 
   let sharingBusy = $state(false);
 
@@ -60,6 +61,20 @@
       </span>
     </div>
     <m3e-switch checked={analytics.enabled} aria-label="Share anonymous usage statistics" onchange={(e: Event) => toggle(checked(e))}></m3e-switch>
+  </label>
+
+  <m3e-divider></m3e-divider>
+
+  <label class="row" data-setting="theatre-probe">
+    <div class="text">
+      <strong>Help check Theatre screenings</strong>
+      <span>
+        Before a screening goes on the lineup, Velmora asks a few PCs whether they can find sources for it, so nobody books a movie
+        that won't play. While Velmora is open and you aren't watching, it quietly searches for a few titles and reports found or
+        not found, with no ID and no account. Nothing is downloaded.
+      </span>
+    </div>
+    <m3e-switch checked={theatre.probing} aria-label="Help check Theatre screenings" onchange={(e: Event) => theatre.setProbing(checked(e))}></m3e-switch>
   </label>
 
   <m3e-divider></m3e-divider>

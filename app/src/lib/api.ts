@@ -234,6 +234,8 @@ export const tmdbTitles = (ids: string[]) => invoke<TitleSummary[]>("tmdb_titles
 // ── Anonymous usage statistics (src-tauri/src/analytics.rs) ──
 /** Send one finished day of counts. True once it is dealt with and can be forgotten. */
 export const analyticsReport = (batch: unknown) => invoke<boolean>("analytics_report", { batch });
+export const theatreProbes = () => invoke<{ titles: { k: string; name: string; year: number | null }[] }>("theatre_probes");
+export const theatreProbe = (k: string, found: boolean) => invoke<boolean>("theatre_probe", { k, found });
 export const analyticsTrending = () => invoke<{ people: number; titles: { k: string; people: number }[] }>("analytics_trending");
 export const anilistFind = (filters: Record<string, unknown>) => invoke<TitleSummary[]>("anilist_find", { filters });
 export const anilistRaw = (query: string, variables: Record<string, unknown> = {}) =>

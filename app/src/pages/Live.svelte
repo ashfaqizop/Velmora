@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LiveSwitch from "../components/LiveSwitch.svelte";
   import { onMount } from "svelte";
   import ChannelCard from "../components/ChannelCard.svelte";
   import AdSlot from "../components/AdSlot.svelte";
@@ -76,6 +77,7 @@
       <m3e-heading variant="headline" size="large" level={1}>Live TV</m3e-heading>
       <p class="sub">Channels from a public playlist. Velmora hosts none of them, and some may not play.</p>
     </div>
+    <LiveSwitch current="live" />
   </header>
 
   <div class="controls">
@@ -163,6 +165,13 @@
 </div>
 
 <style>
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
   .page {
     display: flex;
     flex-direction: column;

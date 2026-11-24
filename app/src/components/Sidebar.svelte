@@ -9,14 +9,16 @@
   import { musicUi } from "../lib/music/ui.svelte";
   import { reducedMotion } from "../lib/motion.svelte";
   import { indicator } from "../lib/indicator";
+  import { theatre } from "../lib/theatre.svelte";
 
   const main: { label: string; icon: string; route: Route }[] = [
     { label: "Home", icon: "home", route: { name: "home" } },
     { label: "Movies", icon: "movie", route: { name: "browse", kind: "movie" } },
     { label: "Series", icon: "tv", route: { name: "browse", kind: "series" } },
     { label: "Anime", icon: "animation", route: { name: "browse", kind: "anime" } },
-    { label: "Live TV", icon: "live_tv", route: { name: "live" } },
-    { label: "Sports", icon: "sports_soccer", route: { name: "sports" } },
+    // Live TV and Sports, one item; the page has a switch between them.
+    { label: "Live", icon: "live_tv", route: { name: "live" } },
+    { label: "Theatre", icon: "theaters", route: { name: "theatre" } },
     { label: "My List", icon: "bookmarks", route: { name: "mylist" } },
     { label: "Downloads", icon: "download", route: { name: "downloads" } },
     { label: "Settings", icon: "settings", route: { name: "settings" } },
@@ -60,11 +62,20 @@
 
   function isActive(r: Route) {
     const cur = nav.route;
-    // A match belongs under Sports.
-    if (r.name === "sports" && cur.name === "match") return true;
+    // Live covers TV channels, sports and a match.
+    if (r.name === "live" && (cur.name === "sports" || cur.name === "match")) return true;
     if (cur.name !== r.name) return false;
     if (cur.name === "browse" && r.name === "browse") return cur.kind === r.kind;
     return true;
+  }
+
+  /** Live opens where you were last: TV channels or Sports. */
+  function lastLive(): Route {
+    try {
+      return localStorage.getItem("velmora.live.last") === "sports" ? { name: "sports" } : { name: "live" };
+    } catch {
+      return { name: "live" };
+    }
   }
 
   // The sidebar ad needs a taller card, so it only runs on tall windows.
@@ -80,7 +91,7 @@
           {#each items as item, i (item.label)}
             <m3e-nav-menu-item
               selected={isActive(item.route)}
-              onclick={() => nav.go(item.route)}
+              onclick={() => nav.go(item.route.name === "live" ? lastLive() : item.route)}
               in:fly={enter(i, -36)}
               out:fly={leave(i, -36)}
             >
@@ -89,6 +100,8 @@
               <span slot="label">{item.label}</span>
               {#if item.route.name === "mylist" && library.watchlist.length}
                 <span slot="badge">{library.watchlist.length}</span>
+              {:else if item.route.name === "theatre" && theatre.live}
+                <span slot="badge" class="live-badge">LIVE</span>
               {:else if item.route.name === "downloads" && downloads.active}
                 <span slot="badge">{downloads.active}</span>
               {/if}
@@ -156,6 +169,26 @@
 <svelte:window bind:innerHeight={windowHeight} />
 
 <style>
+  .live-badge {
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    background: var(--md-sys-color-error);
+    color: var(--md-sys-color-on-error);
+    animation: live-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes live-pulse {
+    50% {
+      opacity: 0.55;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .live-badge {
+      animation: none;
+    }
+  }
   .sidebar {
     height: 100%;
     display: flex;

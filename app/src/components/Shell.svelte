@@ -29,6 +29,7 @@
   import { spring, travel } from "../lib/motion.svelte";
   import { onMount } from "svelte";
   import { M3eSnackbar } from "@m3e/web/snackbar";
+  import Theatre from "../pages/Theatre.svelte";
   import { ani, feed, library, nav, network } from "../lib/state.svelte";
 
   let { revealed = false }: { revealed?: boolean } = $props();
@@ -158,6 +159,8 @@
           <Live />
         {:else if nav.route.name === "sports"}
           <Sports />
+        {:else if nav.route.name === "theatre"}
+          <Theatre tab={nav.route.tab} />
         {:else if nav.route.name === "match"}
           <Match match={nav.route.match} />
         {:else if nav.route.name === "list"}

@@ -9,6 +9,8 @@
   import { sports } from "../lib/live.svelte";
   import { feed, keyOf, library, nav } from "../lib/state.svelte";
   import { trending } from "../lib/trending.svelte";
+  import { theatre } from "../lib/theatre.svelte";
+  import TheatreCard from "../components/theatre/TheatreCard.svelte";
 
   // Scores: load when Home opens, then refresh once a minute while it's open.
   onMount(() => {
@@ -58,6 +60,14 @@
   {/if}
 
   <SportsRail />
+
+  {#if theatre.current.length}
+    <Rail title="Tonight in Theatre" icon="theaters" onseeall={() => nav.go({ name: "theatre" })}>
+      {#each theatre.current.slice(0, 8) as s (s.id)}
+        <TheatreCard {s} />
+      {/each}
+    </Rail>
+  {/if}
 
   {#if trending.items.length >= 4}
     <Rail title="Popular on Velmora" icon="groups">

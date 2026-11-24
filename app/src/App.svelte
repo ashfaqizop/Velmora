@@ -26,6 +26,7 @@
   import SongMenu from "./components/music/SongMenu.svelte";
   import AddToPlaylist from "./components/music/AddToPlaylist.svelte";
   import { activity } from "./lib/activity.svelte";
+  import { theatre } from "./lib/theatre.svelte";
 
   let splash = $state(true);
   let onboarding = $state(false);
@@ -44,6 +45,7 @@
   sync.start();
   analytics.start();
   activity.start();
+  theatre.start();
   library.onAdd = (t) => activity.listed(t);
   account.init().catch((e) => console.warn("account", e));
   // YouTube Music sign-in state (only the Music pages need it).

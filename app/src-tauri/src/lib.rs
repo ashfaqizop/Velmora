@@ -4,6 +4,7 @@
 mod account;
 mod ads;
 mod analytics;
+mod theatre;
 mod ani;
 mod commands;
 mod license;
@@ -85,7 +86,8 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init());
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init());
     #[cfg(desktop)]
     {
         builder = builder
@@ -229,6 +231,8 @@ pub fn run() {
             ani::tmdb_titles,
             analytics::analytics_report,
             analytics::analytics_trending,
+            theatre::theatre_probes,
+            theatre::theatre_probe,
             ani::anilist_find,
             ani::anilist_raw,
             license::license_status,

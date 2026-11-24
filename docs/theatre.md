@@ -186,3 +186,19 @@ everyone else), front of waitlists. Nothing else differs.
    `curl -H "Authorization: Bearer <LICENSE_ADMIN_TOKEN>" https://getvelmora.dpdns.org/api/theatre/cron`
 
 **Next: phase 2** (the app's Theatre section, booking, reminders, probing).
+
+**Phase 2 (the app's Theatre section): done.**
+- Sidebar: Live TV and Sports merged into one **Live** item (a TV channels /
+  Sports switch on both pages, remembers the last one); **Theatre** takes the
+  freed slot, with a LIVE pulse while a booked screening's lobby or show is on.
+- `app/src/lib/theatre.svelte.ts`: lineup, your tickets, people you follow
+  going, server clock sync (`theatre_now`), book / cancel with readable
+  errors, reminders (lobby opens, 5 minutes before, waitlist seat freed) as
+  Windows notifications (tauri-plugin-notification) plus snackbars, and the
+  anonymous source checks (`theatre_probes` / `theatre_probe` Rust commands,
+  Settings > Privacy switch).
+- `pages/Theatre.svelte` (Lineup / My tickets, featured live-or-next
+  screening, days grouped in local time), `components/theatre/ScreeningCard`,
+  `TheatreCard` (Home "Tonight in Theatre" row), title pages show "In
+  Theatre today, 9:30 PM".
+- Enter / Join currently shows a note; the lobby and live player are phase 3.
