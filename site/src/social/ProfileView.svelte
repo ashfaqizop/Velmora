@@ -279,28 +279,29 @@
     height: clamp(120px, 20vw, 180px);
     margin: 0 calc(-1 * clamp(20px, 4vw, 36px));
     overflow: hidden;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--tint) 45%, #0a0d16), color-mix(in srgb, var(--tint) 12%, var(--md-sys-color-surface-container-high)));
+    background:
+      linear-gradient(180deg, transparent 55%, color-mix(in srgb, var(--md-sys-color-surface-container) 70%, transparent)),
+      linear-gradient(135deg, color-mix(in srgb, var(--tint) 40%, #0a0d16), color-mix(in srgb, var(--tint) 14%, #0a0d16));
   }
   .orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(28px);
-    opacity: 0.75;
+    pointer-events: none;
     animation: drift 14s ease-in-out infinite alternate;
   }
   .orb.a {
-    width: 60%;
-    aspect-ratio: 1;
-    left: -10%;
-    top: -80%;
-    background: color-mix(in srgb, var(--tint) 70%, transparent);
+    width: 70%;
+    height: 220%;
+    left: -15%;
+    top: -90%;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--tint) 75%, transparent), transparent);
   }
   .orb.b {
-    width: 45%;
-    aspect-ratio: 1;
-    right: -8%;
-    top: -40%;
-    background: color-mix(in srgb, #f8e8c8 22%, transparent);
+    width: 55%;
+    height: 180%;
+    right: -10%;
+    top: -60%;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--tint) 35%, #ffffff 12%), transparent);
     animation-duration: 18s;
   }
   @keyframes drift {
@@ -309,6 +310,8 @@
     }
   }
   .head {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
