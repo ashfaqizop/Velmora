@@ -37,7 +37,7 @@
     <p class="line">
       {#if a.user}<a class="who" href={profileHref(a.user.username)}>{a.user.display_name}</a><Badges id={a.user.id} verified={a.user.verified} size={15} />{/if}
       <span class="verb">{a.user ? verb : verb.charAt(0).toUpperCase() + verb.slice(1)}</span>
-      <a class="title" href={titleHref(a.k)}>{meta?.name ?? "a title"}</a>{#if ep && a.kind !== "listed"}<span class="ep">{a.kind === "finished" && a.plays > 1 ? `, up to ${ep}` : ` · ${ep}`}</span>{/if}
+      <a class="ttl" href={titleHref(a.k)}>{meta?.name ?? "a title"}</a>{#if ep && a.kind !== "listed"}<span class="ep">{a.kind === "finished" && a.plays > 1 ? `, up to ${ep}` : ` · ${ep}`}</span>{/if}
     </p>
     {#if a.kind === "rated" && a.score}
       <div class="rated"><Stars value={a.score} size={16} /><span>{(a.score / 2).toFixed(1)}</span></div>
@@ -107,13 +107,14 @@
     vertical-align: middle;
   }
   .who,
-  .title {
+  .ttl {
     color: inherit;
+    font: inherit;
     font-weight: 700;
     text-decoration: none;
   }
   .who:hover,
-  .title:hover {
+  .ttl:hover {
     text-decoration: underline;
   }
   .verb,
@@ -121,7 +122,10 @@
     color: var(--md-sys-color-on-surface-variant);
   }
   .verb {
-    margin: 0 4px;
+    margin-right: 4px;
+  }
+  .who ~ .verb {
+    margin-left: 4px;
   }
   .rated {
     display: flex;

@@ -3,7 +3,7 @@
 import "@fontsource-variable/plus-jakarta-sans/wght.css";
 import "@fontsource/instrument-serif/400.css";
 import "./lib/m3e";
-import "./app.css";
+import "./base.css";
 
 import { mount } from "svelte";
 import AuthApp from "./auth/AuthApp.svelte";

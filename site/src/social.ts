@@ -9,7 +9,7 @@ import "@m3e/web/dialog";
 import "@m3e/web/search";
 import "@m3e/web/skeleton";
 import "@m3e/web/switch";
-import "./app.css";
+import "./base.css";
 
 import { mount } from "svelte";
 import SocialApp from "./social/SocialApp.svelte";
