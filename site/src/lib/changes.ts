@@ -39,19 +39,19 @@ export const KIND_ICON: Record<ChangeKind, string> = { new: "add_circle", improv
 export const RELEASES: ReleaseNote[] = [
   {
     version: "0.6.0",
-    date: "2026-12-01",
-    name: "One account, every PC",
-    summary: "Velmora now runs on a free account: sign in with Google, Discord or email on the website, pick a username, and your list, progress and settings follow you to every PC. Max follows you too. And a Popular on Velmora row built from anonymous play counts you can switch off.",
+    date: "2026-11-24",
+    name: "One account, every PC, and Velmora Social",
+    summary: "Velmora now runs on a free account: sign in with Google, Discord or email on the website, pick a username, and your list, progress and settings follow you to every PC. Max follows you too. Your account comes with a page on Velmora Social, where you follow people, rate and review what you watch, make lists, and see what everyone is playing.",
     color: "#7c3aed",
     shape: "soft-burst",
-    soon: true,
     highlights: [
       { icon: "badge", title: "One free account", text: "Sign in on the website with Google, Discord or an emailed code, choose a username and one of nine animals, and Velmora picks it up. Only the first sign-in needs the internet." },
       { icon: "sync", title: "Your stuff on every PC", text: "My List, watch progress and settings sync in the background. It's instant and works offline; the newest change wins." },
       { icon: "workspace_premium", title: "Max follows you", text: "Link your Max key to your account and signing in on a new PC brings it along." },
       { icon: "groups", title: "Popular on Velmora", text: "A Home row of what people are watching this week, from anonymous counts." },
       { icon: "shield", title: "Privacy page", text: "One switch for anonymous stats, and a button that shows exactly what would be sent." },
-      { icon: "person_heart", title: "Velmora Social", text: "Your own page at social.getvelmora.dpdns.org/@you: bio, links, six favourite titles, followers and who dropped by." },
+      { icon: "person_heart", title: "Velmora Social", text: "Your own page at social.getvelmora.dpdns.org/@you: bio, links, favourites, lists, reviews, stats, followers and who dropped by." },
+      { icon: "star", title: "Rate and review", text: "Rate any title out of five stars, with a short review, from its page in the app or on the web." },
     ],
     changes: [
       { kind: "new", title: "Sign in or sign up", text: "Google, Discord or an emailed code, done in your browser. X and GitHub can follow." },
@@ -66,6 +66,11 @@ export const RELEASES: ReleaseNote[] = [
       { kind: "new", title: "Follow people", text: "Follow anyone, see your followers and who you follow, and find people by name or username." },
       { kind: "new", title: "Who visited", text: "Everyone sees how many visits a profile had this month. Only you see who they were." },
       { kind: "new", title: "Open in Velmora", text: "velmora:// links from the website open a title, a song or a profile straight in the app." },
+      { kind: "new", title: "Your feed", text: "What the people you follow start, finish, add and rate, with their reviews. Sharing is on by default, never includes 18+ titles, and switches off in Settings > Privacy." },
+      { kind: "new", title: "Ratings and reviews", text: "Half-star ratings and reviews up to 500 characters, with a spoiler cover. Each title gets a Velmora score." },
+      { kind: "new", title: "Lists", text: "Make public or private lists of up to 100 titles and share the link." },
+      { kind: "new", title: "Stats", text: "Hours watched, movies, shows, episodes and your top genres on your profile." },
+      { kind: "new", title: "Trending and leaderboards", text: "The most played movies, shows, anime and songs this week, the best rated titles, and boards for hours watched, reviews and followers." },
     ],
   },
   {

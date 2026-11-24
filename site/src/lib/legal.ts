@@ -1,6 +1,6 @@
 // The privacy policy and terms, in plain language. Update `UPDATED` with any change.
 
-export const UPDATED = "2026-11-23";
+export const UPDATED = "2026-11-24";
 
 export interface LegalSection {
   heading: string;
@@ -28,10 +28,19 @@ export const PRIVACY: LegalDoc = {
       heading: "Your Velmora account",
       paragraphs: [
         "From version 0.6.0 Velmora needs a free account; only the first sign-in needs the internet. You sign up on our sign-in page (auth.getvelmora.dpdns.org) with Google, Discord or an emailed code, and the page hands the result back to the app. The sign-in page loads no ads and no third-party scripts.",
-        "We store your email address, your username, your display name, your profile picture, and the bio and links you add. With Google or Discord we receive the name, email address and photo you have there, and your picture can be that photo. Your username, display name and picture are visible to other signed-in Velmora users; your email address is not. Accounts are kept with Supabase, our database and sign-in provider, and codes sent by email go through Mailtrap.",
+        "We store your email address, your username, your display name, your profile picture, and the bio and links you add. With Google or Discord we receive the name, email address and photo you have there, and your picture can be that photo. Your profile (username, display name, picture, bio, links and favourites) is public on Velmora Social; your email address never is. Accounts are kept with Supabase, our database and sign-in provider, and codes sent by email go through Mailtrap.",
         "The app keeps a sign-in token in Windows Credential Manager so you stay signed in, and a copy of your profile so it still shows when you are offline. Signing out removes both from your PC.",
         "If you link a Velmora Max key to your account, our license server stores that key's ID with your account ID, so Max can follow you to a new PC. Unlinking it, or deleting your account, removes that link; the key itself stays yours.",
         "In Settings, under Velmora account, you can copy everything we hold about you, or delete your account. Deleting removes your profile and sign-in from our database for good.",
+      ],
+    },
+    {
+      heading: "Velmora Social",
+      paragraphs: [
+        "Every account has a public profile at social.getvelmora.dpdns.org. Who you follow and who follows you are public. So are the ratings, reviews and public lists you post; private lists are visible only to you.",
+        "Sharing what you watch is on by default. While it's on, the app posts the titles you start, finish and add to My List, by their public TMDB number, with the season and episode and the minutes watched. Those posts appear on your profile, in your followers' feeds and in your stats. 18+ titles are never posted. Turn sharing off in Settings, under Privacy, or in Edit profile on the web: your past posts are hidden at once and nothing new is posted. You can also clear them all.",
+        "When someone opens your profile, the visit is counted. Everyone sees the number of visits in the last 30 days. If the visitor was signed in, only you can see that they visited; visitors who aren't signed in are just counted. You can report a profile; reports go to the Velmora team alone and the person you report isn't told who sent it.",
+        "Title names, posters and genres on the social site come from TMDB, and song names from YouTube; the site asks for them by the public TMDB or YouTube number and nothing about you. The social site loads no ads and no third-party scripts.",
       ],
     },
     {
