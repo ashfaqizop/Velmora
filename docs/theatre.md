@@ -242,3 +242,26 @@ everyone else), front of waitlists. Nothing else differs.
   the movie overlay / sidebar / hidden, C cycles, Enter focuses the box,
   remembered per PC. The sidebar shrinks the video (mpv
   `video-margin-ratio-right`) and the controls instead of covering them.
+
+**Phase 5 (after the show, Social, booking from the web): done.**
+- SQL (end of `supabase/theatre.sql`, re-run the file): activity kinds
+  `booked` / `attended`; `theatre_book` posts "booked", `theatre_tick` posts
+  "attended" when a screening settles (both only while sharing, one per day
+  per title, `theatre_post`).
+- Velmora Social: **Theatre** page (`/theatre`, in the top nav;
+  `TheatreView`, `TheatreCard`, `theatre.svelte.ts`) with the lineup in local
+  time, seats / open, people you follow going, Book / Join waitlist / Cancel
+  through the same RPCs (Max early booking and priority waitlist apply), and
+  **Open in Velmora** for lobby/live screenings (`velmora://theatre/<id>` via
+  `/open/`). A countdown banner and tab title for ticket holders when their
+  screening is within 2 hours / in its lobby / live. Profiles get a
+  **Theatre** tab (`TheatreStamps`: "Going to" + a stamp per screening
+  attended). Feed items: "booked a Theatre screening of", "watched in
+  Theatre".
+- App: `velmora://theatre/<id>` opens the screening; the end screen shows a
+  "You were there" stamp, an inline rate-and-review card (`RateCard`), the
+  next screening with Book / Enter, and the chat beside it until it closes.
+
+All five phases are built. Not yet done from the spec: a "Going to …"
+mention on Social title pages, Max's early booking shown as its own label on
+the web (it uses Max's earlier time when the badge is known).

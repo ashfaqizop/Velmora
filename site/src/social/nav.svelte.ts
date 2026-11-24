@@ -8,11 +8,12 @@
 //   /leaderboards         most hours, reviews and followers
 //   /title/movie/603      a title: Velmora ratings and reviews
 //   /list/<id>            a list (/list/new to make one)
+//   /theatre              Theatre: the lineup and booking
 //
 // On the real host those are real addresses (vercel.json rewrites them to the
 // app). The dev server and the error fallback use /social/?at=/@name instead.
 
-export type Tab = "activity" | "reviews" | "lists" | "stats" | "followers" | "following" | "visitors";
+export type Tab = "activity" | "reviews" | "lists" | "stats" | "theatre" | "followers" | "following" | "visitors";
 export type TrendTab = "movies" | "shows" | "music" | "rated";
 
 export type Route =
@@ -24,10 +25,11 @@ export type Route =
   | { name: "leaderboards" }
   | { name: "title"; k: string }
   | { name: "list"; id: string }
+  | { name: "theatre" }
   | { name: "missing" };
 
 const LOCAL = location.hostname === "localhost" || location.hostname === "127.0.0.1";
-const TABS: Tab[] = ["reviews", "lists", "stats", "followers", "following", "visitors"];
+const TABS: Tab[] = ["reviews", "lists", "stats", "theatre", "followers", "following", "visitors"];
 const TRENDS: TrendTab[] = ["shows", "music", "rated"];
 
 function current(): { path: string; query: URLSearchParams } {
@@ -46,6 +48,7 @@ function parse(): Route {
   if (clean === "/search") return { name: "search", q: query.get("q") ?? "" };
   if (clean === "/settings") return { name: "settings" };
   if (clean === "/leaderboards") return { name: "leaderboards" };
+  if (clean === "/theatre") return { name: "theatre" };
   const tr = /^\/trending(?:\/([a-z]+))?$/.exec(clean);
   if (tr) return { name: "trending", tab: TRENDS.includes(tr[1] as TrendTab) ? (tr[1] as TrendTab) : "movies" };
   const ti = /^\/title\/((?:movie|tv)\/\d{1,9})$/.exec(clean);
@@ -95,7 +98,7 @@ export function startNav() {
     if (url.origin !== location.origin) return;
     const inner = url.searchParams.get("at");
     const path = inner ?? `${url.pathname}${url.search}`;
-    if (!/^\/(@|search|settings|trending|leaderboards|title\/|list\/|social\/?$|social\/\?)/.test(path) && path !== "/") return;
+    if (!/^\/(@|search|settings|trending|leaderboards|theatre|title\/|list\/|social\/?$|social\/\?)/.test(path) && path !== "/") return;
     e.preventDefault();
     go(path === "/social/" || path.startsWith("/social/?") ? "/social/" : path);
   });

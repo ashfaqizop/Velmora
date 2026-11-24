@@ -18,6 +18,8 @@
   import Chat from "../components/theatre/Chat.svelte";
   import Reactions from "../components/theatre/Reactions.svelte";
   import Watchers from "../components/theatre/Watchers.svelte";
+  import RateCard from "../components/theatre/RateCard.svelte";
+  import ScreeningCard from "../components/theatre/ScreeningCard.svelte";
   import type { TitleSummary } from "../lib/types";
 
   let { id }: { id: string } = $props();
@@ -80,6 +82,7 @@
   const left = $derived(Math.max(0, start - now));
   const finalCount = $derived(stage === "lobby" && left <= 5_000 ? Math.ceil(left / 1000) : 0);
   const ready = $derived(player.phase === "playing" && player.cachedSecs >= 20);
+  const nextUp = $derived(theatre.current.find((s) => s.id !== id && ["upcoming", "lobby"].includes(theatre.phase(s))) ?? null);
   const others = $derived(theatre.current.filter((s) => s.id !== id && ["upcoming", "lobby"].includes(theatre.phase(s))));
 
   let ticker: ReturnType<typeof setInterval> | undefined;
@@ -280,11 +283,23 @@
     </section>
   {:else if stage === "after" && screening}
     <section class="after" in:fade={{ duration: 600 }}>
-      <div class="gate-card">
-        <span class="gate-icon"><m3e-shape name="12-sided-cookie"></m3e-shape><m3e-icon name="theaters"></m3e-icon></span>
-        <h1>That's the end of {screening.name}</h1>
-        <p>Thanks for watching together. The chat stays open for {span(end + 30 * 60_000 - now)}.</p>
-        <m3e-button variant="filled" onclick={() => nav.replace({ name: "theatre" })}><m3e-icon slot="icon" name="theaters"></m3e-icon>Back to Theatre</m3e-button>
+      <div class="end">
+        <div class="stamp" in:scale={{ start: 0.5, duration: 700, delay: 200, easing: backOut }}>
+          <span class="disc">{#if screening.poster}<img src={screening.poster} alt="" />{/if}</span>
+          <span class="date">{new Date(start).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" })}</span>
+        </div>
+        <h1 class="end-title">You were there</h1>
+        <p class="end-sub">
+          {screening.name}, watched together.{account.profile?.share_activity !== false ? " The stamp goes on your Velmora Social profile." : ""}
+        </p>
+        <div class="end-rate" in:fly={{ y: 12, duration: 400, delay: 500 }}><RateCard k={screening.k} name={screening.name} /></div>
+        {#if nextUp}
+          <div class="end-next" in:fly={{ y: 12, duration: 400, delay: 700 }}>
+            <span class="next-label">Next in Theatre</span>
+            <ScreeningCard s={nextUp} onenter={(s) => nav.replace({ name: "screening", id: s.id })} />
+          </div>
+        {/if}
+        <m3e-button variant="text" onclick={() => nav.replace({ name: "theatre" })}><m3e-icon slot="icon" name="theaters"></m3e-icon>Back to Theatre</m3e-button>
       </div>
       {#if now < end + 30 * 60_000}
         <aside class="after-chat"><Chat bind:this={chat} layout="sidebar" {moviePos} closesIn={end + 30 * 60_000 - now} /></aside>
@@ -564,6 +579,73 @@
   }
   .after {
     grid-template-columns: 1fr auto;
+    overflow-y: auto;
+  }
+  .end {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: min(520px, 100% - 48px);
+    margin: 40px auto;
+    text-align: center;
+  }
+  .stamp {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .disc {
+    width: 132px;
+    height: 132px;
+    border-radius: 50%;
+    overflow: hidden;
+    rotate: -6deg;
+    box-shadow:
+      0 0 0 4px #070a14,
+      0 0 0 8px var(--md-sys-color-primary),
+      0 24px 50px -20px rgb(50 113 254 / 70%);
+    background: rgb(255 255 255 / 8%);
+  }
+  .disc img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .date {
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+  }
+  .end-title {
+    font-size: clamp(40px, 5vw, 60px);
+  }
+  .end-sub {
+    margin: 0;
+    opacity: 0.8;
+    line-height: 1.5;
+  }
+  .end-rate,
+  .end-next {
+    width: 100%;
+  }
+  .end-next {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    text-align: left;
+  }
+  .next-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.7;
   }
   .after-chat {
     width: 380px;

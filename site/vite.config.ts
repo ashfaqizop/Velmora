@@ -15,7 +15,7 @@ const ICONS = [
   "travel_explore", "trending_up", "verified", "video_library", "view_carousel", "visibility", "visibility_off",
   "volume_up", "wand_stars", "workspace_premium",
   "groups", "mail", "error", "check", "open_in_new", "priority_high", "logout", "edit", "public", "person_add", "insights", "login", "account_circle", "shield", "favorite", "explore", "music_note", "tv", "local_fire_department", "emoji_events", "link_off", "star_rate", "more_vert", "arrow_back",
-  "share", "flag", "content_copy", "group", "person_remove", "how_to_reg", "add_link", "playlist_add", "list", "delete", "delete_sweep", "desktop_windows", "send", "refresh",
+  "share", "flag", "content_copy", "group", "person_remove", "how_to_reg", "add_link", "playlist_add", "list", "delete", "delete_sweep", "desktop_windows", "send", "refresh", "theaters", "confirmation_number", "lock_clock", "auto_awesome", "local_activity",
 ];
 
 const icons = (): Plugin => ({

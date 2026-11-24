@@ -22,9 +22,15 @@
           : "finished"
         : a.kind === "listed"
           ? "added to their list"
-          : "rated",
+          : a.kind === "booked"
+            ? "booked a Theatre screening of"
+            : a.kind === "attended"
+              ? "watched in Theatre:"
+              : "rated",
   );
-  const icon = $derived(a.kind === "watching" ? "play_circle" : a.kind === "finished" ? "check_circle" : a.kind === "listed" ? "bookmark" : "star");
+  const icon = $derived(
+    a.kind === "watching" ? "play_circle" : a.kind === "finished" ? "check_circle" : a.kind === "listed" ? "bookmark" : a.kind === "booked" ? "confirmation_number" : a.kind === "attended" ? "theaters" : "star",
+  );
 </script>
 
 <article class="item">

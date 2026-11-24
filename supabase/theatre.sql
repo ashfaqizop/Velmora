@@ -494,3 +494,115 @@ as $$
 $$;
 revoke all on function public.export_my_theatre() from public, anon;
 grant execute on function public.export_my_theatre() to authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- Phase 5: Theatre on Velmora Social. Booking and attending show in followers'
+-- feeds (only while the person shares what they watch).
+-- ════════════════════════════════════════════════════════════════════════════
+
+alter table public.activity drop constraint if exists activity_kind_check;
+alter table public.activity add constraint activity_kind_check
+  check (kind in ('watching', 'finished', 'listed', 'rated', 'booked', 'attended'));
+
+-- One feed line per person and title per day for a Theatre event.
+create or replace function public.theatre_post(uid uuid, what text, title text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.profile_sharing(uid) then return; end if;
+  if exists (select 1 from public.activity a where a.user_id = uid and a.k = title and a.kind = what and a.created_at > now() - interval '1 day') then
+    return;
+  end if;
+  insert into public.activity (user_id, kind, k) values (uid, what, title);
+end;
+$$;
+revoke all on function public.theatre_post(uuid, text, text) from public, anon, authenticated;
+
+-- Booking now also posts "booked".
+create or replace function public.theatre_book(sid uuid)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  s public.theatre_screenings;
+  current text;
+  result text;
+begin
+  if me is null then raise exception 'sign_in' using errcode = 'P0001'; end if;
+  if not public.profile_visible(me) then raise exception 'not_allowed' using errcode = 'P0001'; end if;
+  select * into s from public.theatre_screenings where id = sid for update;
+  if not found or s.status <> 'scheduled' then raise exception 'not_bookable' using errcode = 'P0001'; end if;
+  if now() >= s.ends_at then raise exception 'over' using errcode = 'P0001'; end if;
+  if s.opens_at is not null and now() < public.theatre_opens_for(s, me) then
+    raise exception 'not_open_yet' using errcode = 'P0001';
+  end if;
+
+  select status into current from public.theatre_tickets where screening_id = sid and user_id = me;
+  if current in ('booked', 'waitlist', 'attended') then return 'already'; end if;
+
+  result := case when s.mode = 'fixed' and (s.booked >= s.capacity or s.released) then 'waitlist' else 'booked' end;
+  insert into public.theatre_tickets (screening_id, user_id, status, is_max, created_at)
+  values (sid, me, result, public.is_max(me), now())
+  on conflict (screening_id, user_id) do update set status = excluded.status, is_max = excluded.is_max, created_at = now(), joined_at = null;
+
+  if result = 'booked' then
+    update public.theatre_screenings set booked = booked + 1 where id = sid;
+    perform public.theatre_post(me, 'booked', s.k);
+  else
+    update public.theatre_screenings set waitlisted = waitlisted + 1 where id = sid;
+  end if;
+  return result;
+end;
+$$;
+revoke all on function public.theatre_book(uuid) from public, anon;
+grant execute on function public.theatre_book(uuid) to authenticated;
+
+-- The minute job now also posts "attended" when a screening wraps up.
+create or replace function public.theatre_tick()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  s record;
+  t record;
+  freed integer;
+begin
+  update public.theatre_screenings
+  set mode = 'fixed'
+  where status = 'scheduled' and mode = 'open' and now() < starts_at and booked >= ceil(capacity * 0.8);
+
+  for s in select id from public.theatre_screenings
+           where status = 'scheduled' and mode = 'fixed' and not released and now() >= starts_at + interval '10 minutes' loop
+    update public.theatre_tickets set status = 'released'
+    where screening_id = s.id and status = 'booked' and joined_at is null;
+    get diagnostics freed = row_count;
+    update public.theatre_screenings set booked = greatest(booked - freed, 0), released = true where id = s.id;
+    perform public.theatre_promote(s.id);
+  end loop;
+
+  for s in select id, k from public.theatre_screenings
+           where status = 'scheduled' and not settled and now() > ends_at + interval '30 minutes' loop
+    update public.theatre_tickets set status = case when joined_at is not null then 'attended' else 'noshow' end
+    where screening_id = s.id and status = 'booked';
+    update public.theatre_tickets set status = case when joined_at is not null then 'attended' else status end
+    where screening_id = s.id and status = 'released';
+    update public.theatre_tickets set status = 'cancelled' where screening_id = s.id and status = 'waitlist';
+    for t in select user_id from public.theatre_tickets where screening_id = s.id and status = 'attended' loop
+      perform public.theatre_post(t.user_id, 'attended', s.k);
+    end loop;
+    delete from public.theatre_chat_state where screening_id = s.id;
+    update public.theatre_screenings set settled = true where id = s.id;
+  end loop;
+
+  delete from public.theatre_chat_rate where minute < now() - interval '1 hour';
+end;
+$$;
+revoke all on function public.theatre_tick() from public, anon, authenticated;

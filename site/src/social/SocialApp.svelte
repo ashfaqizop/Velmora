@@ -2,7 +2,7 @@
   // Velmora Social: the shell around every page (top bar, menu, footer) and
   // the switch between pages. See nav.svelte.ts for the addresses.
   import { onMount } from "svelte";
-  import { fade } from "svelte/transition";
+  import { fade, fly } from "svelte/transition";
   import mark from "../assets/velmora-mark.webp";
   import Avatar from "../auth/Avatar.svelte";
   import { MAIN_SITE } from "../auth/config";
@@ -17,6 +17,8 @@
   import LeaderboardView from "./LeaderboardView.svelte";
   import TitleView from "./TitleView.svelte";
   import ListView from "./ListView.svelte";
+  import TheatreView from "./TheatreView.svelte";
+  import { clock as showTime, openInApp, span as showSpan, theatre } from "./theatre.svelte";
 
   const SOCIAL_HOST = "social.getvelmora.dpdns.org";
 
@@ -54,6 +56,20 @@
     go(q ? `/search?q=${encodeURIComponent(q)}` : "/search");
   }
 
+  // Ticket holders see a countdown banner (and the tab title) near showtime.
+  $effect(() => {
+    if (auth.phase === "in") theatre.start();
+  });
+  const soon = $derived(auth.phase === "in" ? theatre.soon : null);
+  let baseTitle = "";
+  $effect(() => {
+    const s = soon;
+    void theatre.now;
+    if (!baseTitle || !document.title.startsWith("● ")) baseTitle = document.title.replace(/^● [^·]+· /, "");
+    if (s && theatre.phase(s) !== "upcoming") document.title = `● ${theatre.phase(s) === "live" ? "Live" : showSpan(Date.parse(s.starts_at) - theatre.now)} · ${baseTitle}`;
+    else if (document.title.startsWith("● ")) document.title = baseTitle;
+  });
+
   const key = $derived(
     nav.route.name === "profile"
       ? `profile:${nav.route.user.toLowerCase()}`
@@ -66,6 +82,7 @@
 
   const LINKS = [
     { path: "/social/", name: "home", label: "Home", icon: "home" },
+    { path: "/theatre", name: "theatre", label: "Theatre", icon: "theaters" },
     { path: "/trending", name: "trending", label: "Trending", icon: "local_fire_department" },
     { path: "/leaderboards", name: "leaderboards", label: "Leaderboards", icon: "leaderboard" },
   ];
@@ -129,6 +146,18 @@
     </div>
   </header>
 
+  {#if soon}
+    {@const st = Date.parse(soon.starts_at)}
+    <a class="banner" href={theatre.phase(soon) === "upcoming" ? href("/theatre") : openInApp(soon.id)} transition:fly={{ y: -10, duration: 260 }}>
+      <span class="b-dot" class:on={theatre.phase(soon) !== "upcoming"}></span>
+      <span class="b-text">
+        <strong>{soon.name}</strong>
+        {#if theatre.phase(soon) === "live"}is live in Theatre now{:else if theatre.phase(soon) === "lobby"}starts in {showSpan(st - theatre.now)} · the lobby is open{:else}starts at {showTime(st)} ({showSpan(st - theatre.now)}){/if}
+      </span>
+      <span class="b-go">{theatre.phase(soon) === "upcoming" ? "See lineup" : "Open in Velmora"}<m3e-icon name="arrow_forward"></m3e-icon></span>
+    </a>
+  {/if}
+
   <main class="wrap">
     {#if auth.phase === "loading"}
       <div class="center" in:fade={{ duration: 200, delay: 150 }}><m3e-loading-indicator></m3e-loading-indicator></div>
@@ -149,6 +178,8 @@
             <LeaderboardView />
           {:else if nav.route.name === "title"}
             <TitleView k={nav.route.k} />
+          {:else if nav.route.name === "theatre"}
+            <TheatreView />
           {:else if nav.route.name === "list"}
             <ListView id={nav.route.id} />
           {:else}
@@ -247,6 +278,49 @@
   .links a.on {
     background: var(--md-sys-color-secondary-container);
     color: var(--md-sys-color-on-secondary-container);
+  }
+  .banner {
+    position: relative;
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px clamp(16px, 4vw, 40px);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--md-sys-color-primary) 28%, #0a0d16), color-mix(in srgb, var(--md-sys-color-tertiary) 18%, #0a0d16));
+    color: var(--md-sys-color-on-surface);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .b-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--md-sys-color-primary);
+    flex: none;
+  }
+  .b-dot.on {
+    background: #ff5449;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.3;
+    }
+  }
+  .b-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .b-text strong {
+    margin-right: 4px;
+  }
+  .b-go {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    white-space: nowrap;
+    --m3e-icon-size: 18px;
   }
   .quick {
     flex: 1;

@@ -46,7 +46,7 @@
       {:else if phase === "after"}<span class="tag lobby">Just ended</span>{/if}
       {#if s.kind === "pick"}<span class="tag pick"><m3e-icon name="auto_awesome" filled></m3e-icon>Tonight's pick</span>{/if}
     </div>
-    <h3>{s.name}{#if s.year}<span class="year"> {s.year}</span>{/if}</h3>
+    <h3>{s.name}{#if s.year}<span class="year">{s.year}</span>{/if}</h3>
     <p class="when"><m3e-icon name="schedule"></m3e-icon>{when}</p>
     <p class="meta">{runtime(s.runtime)} · {seats}</p>
     {#if phase === "live"}<span class="bar" aria-hidden="true"><span style:width="{progress * 100}%"></span></span>{/if}
@@ -185,6 +185,7 @@
     white-space: normal;
   }
   .year {
+    margin-left: 0.35em;
     font-weight: 400;
     color: var(--md-sys-color-on-surface-variant);
   }

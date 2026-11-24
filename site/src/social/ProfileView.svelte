@@ -15,6 +15,7 @@
   import RatingsList from "./RatingsList.svelte";
   import ListsGrid from "./ListsGrid.svelte";
   import StatsPanel from "./StatsPanel.svelte";
+  import TheatreStamps from "./TheatreStamps.svelte";
   import { userActivity } from "./activity.svelte";
   import { ago, count, monthYear, plural } from "./format";
   import { go, href, profileHref, profileUrl, titleHref, type Tab } from "./nav.svelte";
@@ -121,6 +122,7 @@
     { id: "reviews", label: "Reviews", icon: "star" },
     { id: "lists", label: "Lists", icon: "list" },
     { id: "stats", label: "Stats", icon: "insights" },
+    { id: "theatre", label: "Theatre", icon: "theaters" },
     { id: "followers", label: "Followers", icon: "group" },
     { id: "following", label: "Following", icon: "person_heart" },
     ...(isMe ? [{ id: "visitors" as Tab, label: "Visitors", icon: "visibility" }] : []),
@@ -266,6 +268,8 @@
             <ListsGrid userId={p.id} mine={isMe} name={`@${p.username}`} />
           {:else if tab === "stats"}
             <StatsPanel id={p.id} mine={isMe} name={`@${p.username}`} />
+          {:else if tab === "theatre"}
+            <TheatreStamps userId={p.id} mine={isMe} name={`@${p.username}`} />
           {:else if tab === "followers"}
             <PeopleList load={(from) => followersOf(p.id, from)} empty={isMe ? "No followers yet. Share your profile to get some." : `No one follows @${p.username} yet.`} />
           {:else if tab === "following"}

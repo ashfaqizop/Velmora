@@ -252,6 +252,16 @@
         }
       ],
       "destination": "/social/"
+    },
+    {
+      "source": "/theatre",
+      "has": [
+        {
+          "type": "host",
+          "value": "social.getvelmora.dpdns.org"
+        }
+      ],
+      "destination": "/social/"
     }
   ],
   "crons": [

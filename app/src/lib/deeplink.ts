@@ -2,6 +2,7 @@
 //   velmora://title/movie/603   a title page (TMDB movie or tv id)
 //   velmora://music/dQw4w9WgXcQ  play a song (YouTube video id) with its radio
 //   velmora://profile/username   someone's Velmora Social profile (opens the browser)
+//   velmora://theatre/<id>       a Theatre screening (lobby or live)
 // A link that arrives while Velmora is open comes through the single-instance
 // plugin; one that started Velmora is read once at startup.
 import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
@@ -47,6 +48,9 @@ export async function open(raw: string) {
   } else if (what === "music" && /^[A-Za-z0-9_-]{11}$/.test(a ?? "")) {
     nav.go({ name: "music" });
     musicPlayer.playTarget({ videoId: a, playlistId: null, params: null }, "link").catch(() => M3eSnackbar.open("That song couldn't start."));
+  } else if (what === "theatre" && /^[0-9a-f-]{36}$/.test(a ?? "")) {
+    // A screening from Velmora Social: the screening page says whether it's open yet.
+    nav.go({ name: "screening", id: a });
   } else if (what === "profile" && /^[A-Za-z0-9_]{3,20}$/.test(a ?? "")) {
     api.openExternal(`${SOCIAL}/@${a}`).catch(() => {});
   }

@@ -6,7 +6,7 @@ import { loadSongs, loadTitles } from "./meta.svelte";
 
 export interface Activity {
   id: number;
-  kind: "watching" | "finished" | "listed" | "rated";
+  kind: "watching" | "finished" | "listed" | "rated" | "booked" | "attended";
   k: string;
   season: number | null;
   episode: number | null;

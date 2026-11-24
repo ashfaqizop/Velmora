@@ -121,9 +121,11 @@ onboarded on 0.5.0: "From now on, Velmora needs an account"), `returning`.
 
 ## Theatre (next big feature)
 
-Spec and build status: `docs/theatre.md` (read it first). Phase 1 of 5 is
-done (database, daily lineup algorithm, probes, hourly stats). Next is
-phase 2: the app's Theatre section.
+Spec and build status: `docs/theatre.md` (read it first). All 5 phases are
+built (database + daily lineup, app section, lobby + live player, chat and
+reactions, after-show + Velmora Social booking). The user re-runs
+`supabase/theatre.sql` after phase 5. Nothing of Theatre has been released
+yet (last release 0.6.0); end-to-end testing with two accounts is pending.
 
 ## Waiting on the user
 

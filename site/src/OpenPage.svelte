@@ -9,9 +9,9 @@
   import { RELEASES_URL } from "./lib/release";
 
   const to = new URLSearchParams(location.search).get("to") ?? "";
-  const valid = /^(title\/(movie|tv)\/\d{1,9}|music\/[A-Za-z0-9_-]{11}|profile\/[A-Za-z0-9_]{3,20})$/.test(to);
+  const valid = /^(title\/(movie|tv)\/\d{1,9}|music\/[A-Za-z0-9_-]{11}|profile\/[A-Za-z0-9_]{3,20}|theatre\/[0-9a-f-]{36})$/.test(to);
   const link = `velmora://${to}`;
-  const what = to.startsWith("music/") ? "this song" : to.startsWith("profile/") ? "this profile" : "this title";
+  const what = to.startsWith("music/") ? "this song" : to.startsWith("profile/") ? "this profile" : to.startsWith("theatre/") ? "this Theatre screening" : "this title";
 
   let waited = $state(false);
 
