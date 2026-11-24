@@ -315,6 +315,8 @@
       back = { short: "K7QP2XWM", url: "#", until: Date.now() + 90_000 };
       if (preview === "return") tick();
       if (preview === "error") message = "Sign-in couldn't finish. Try again.";
+      const l = params.get("last");
+      if (l === "google" || l === "discord" || l === "email") lastUsed = l;
       view = preview;
       return;
     }
@@ -405,6 +407,7 @@
   function friendly(text: string): string {
     const t = text.toLowerCase();
     if (t.includes("rate limit") || t.includes("too many")) return "Too many tries. Wait a minute and try again.";
+    if (t.includes("error sending") || t.includes("smtp")) return "We couldn't send the email just now. Try again in a few minutes, or use Google or Discord.";
     if (t.includes("expired") || t.includes("invalid")) return "That code didn't work. Check it, or ask for a new one.";
     if (t.includes("valid email") || t.includes("unable to validate email")) return "That doesn't look like an email address.";
     return text;
@@ -721,7 +724,7 @@
               </svg>{/if}
             </span>
             {opening === "google" ? "Opening Google…" : "Continue with Google"}
-            {#if lastUsed === "google"}<span slot="trailing-icon" class="last-chip">Last used</span>{/if}
+            {#if lastUsed === "google"}<span class="last-chip">Last used</span>{/if}
           </m3e-button>
           <m3e-button class="provider discord" class:last={lastUsed === "discord"} variant="filled" size="medium" disabled={busy} onclick={() => oauth("discord")}>
             <span slot="icon" class="logo-wrap">
@@ -731,7 +734,7 @@
               </svg>{/if}
             </span>
             {opening === "discord" ? "Opening Discord…" : "Continue with Discord"}
-            {#if lastUsed === "discord"}<span slot="trailing-icon" class="last-chip">Last used</span>{/if}
+            {#if lastUsed === "discord"}<span class="last-chip">Last used</span>{/if}
           </m3e-button>
         </div>
 
@@ -1222,8 +1225,11 @@
     color: #fff;
   }
   .last-chip {
-    margin-left: 4px;
-    padding: 3px 9px;
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    line-height: 1.5;
+    vertical-align: 1px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 700;
