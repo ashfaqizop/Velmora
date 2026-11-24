@@ -38,6 +38,20 @@ export const KIND_ICON: Record<ChangeKind, string> = { new: "add_circle", improv
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.6.6",
+    date: "2026-11-24",
+    name: "Theatre fixes",
+    summary: "A quick fix for Theatre's live chat, and the chat on Velmora Social no longer freezes the page.",
+    color: "#e5484d",
+    shape: "pill",
+    highlights: [],
+    changes: [
+      { kind: "fixed", title: "Live chat in the app", text: "Scrolling up in a busy chat could make Velmora stall as new messages arrived." },
+      { kind: "new", title: "Follow the chat on the web", text: "Velmora Social's Theatre page has a Live chat button: read messages and see reactions as they happen. Chatting stays in the app." },
+      { kind: "fixed", title: "Live chat on the web", text: "Opening it no longer freezes the page." },
+    ],
+  },
+  {
     version: "0.6.5",
     date: "2026-11-24",
     name: "Theatre",
