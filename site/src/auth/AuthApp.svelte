@@ -15,6 +15,7 @@
   import Avatar from "./Avatar.svelte";
   import NameStatus from "./NameStatus.svelte";
   import { fly } from "svelte/transition";
+  import { quintOut } from "svelte/easing";
   import { AUTH_HOST, MAIN_SITE, SUPABASE_KEY, SUPABASE_URL, TURNSTILE_SITE_KEY } from "./config";
   import { ANIMALS, isPhotoUrl, randomAnimal } from "./avatars";
 
@@ -39,6 +40,28 @@
   let ctx = $state<Ctx | null>(null);
 
   let view = $state<View>("loading");
+
+  // ── Motion: steps slide the way you're going, and the card's height glides. ──
+  const ORDER: Record<View, number> = { loading: 0, nocontext: 1, signin: 1, error: 1, code: 2, setup: 3, return: 4, done: 4 };
+  let dir = 1;
+  let lastOrder = 0;
+  $effect.pre(() => {
+    const o = ORDER[view];
+    dir = o >= lastOrder ? 1 : -1;
+    lastOrder = o;
+  });
+  const calm = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function step(_node: Element) {
+    if (calm()) return { duration: 160, css: (t: number) => `opacity: ${t}` };
+    const d = dir;
+    return {
+      delay: 70,
+      duration: 420,
+      easing: quintOut,
+      css: (t: number, u: number) => `opacity: ${Math.min(1, t * 1.6)}; transform: translateX(${u * 28 * d}px) scale(${0.985 + 0.015 * t})`,
+    };
+  }
+  let innerH = $state(0);
   let busy = $state(false);
   let message = $state("");
 
@@ -52,6 +75,22 @@
   let tsWidget: string | null = null;
   let captcha = $state<string | null>(null);
   let captchaFailed = $state(false);
+  /** Cloudflare wants a click (shown inline under the email form). */
+  let needsCheck = $state(false);
+  /** "Email me a code" was pressed before the check finished; send as soon as it does. */
+  let waitingCheck = $state(false);
+
+  // Which way you signed in last time on this browser, for the "Last used" badge.
+  const LAST = "velmora.auth.last";
+  let lastUsed = $state<"google" | "discord" | "email" | null>(null);
+  let opening = $state<"google" | "discord" | null>(null);
+  function remember(m: "google" | "discord" | "email") {
+    try {
+      localStorage.setItem(LAST, m);
+    } catch {
+      // Not remembered; only the badge is lost.
+    }
+  }
 
   function loadTurnstile(): Promise<TurnstileApi> {
     const w = window as unknown as { turnstile?: TurnstileApi };
@@ -74,10 +113,12 @@
         sitekey: TURNSTILE_SITE_KEY,
         theme: "dark",
         appearance: "interaction-only",
-        callback: (t: string) => ((captcha = t), (captchaFailed = false)),
+        callback: (t: string) => ((captcha = t), (captchaFailed = false), (needsCheck = false)),
         "expired-callback": () => (captcha = null),
         "timeout-callback": () => (captcha = null),
-        "error-callback": () => ((captcha = null), (captchaFailed = true)),
+        "error-callback": () => ((captcha = null), (captchaFailed = true), (waitingCheck = false)),
+        "before-interactive-callback": () => (needsCheck = true),
+        "after-interactive-callback": () => (needsCheck = false),
       });
     } catch {
       captchaFailed = true;
@@ -93,6 +134,14 @@
 
   $effect(() => {
     if ((view === "signin" || view === "code") && tsEl && !tsWidget) mountCaptcha(tsEl);
+  });
+
+  // The check finished after the button was pressed: carry on.
+  $effect(() => {
+    if (waitingCheck && captcha) {
+      waitingCheck = false;
+      sendCode();
+    }
   });
 
   // Email
@@ -163,8 +212,28 @@
 
   /** Where the person came from, for the headings. */
   const site = $derived(ctx?.kind === "web" ? (ctx.back.includes("admin.") ? "Velmora admin" : "Velmora Social") : "the Velmora app");
+  const siteIcon = $derived(ctx?.kind === "web" ? (ctx.back.includes("admin.") ? "shield" : "groups") : "desktop_windows");
+
+  // The art leans toward the pointer a little.
+  let tiltX = $state(0);
+  let tiltY = $state(0);
+  function lean(e: PointerEvent) {
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    tiltX = (e.clientX / innerWidth - 0.5) * 10;
+    tiltY = (e.clientY / innerHeight - 0.5) * -10;
+  }
+
+  const emailLabel = $derived(
+    busy && !opening ? "Sending…" : waitingCheck ? "Checking you're human…" : captchaFailed ? "Security check failed" : "Email me a code",
+  );
 
   onMount(() => {
+    try {
+      const l = localStorage.getItem(LAST);
+      lastUsed = l === "google" || l === "discord" || l === "email" ? l : null;
+    } catch {
+      lastUsed = null;
+    }
     // Sessions belong on the auth host only.
     const host = location.hostname;
     if (host !== AUTH_HOST && host !== "localhost" && host !== "127.0.0.1") {
@@ -272,11 +341,14 @@
 
   async function oauth(provider: "google" | "discord") {
     busy = true;
+    opening = provider;
     message = "";
+    remember(provider);
     const { error } = await sb.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/auth/` } });
     if (error) {
       message = friendly(error.message);
       busy = false;
+      opening = null;
     }
     // On success the browser is already on its way to the provider.
   }
@@ -285,6 +357,11 @@
     const address = email.trim();
     if (!/^\S+@\S+\.\S+$/.test(address)) {
       message = "That doesn't look like an email address.";
+      return;
+    }
+    if (!captcha) {
+      if (captchaFailed) message = "The security check couldn't run. A blocker may be stopping it; try Google or Discord instead.";
+      else waitingCheck = true;
       return;
     }
     busy = true;
@@ -300,6 +377,7 @@
       return;
     }
     email = address;
+    remember("email");
     token = "";
     view = "code";
     cooldown = 30;
@@ -484,25 +562,43 @@
   }
 </script>
 
+<svelte:window onpointermove={lean} />
+
 <div class="stage">
-  <div class="glow" aria-hidden="true"></div>
+  <div class="aurora" aria-hidden="true"><span class="a1"></span><span class="a2"></span><span class="a3"></span></div>
+
+  <aside class="art" aria-hidden="true">
+    <div class="frame" style:--tx="{tiltX}deg" style:--ty="{tiltY}deg">
+      <img src={mark} alt="" width="512" height="512" />
+      <span class="sheen"></span>
+    </div>
+    <div class="pitch">
+      <p class="pitch-title">One account.<br /><em>Every PC.</em></p>
+      <ul>
+        <li><m3e-icon name="sync"></m3e-icon><span>My List, progress and settings on every PC you sign in on</span></li>
+        <li><m3e-icon name="person_heart"></m3e-icon><span>Your page on Velmora Social: follow people, rate and review</span></li>
+        <li><m3e-icon name="workspace_premium"></m3e-icon><span>Velmora Max goes wherever you do</span></li>
+      </ul>
+    </div>
+  </aside>
+
   <main class="card" aria-live="polite">
     <header class="brand">
-      <img src={mark} alt="" width="56" height="56" />
-      <div class="brand-text">
-        <span class="eyebrow">Velmora</span>
-        {#if ctx}<span class="for">for {site}</span>{/if}
-      </div>
+      <img src={mark} alt="" width="44" height="44" />
+      <span class="word">Velmora</span>
+      {#if ctx && view !== "done"}<span class="dest"><m3e-icon name={siteIcon}></m3e-icon>{site === "the Velmora app" ? "Velmora app" : site}</span>{/if}
     </header>
 
+    <div class="viewport" style:height={innerH ? `${innerH}px` : "auto"}>
+    <div class="inner" bind:clientHeight={innerH}>
     {#if view === "loading"}
-      <div class="center" in:fly={{ y: 8, duration: 220 }}>
+      <div class="center" in:step>
         <m3e-loading-indicator></m3e-loading-indicator>
         <p class="muted">One moment…</p>
       </div>
     {:else if view === "nocontext"}
-      <section class="view" in:fly={{ y: 8, duration: 220 }}>
-        <m3e-heading variant="display" size="small" level={1}>Start where you are</m3e-heading>
+      <section class="view" in:step>
+        <h1 class="title">Start where you are</h1>
         <p class="muted">
           Choose <strong>Sign in</strong> in the Velmora app on your PC, or on Velmora Social. Either one brings you here and finishes the job when you're done.
         </p>
@@ -514,58 +610,60 @@
         </div>
       </section>
     {:else if view === "signin"}
-      <section class="view" in:fly={{ y: 8, duration: 220 }}>
-        <m3e-heading variant="display" size="small" level={1}>Sign in or sign up</m3e-heading>
-        <p class="muted">One account for your list, your progress and your profile.</p>
-        {#if message}<p class="notice" role="alert"><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
+      <section class="view" in:step>
+        <div class="head">
+          <h1 class="title">Sign in or sign up</h1>
+          <p class="muted">One free account for your list, your progress and your profile. New here? This makes your account.</p>
+        </div>
+        {#if message}<p class="notice" role="alert" in:fly={{ y: -6, duration: 260, easing: quintOut }}><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
 
         <div class="stack">
-          <m3e-button class="wide" variant="outlined" size="medium" disabled={busy} onclick={() => oauth("google")}>
-            <span slot="icon" class="logo-wrap"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-            </svg></span>
-            Continue with Google
+          <m3e-button class="provider google" class:last={lastUsed === "google"} variant="filled" size="medium" disabled={busy} onclick={() => oauth("google")}>
+            <span slot="icon" class="logo-wrap">
+              {#if opening === "google"}<m3e-loading-indicator class="spin"></m3e-loading-indicator>{:else}<svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+              </svg>{/if}
+            </span>
+            {opening === "google" ? "Opening Google…" : "Continue with Google"}
+            {#if lastUsed === "google"}<span slot="trailing-icon" class="last-chip">Last used</span>{/if}
           </m3e-button>
-          <m3e-button class="wide" variant="outlined" size="medium" disabled={busy} onclick={() => oauth("discord")}>
-            <span slot="icon" class="logo-wrap"><svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="#5865F2"
-                d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"
-              />
-            </svg></span>
-            Continue with Discord
+          <m3e-button class="provider discord" class:last={lastUsed === "discord"} variant="filled" size="medium" disabled={busy} onclick={() => oauth("discord")}>
+            <span slot="icon" class="logo-wrap">
+              {#if opening === "discord"}<m3e-loading-indicator class="spin"></m3e-loading-indicator>{:else}<svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"
+                />
+              </svg>{/if}
+            </span>
+            {opening === "discord" ? "Opening Discord…" : "Continue with Discord"}
+            {#if lastUsed === "discord"}<span slot="trailing-icon" class="last-chip">Last used</span>{/if}
           </m3e-button>
         </div>
 
-        <m3e-divider class="or"></m3e-divider>
-        <span class="or-label">or use your email</span>
+        <div class="or" role="separator"><span>or with your email</span></div>
 
-        <div class="stack">
+        <form class="email" class:last={lastUsed === "email"} onsubmit={(e) => (e.preventDefault(), sendCode())}>
           <m3e-form-field variant="outlined" class="field">
             <m3e-icon slot="prefix" name="mail"></m3e-icon>
-            <label slot="label" for="email">Email</label>
-            <input id="email" type="email" autocomplete="email" bind:value={email} disabled={busy} onkeydown={(e) => e.key === "Enter" && captcha && sendCode()} />
-            {#if captchaFailed}
-              <span slot="hint">The security check couldn't run. A blocker may be stopping it; try Google or Discord instead.</span>
-            {/if}
+            <label slot="label" for="email">Email address</label>
+            <input id="email" type="email" autocomplete="email" bind:value={email} disabled={busy} />
+            {#if lastUsed === "email"}<span slot="suffix" class="last-chip in-field">Last used</span>{/if}
           </m3e-form-field>
-          <m3e-button class="wide" variant="filled" size="medium" disabled={busy || !email.trim() || !captcha} onclick={sendCode}>
-            {busy ? "Sending…" : captcha ? "Email me a code" : captchaFailed ? "Security check failed" : "Checking…"}
+          <m3e-button class="wide send" variant="tonal" size="medium" type="submit" disabled={busy || waitingCheck || !email.trim() || captchaFailed} onclick={sendCode}>
+            <span slot="icon" class="logo-wrap">
+              {#if waitingCheck || (busy && !opening)}<m3e-loading-indicator class="spin"></m3e-loading-indicator>{:else}<m3e-icon name="send"></m3e-icon>{/if}
+            </span>
+            {emailLabel}
           </m3e-button>
-        </div>
-
-        <p class="fine">
-          By continuing you agree to the <a href="{MAIN_SITE}/terms/">terms</a> and the <a href="{MAIN_SITE}/privacy/">privacy policy</a>.
-        </p>
+        </form>
       </section>
     {:else if view === "code"}
-      <section class="view" in:fly={{ y: 8, duration: 220 }}>
-        <m3e-heading variant="display" size="small" level={1}>Check your email</m3e-heading>
+      <section class="view" in:step>
+        <h1 class="title">Check your email</h1>
         <p class="muted">We sent a code to <strong>{email}</strong>. Type it here.</p>
-        {#if message}<p class="notice" role="alert"><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
+        {#if message}<p class="notice" role="alert" in:fly={{ y: -6, duration: 260, easing: quintOut }}><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
         <m3e-form-field variant="outlined" class="field">
           <label slot="label" for="otp">Code</label>
           <input
@@ -590,10 +688,10 @@
         </div>
       </section>
     {:else if view === "setup"}
-      <section class="view" in:fly={{ y: 8, duration: 220 }}>
-        <m3e-heading variant="display" size="small" level={1}>Make it yours</m3e-heading>
+      <section class="view" in:step>
+        <h1 class="title">Make it yours</h1>
         <p class="muted">Pick a username and a face. You can change both later.</p>
-        {#if message}<p class="notice" role="alert"><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
+        {#if message}<p class="notice" role="alert" in:fly={{ y: -6, duration: 260, easing: quintOut }}><m3e-icon name="error"></m3e-icon>{message}</p>{/if}
 
         <div class="me">
           {#key avatar}<span class="me-pic" in:fly={{ y: 6, duration: 200 }}><Avatar value={avatar} size={88} ring={3} /></span>{/key}
@@ -634,9 +732,9 @@
         </m3e-button>
       </section>
     {:else if view === "return"}
-      <section class="view center" in:fly={{ y: 8, duration: 220 }}>
+      <section class="view center" in:step>
         <span class="badge ok" aria-hidden="true"><m3e-shape name="12-sided-cookie"></m3e-shape><m3e-icon name="check" filled></m3e-icon></span>
-        <m3e-heading variant="headline" size="large" level={1}>You're signed in</m3e-heading>
+        <h1 class="title small">You're signed in</h1>
         <p class="muted">Taking you back to Velmora…</p>
       </section>
       {#if back}
@@ -651,86 +749,416 @@
         </div>
       {/if}
     {:else if view === "done"}
-      <section class="view center" in:fly={{ y: 8, duration: 220 }}>
+      <section class="view center" in:step>
         <span class="badge ok" aria-hidden="true"><m3e-shape name="12-sided-cookie"></m3e-shape><m3e-icon name="check" filled></m3e-icon></span>
-        <m3e-heading variant="headline" size="large" level={1}>All set</m3e-heading>
+        <h1 class="title small">All set</h1>
         <p class="muted">You're signed in to Velmora. You can close this tab.</p>
       </section>
     {:else}
-      <section class="view center" in:fly={{ y: 8, duration: 220 }}>
+      <section class="view center" in:step>
         <span class="badge bad" aria-hidden="true"><m3e-shape name="4-sided-cookie"></m3e-shape><m3e-icon name="priority_high"></m3e-icon></span>
-        <m3e-heading variant="headline" size="large" level={1}>That didn't work</m3e-heading>
+        <h1 class="title small">That didn't work</h1>
         <p class="muted">{message || "Something went wrong."}</p>
         <m3e-button variant="filled" onclick={restart}>Try again</m3e-button>
       </section>
     {/if}
-    <div class="ts" bind:this={tsEl}></div>
+    <div class="check" class:show={needsCheck} aria-hidden={!needsCheck}>
+      <div class="check-in">
+        <span class="check-label"><m3e-icon name="shield"></m3e-icon>One quick check before we email you</span>
+        <div class="ts" bind:this={tsEl}></div>
+      </div>
+    </div>
+
+    {#if view === "signin"}
+      <p class="fine" in:fly={{ y: 6, duration: 300, delay: 160 }}>
+        By continuing you agree to the <a href="{MAIN_SITE}/terms/">terms</a> and the <a href="{MAIN_SITE}/privacy/">privacy policy</a>.
+      </p>
+    {/if}
+    </div>
+    </div>
   </main>
 </div>
 
 <style>
+  /* ── Frame: aurora backdrop, brand art on the left, the card on the right ── */
   .stage {
     position: relative;
     min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 480px);
+    align-items: center;
+    gap: clamp(32px, 6vw, 96px);
+    padding: clamp(20px, 4vh, 48px) clamp(20px, 6vw, 96px);
+    overflow: hidden;
+    isolation: isolate;
+    background: #070a14;
+  }
+  .aurora {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+  }
+  .aurora span {
+    position: absolute;
+    border-radius: 50%;
+    will-change: transform;
+  }
+  .a1 {
+    width: 70vmax;
+    height: 70vmax;
+    left: -22vmax;
+    top: -28vmax;
+    background: radial-gradient(closest-side, rgb(50 113 254 / 46%), transparent);
+    animation: drift-a 26s ease-in-out infinite alternate;
+  }
+  .a2 {
+    width: 52vmax;
+    height: 52vmax;
+    left: 18vmax;
+    bottom: -30vmax;
+    background: radial-gradient(closest-side, rgb(124 58 237 / 26%), transparent);
+    animation: drift-b 32s ease-in-out infinite alternate;
+  }
+  .a3 {
+    width: 40vmax;
+    height: 40vmax;
+    right: -14vmax;
+    top: -10vmax;
+    background: radial-gradient(closest-side, rgb(248 232 200 / 10%), transparent);
+    animation: drift-a 38s ease-in-out infinite alternate-reverse;
+  }
+  @keyframes drift-a {
+    to {
+      transform: translate(6vmax, 5vmax) scale(1.08);
+    }
+  }
+  @keyframes drift-b {
+    to {
+      transform: translate(-7vmax, -4vmax) scale(1.12);
+    }
+  }
+
+  .art {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(18px, 3.4vh, 36px);
+    justify-self: end;
+    width: min(460px, 100%);
+    animation: art-in 900ms cubic-bezier(0.05, 0.7, 0.1, 1) both;
+  }
+  .frame {
+    position: relative;
+    width: clamp(160px, min(24vw, 38vh), 320px);
+    aspect-ratio: 1;
+    border-radius: 30%;
+    overflow: hidden;
+    transform: perspective(900px) rotateY(var(--tx, 0deg)) rotateX(var(--ty, 0deg)) rotate(-4deg);
+    transition: transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow:
+      0 0 0 1px rgb(255 255 255 / 10%),
+      0 40px 90px -30px rgb(50 113 254 / 70%),
+      0 30px 60px -30px rgb(0 0 0 / 80%);
+    animation: float 9s ease-in-out infinite alternate;
+  }
+  .frame img {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .sheen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 35%, rgb(255 255 255 / 14%) 48%, transparent 60%);
+    background-size: 250% 100%;
+    animation: sheen 7s ease-in-out infinite;
+    mix-blend-mode: overlay;
+  }
+  @keyframes float {
+    to {
+      translate: 0 -10px;
+    }
+  }
+  @keyframes sheen {
+    0%,
+    55% {
+      background-position: 130% 0;
+    }
+    100% {
+      background-position: -60% 0;
+    }
+  }
+  @keyframes art-in {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+  }
+  .pitch {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .pitch-title {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(34px, min(4.4vw, 7.4vh), 60px);
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: #eef1fb;
+  }
+  .pitch-title em {
+    color: #f8e8c8;
+  }
+  .pitch ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .pitch li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: clamp(13.5px, 2.2vh, 15px);
+    line-height: 1.45;
+    color: color-mix(in srgb, #eef1fb 78%, transparent);
+    --m3e-icon-size: 20px;
+  }
+  .pitch li m3e-icon {
+    flex: none;
     display: grid;
     place-items: center;
-    padding: 32px 16px;
-    overflow: hidden;
-    background: var(--md-sys-color-surface, #0a0d16);
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    background: rgb(50 113 254 / 18%);
+    color: #9db8ff;
   }
-  .glow {
-    position: absolute;
-    inset: -20%;
-    pointer-events: none;
-    background:
-      radial-gradient(42% 36% at 18% 12%, color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent), transparent 70%),
-      radial-gradient(36% 32% at 88% 92%, color-mix(in srgb, #f8e8c8 16%, transparent), transparent 70%);
-    filter: blur(10px);
-  }
+
   .card {
     position: relative;
-    width: min(460px, 100%);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    padding: clamp(24px, 4vh, 36px) clamp(22px, 3vw, 36px);
+    border-radius: 36px;
+    background: color-mix(in srgb, #10162a 82%, transparent);
+    border: 1px solid rgb(255 255 255 / 8%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 6%),
+      0 40px 100px -40px rgb(0 0 0 / 85%);
+    backdrop-filter: blur(24px) saturate(1.2);
+    animation: card-in 700ms cubic-bezier(0.05, 0.7, 0.1, 1) 80ms both;
+  }
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(0.985);
+    }
+  }
+  .viewport {
+    transition: height 460ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    overflow: hidden;
+    /* Room for focus rings and floating labels that sit on the edge. */
+    margin: -8px;
+    padding: 8px;
+    box-sizing: content-box;
+  }
+  .inner {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 32px;
-    border-radius: 32px;
-    background: color-mix(in srgb, var(--md-sys-color-surface-container) 92%, transparent);
-    border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant) 50%, transparent);
-    box-shadow: 0 30px 80px -30px rgb(0 0 0 / 70%);
-    backdrop-filter: blur(18px);
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }
   .brand img {
-    border-radius: 18px;
+    border-radius: 14px;
+    box-shadow: 0 8px 20px -8px rgb(50 113 254 / 70%);
   }
-  .brand-text {
+  .word {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .dest {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding: 6px 12px 6px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgb(50 113 254 / 16%);
+    color: #b9ccff;
+    --m3e-icon-size: 18px;
+    white-space: nowrap;
+  }
+  .head {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 8px;
+    padding-top: 4px;
   }
-  .eyebrow {
-    font-size: 13px;
+  .title {
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(34px, 4.4vh, 42px);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+  .title.small {
+    font-size: 32px;
+  }
+
+  /* ── Providers ── */
+  .provider {
+    width: 100%;
+    --m3e-button-medium-container-height: 54px;
+    --m3e-button-medium-label-text-font-size: 16px;
+    --m3e-button-medium-label-text-font-weight: 600;
+    transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1.4);
+  }
+  .provider:hover {
+    transform: translateY(-1px);
+  }
+  .provider:active {
+    transform: translateY(0) scale(0.99);
+  }
+  .google {
+    --m3e-filled-button-container-color: #ffffff;
+    --m3e-filled-button-label-text-color: #1f1f1f;
+    --m3e-filled-button-hover-label-text-color: #1f1f1f;
+    --m3e-filled-button-focus-label-text-color: #1f1f1f;
+    --m3e-filled-button-hover-state-layer-color: #1f1f1f;
+    --m3e-filled-button-focus-state-layer-color: #1f1f1f;
+    --m3e-filled-button-pressed-state-layer-color: #1f1f1f;
+    --m3e-filled-button-disabled-container-color: #ffffff;
+    --m3e-filled-button-disabled-container-opacity: 0.55;
+    --m3e-filled-button-disabled-label-text-color: #1f1f1f;
+  }
+  .discord {
+    --m3e-filled-button-container-color: #5865f2;
+    --m3e-filled-button-label-text-color: #ffffff;
+    --m3e-filled-button-hover-label-text-color: #ffffff;
+    --m3e-filled-button-focus-label-text-color: #ffffff;
+    --m3e-filled-button-hover-state-layer-color: #ffffff;
+    --m3e-filled-button-focus-state-layer-color: #ffffff;
+    --m3e-filled-button-pressed-state-layer-color: #ffffff;
+    --m3e-filled-button-disabled-container-color: #5865f2;
+    --m3e-filled-button-disabled-container-opacity: 0.55;
+    --m3e-filled-button-disabled-label-text-color: #ffffff;
+    color: #fff;
+  }
+  .last-chip {
+    margin-left: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #f8e8c8;
+    letter-spacing: 0.02em;
+    background: rgb(50 113 254 / 16%);
+    color: #3271fe;
   }
-  .for {
+  .discord .logo {
+    color: #fff;
+  }
+  .discord .last-chip {
+    background: rgb(255 255 255 / 22%);
+    color: #fff;
+  }
+  .last-chip.in-field {
+    margin-right: 10px;
+    color: #b9ccff;
+  }
+  .spin {
+    --m3e-loading-indicator-size: 22px;
+    display: inline-grid;
+  }
+  .google .spin {
+    --m3e-loading-indicator-color: #3271fe;
+  }
+  .discord .spin {
+    --m3e-loading-indicator-color: #fff;
+  }
+
+  .or {
+    display: flex;
+    align-items: center;
+    gap: 14px;
     font-size: 13px;
     color: var(--md-sys-color-on-surface-variant);
   }
+  .or::before,
+  .or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 14%), transparent);
+  }
+  .email {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .send {
+    --m3e-button-medium-container-height: 52px;
+    --m3e-button-medium-label-text-font-size: 15px;
+    --m3e-button-medium-label-text-font-weight: 600;
+  }
+
+  /* The Turnstile box unfolds only when Cloudflare needs a click. */
+  .check {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      opacity 300ms ease;
+  }
+  .check.show {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .check-in {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .check.show .check-in {
+    padding: 14px;
+    border-radius: 20px;
+    background: rgb(255 255 255 / 4%);
+    border: 1px solid rgb(255 255 255 / 8%);
+  }
+  .check-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #b9ccff;
+    --m3e-icon-size: 18px;
+  }
+
   .view {
+    /* app.css pads every section for the landing page; not here. */
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 14px;
-  }
-  m3e-heading {
-    font-family: var(--display);
   }
   p {
     margin: 0;
@@ -770,19 +1198,6 @@
   }
   .spread {
     justify-content: space-between;
-  }
-  .or {
-    margin-top: 6px;
-  }
-  .or-label {
-    align-self: center;
-    margin-top: -24px;
-    padding: 0 12px;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--md-sys-color-on-surface-variant);
-    background: var(--md-sys-color-surface-container);
   }
   .field {
     width: 100%;
@@ -909,15 +1324,45 @@
   .ts:empty {
     display: none;
   }
-  @media (max-width: 480px) {
+  @media (max-width: 960px) {
+    .stage {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+    }
     .card {
-      padding: 24px 20px;
+      max-width: 480px;
+    }
+    .art {
+      display: none;
+    }
+  }
+  @media (max-width: 480px) {
+    .stage {
+      padding: 12px;
+      align-items: start;
+    }
+    .card {
+      padding: 22px 18px;
       border-radius: 28px;
+    }
+    .dest {
+      font-size: 12px;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .face {
+    .face,
+    .frame,
+    .viewport,
+    .check,
+    .provider {
       transition: none;
+    }
+    .aurora span,
+    .frame,
+    .sheen,
+    .art,
+    .card {
+      animation: none;
     }
   }
 </style>

@@ -310,6 +310,10 @@
     padding: 40px 0 72px;
     flex: 1;
   }
+  /* app.css pads every <section> for the landing page; the social pages set their own. */
+  .wrap :global(section) {
+    padding-top: 0;
+  }
   .view {
     display: flex;
     flex-direction: column;
