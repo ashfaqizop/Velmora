@@ -1,3 +1,17 @@
+<script module lang="ts">
+  /** Theatre mode: see the `theatre` prop. */
+  export interface TheatreLive {
+    startsAt: number;
+    endsAt: number;
+    /** Now, by the server's clock (ms). */
+    now: () => number;
+    hold: boolean;
+    onstate?: (s: { phase: string; status: string; source: string | null; cachedSecs: number }) => void;
+    onended?: () => void;
+    onleave?: () => void;
+  }
+</script>
+
 <script lang="ts">
   import AdSlot from "../components/AdSlot.svelte";
   import ProviderLogo from "../components/ProviderLogo.svelte";
@@ -39,6 +53,7 @@
     file,
     channel,
     source: preferred,
+    theatre,
   }: {
     title: TitleSummary;
     target: Target;
@@ -48,7 +63,18 @@
     channel?: TvChannel;
     /** A source to try first (picked from the title page's "Where to watch"). */
     source?: string;
+    /**
+     * Theatre: the movie runs on a shared clock. While `hold` is on (the
+     * lobby) the source loads paused at 0:00 and caches ahead; when it goes
+     * off, playback starts at the live point, full screen. You can pause and
+     * fall behind, never skip ahead of live.
+     */
+    theatre?: TheatreLive;
   } = $props();
+
+
+  /** Where the screening is right now, in seconds into the movie. */
+  const livePos = () => (theatre ? Math.max(0, (theatre.now() - theatre.startsAt) / 1000) : 0);
 
   /** A live TV channel: no seeking, no history, no "watched" sync. */
   const live = $derived(!!channel);
@@ -63,6 +89,7 @@
     ["mute", "flag"],
     ["track-list", "node"],
     ["eof-reached", "flag", "none"],
+    ["demuxer-cache-duration", "double", "none"],
   ] as const satisfies MpvObservableProperty[];
 
   type Phase = "sources" | "opening" | "playing" | "error";
@@ -103,6 +130,10 @@
   let tracks = $state<MpvTrack[]>([]);
   let ended = $state(false);
   let torrentInfo = $state<string | null>(null);
+  /** Seconds of video cached ahead (Theatre shows it as "ready"). */
+  let cachedSecs = $state(0);
+  /** Theatre: playing along with everyone (false after you pause or rewind). */
+  let following = $state(true);
 
   let seeking = $state<number | null>(null);
   /** Subtitle files saved beside a download, added once it loads. */
@@ -115,7 +146,7 @@
   // A small card after a few seconds of pause; it goes the moment playback resumes.
   let pauseAd = $state(false);
   $effect(() => {
-    if (phase !== "playing" || !paused || ended) return;
+    if (phase !== "playing" || !paused || ended || theatre) return;
     const t = setTimeout(() => (pauseAd = true), ads.rules.pauseDelaySeconds * 1000);
     return () => {
       clearTimeout(t);
@@ -165,6 +196,8 @@
     clearInterval(upNextTimer);
     clearInterval(torrentTimer);
     clearTimeout(seekGuard);
+    clearTimeout(retryTimer);
+    clearInterval(liveTimer);
     cleanups.forEach((f) => f());
     document.documentElement.classList.remove("player-active");
     if (stream) api.closeStream(stream.id).catch(() => {});
@@ -185,8 +218,17 @@
         "input-default-bindings": "no",
         "input-vo-keyboard": "no",
         cache: "yes",
-        "demuxer-max-bytes": "200MiB",
-        "demuxer-max-back-bytes": "64MiB",
+        // Theatre caches up to ~10 minutes ahead on disk (at most 2 GB);
+        // mpv deletes the cache file when it closes.
+        ...(theatre
+          ? {
+              "cache-on-disk": "yes",
+              "cache-secs": 600,
+              "demuxer-readahead-secs": 600,
+              "demuxer-max-bytes": "2000MiB",
+              "demuxer-max-back-bytes": "128MiB",
+            }
+          : { "demuxer-max-bytes": "200MiB", "demuxer-max-back-bytes": "64MiB" }),
         "network-timeout": 30,
         ytdl: "no",
         alang: mode === "dub" ? "en,eng" : "ja,jpn,en,eng",
@@ -286,7 +328,7 @@
       return;
     }
     const first = preferred ? report.sources.findIndex((s) => s.url === preferred) : -1;
-    await play(Math.max(0, first), library.resumeAt(title, target));
+    await play(Math.max(0, first), theatre ? (theatre.hold ? 0 : livePos()) : library.resumeAt(title, target));
   }
 
   function onProperty(ev: { name: string; data: unknown }) {
@@ -316,6 +358,9 @@
         break;
       case "track-list":
         tracks = (ev.data as MpvTrack[]) ?? [];
+        break;
+      case "demuxer-cache-duration":
+        cachedSecs = (ev.data as number | null) ?? 0;
         break;
       case "eof-reached":
         // A live stream that ends has dropped; try the next one.
@@ -354,6 +399,8 @@
       }
       stream = opened;
       if (opened.torrent) watchTorrent(opened.id);
+      // Theatre lobby: load paused so it buffers ahead of the start.
+      if (theatre) await setProperty("pause", theatre.hold).catch(() => {});
       await setProperty("start", startAt > 0 ? String(startAt) : "none");
       await command("loadfile", [opened.url]);
     } catch (e) {
@@ -398,7 +445,8 @@
       return;
     }
     M3eSnackbar.open(`${providerName(report.sources[current])} didn't play, trying the next source`);
-    play(nextIndex, Math.floor(time));
+    // Theatre picks up at the live point, not where the broken one stopped.
+    play(nextIndex, Math.floor(theatre ? (theatre.hold ? 0 : livePos()) : time));
   }
 
   function watchTorrent(id: string) {
@@ -423,16 +471,22 @@
     }
   }
 
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
   function fail(message: string) {
     phase = "error";
     status = message;
+    // Theatre: keep looking in the background; join at the live point once found.
+    if (theatre && !mpvFailed) {
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => alive && phase === "error" && retry(), 60_000);
+    }
   }
 
   function pickSource(i: number) {
     sheet = false;
     if (i === current && phase === "playing") return;
     failed = failed.filter((x) => x !== i);
-    play(i, Math.floor(time));
+    play(i, Math.floor(theatre ? (theatre.hold ? 0 : following ? livePos() : time) : time));
   }
 
   function retry() {
@@ -477,8 +531,71 @@
     }
   }
 
-  const togglePause = () => setProperty("pause", !paused);
-  const seekBy = (s: number) => command("seek", [s, "relative"]);
+  function togglePause() {
+    // Pausing a screening means falling behind; Back to live catches up.
+    if (theatre && !paused) following = false;
+    return setProperty("pause", !paused);
+  }
+  function seekBy(s: number) {
+    if (!theatre) return command("seek", [s, "relative"]);
+    commitSeek(time + s);
+  }
+
+  // ── Theatre: the shared clock ──
+
+  /** How far behind live you are, in seconds (0 while following). */
+  let behind = $state(0);
+  let liveTimer: ReturnType<typeof setInterval> | undefined;
+  let held = untrack(() => theatre?.hold ?? false);
+
+  function backToLive() {
+    following = true;
+    commitSeek(livePos());
+    setProperty("pause", false).catch(() => {});
+  }
+
+  // The lobby ends: start at the live point, full screen.
+  $effect(() => {
+    const hold = theatre?.hold ?? false;
+    if (!theatre || hold || !held) return;
+    held = false;
+    following = true;
+    untrack(() => {
+      if (phase === "playing" || phase === "opening") {
+        const at = livePos();
+        if (Math.abs(time - at) > 1.5) command("seek", [at, "absolute+exact"]).catch(() => {});
+        setProperty("pause", false).catch(() => {});
+      }
+      win.setFullscreen(true).then(() => (fullscreen = true)).catch(() => {});
+    });
+  });
+
+  // Keep in step: while following, drift over a few seconds snaps back to live.
+  $effect(() => {
+    if (!theatre) return;
+    liveTimer = setInterval(() => {
+      if (!alive || theatre.hold || phase !== "playing") return;
+      const at = livePos();
+      if (following) {
+        behind = 0;
+        if (!paused && !buffering && seekTarget === null && Math.abs(at - time) > 6 && at < duration - 5) {
+          command("seek", [at, "absolute+exact"]).catch(() => {});
+        }
+      } else {
+        behind = Math.max(0, at - time);
+        if (behind < 2 && !paused) following = true;
+      }
+    }, 2000);
+    return () => clearInterval(liveTimer);
+  });
+
+  // Tell the Screening page how it's going (for "Ready" in the lobby).
+  // Depends on the player's own state only, not on the theatre object (which
+  // the page recreates), so reporting can't loop.
+  $effect(() => {
+    const state = { phase, status, source: source ? providerName(source) : null, cachedSecs };
+    untrack(() => theatre?.onstate?.(state));
+  });
 
   // Seek bar: dragging only moves the thumb and the time label; one exact
   // seek runs on release. The thumb then stays on the target until mpv
@@ -508,6 +625,12 @@
   };
 
   function commitSeek(to: number) {
+    if (theatre) {
+      // Never ahead of the screening; going back means falling behind.
+      const at = livePos();
+      to = Math.max(0, Math.min(to, at));
+      following = at - to < 3;
+    }
     seekTarget = to;
     seeking = to;
     command("seek", [to, "absolute+exact"]).catch((e) => console.warn("seek failed", e));
@@ -572,6 +695,10 @@
   function onEnded() {
     ended = true;
     saveProgress();
+    if (theatre) {
+      theatre.onended?.();
+      return;
+    }
     if (!next) return;
     upNext = 8;
     clearInterval(upNextTimer);
@@ -593,7 +720,8 @@
 
   function leave() {
     if (fullscreen) win.setFullscreen(false);
-    nav.back();
+    if (theatre?.onleave) theatre.onleave();
+    else nav.back();
   }
 
   // Controls fade out after a few idle seconds while video plays.
@@ -607,6 +735,8 @@
 
   function key(e: KeyboardEvent) {
     if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+    // Theatre lobby: the movie waits under the lobby; its keys belong to the lobby.
+    if (theatre?.hold) return;
     poke();
     switch (e.key) {
       case " ":
@@ -727,7 +857,7 @@
     </div>
   {/if}
 
-  {#if upNext !== null && next}
+  {#if upNext !== null && next && !theatre}
     <m3e-card variant="elevated" class="up-next" in:fly={{ x: 40, duration: 400, easing: cubicOut }}>
       <div slot="content" class="up-next-body">
         <span class="overline">Up next · {targetLabel(next)}</span>
@@ -745,7 +875,7 @@
   {#if pauseAd}
     <div class="player-ad pause" transition:fade={{ duration: 250 }}><AdSlot id="pause" /></div>
   {/if}
-  {#if ended && !live}
+  {#if ended && !live && !theatre}
     <!-- Beside "Up next", never in its way, and it never delays autoplay. -->
     <div class="player-ad end" class:with-next={upNext !== null && !!next} transition:fade={{ duration: 250 }}>
       <AdSlot id="end" />
@@ -760,6 +890,18 @@
           {#if channel?.country}<span class="live-meta">{channel.country}</span>{/if}
         </div>
       {:else}
+      {#if theatre}
+        <div class="theatre-live">
+          {#if following && behind < 3}
+            <span class="live-pill"><i></i>LIVE</span>
+          {:else}
+            <span class="behind">{formatTime(behind, behind >= 3600)} behind</span>
+            <m3e-button variant="filled" size="small" onclick={backToLive}>
+              <m3e-icon slot="icon" name="fast_forward" filled></m3e-icon>Back to live
+            </m3e-button>
+          {/if}
+        </div>
+      {/if}
       <div class="timeline">
         <span class="time">{formatTime(seeking ?? time, duration >= 3600)}</span>
         <m3e-slider
@@ -788,7 +930,7 @@
             <m3e-icon name="forward_10"></m3e-icon>
           </m3e-icon-button>
         {/if}
-        {#if next}
+        {#if next && !theatre}
           <m3e-icon-button aria-label="Next episode" onclick={playNext}>
             <m3e-icon name="skip_next"></m3e-icon>
           </m3e-icon-button>
@@ -891,6 +1033,18 @@
 </div>
 
 <style>
+  .theatre-live {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .behind {
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+  }
   .src-name {
     display: inline-flex;
     align-items: center;

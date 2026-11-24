@@ -2,7 +2,6 @@
   // Theatre: movies everyone watches at the same moment. The lineup (picked
   // by Velmora every day), your tickets, and what's on now.
   import { fly } from "svelte/transition";
-  import { M3eSnackbar } from "@m3e/web/snackbar";
   import ScreeningCard from "../components/theatre/ScreeningCard.svelte";
   import { dayLabel } from "../components/theatre/time";
   import { account } from "../lib/account.svelte";
@@ -34,10 +33,7 @@
 
   const mine = $derived(theatre.lineup.filter((s) => theatre.holding(s)));
 
-  function enter(s: Screening) {
-    // The lobby and the live player arrive in the next phase.
-    M3eSnackbar.open(`The lobby for ${s.name} is open. Entering arrives with the next update.`);
-  }
+  const enter = (s: Screening) => nav.go({ name: "screening", id: s.id });
 
   const setTab = (t: "lineup" | "tickets") => nav.go({ name: "theatre", tab: t });
 </script>

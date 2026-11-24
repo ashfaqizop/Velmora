@@ -32,6 +32,7 @@ export type Route =
   | { name: "ani" }
   | { name: "live" }
   | { name: "theatre"; tab?: "lineup" | "tickets" }
+  | { name: "screening"; id: string }
   | { name: "sports" }
   | { name: "match"; match: SportsMatch }
   // Music mode (YouTube Music). Every route starting with "music" belongs to it.

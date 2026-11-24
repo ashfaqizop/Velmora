@@ -202,3 +202,24 @@ everyone else), front of waitlists. Nothing else differs.
   `TheatreCard` (Home "Tonight in Theatre" row), title pages show "In
   Theatre today, 9:30 PM".
 - Enter / Join currently shows a note; the lobby and live player are phase 3.
+
+**Phase 3 (lobby and live player): done.**
+- `app/src/pages/Screening.svelte` (route `screening`, mounted full window
+  like the player): `theatre_enter`, then the **lobby** (backdrop, title,
+  countdown, source readiness "Ready · N min loaded ahead", the `lobby` ad
+  slot in the last 5 minutes for Velmora Public), the **final 5 seconds** as
+  big numbers on morphing m3e shapes, then the lobby lifts away into the
+  movie, full screen. Late joiners go straight to the live point with a
+  "Joined live, N in" toast. No source: "Still looking" while the player
+  retries every minute, plus **Move my ticket** to another screening. Not
+  allowed: lobby not open yet / waitlist / needs a ticket (Book here) / over.
+  End card once the movie ends.
+- `Player.svelte` gained a `theatre` prop (`TheatreLive`): loads paused at
+  0:00 while `hold` (the lobby) with a disk cache up to ~10 min / 2 GB ahead
+  (`cache-on-disk`, deleted by mpv on close), starts at the live point when
+  the hold lifts (and goes full screen), follows live (drift over 6 s snaps
+  back), pause = fall behind with "N behind" + **Back to live**, the seek bar
+  can't pass live, failed sources resume at live, no pause/end ads, no up
+  next, lobby keys ignored while held.
+- New ad slot `lobby` (300x250), only on the screening route; other ads are
+  quiet there.

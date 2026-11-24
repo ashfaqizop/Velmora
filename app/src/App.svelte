@@ -7,6 +7,7 @@
   import TorrentNotice from "./components/TorrentNotice.svelte";
   import DownloadDialog from "./components/DownloadDialog.svelte";
   import Player from "./pages/Player.svelte";
+  import Screening from "./pages/Screening.svelte";
   import { registerOverlays } from "./lib/overlays";
   import { downloads, feed, library, nav } from "./lib/state.svelte";
   import { license } from "./lib/license.svelte";
@@ -130,6 +131,12 @@
 </script>
 
 <Shell revealed={!splash} />
+
+{#if nav.route.name === "screening"}
+  {#key nav.route.id}
+    <Screening id={nav.route.id} />
+  {/key}
+{/if}
 
 {#if nav.route.name === "player"}
   {@const r = nav.route}

@@ -33,6 +33,7 @@ export type SlotId =
   | "live"
   | "pause"
   | "end"
+  | "lobby"
   | "music"
   | "nowplaying";
 export type Unit = "native" | "728x90" | "468x60" | "320x50" | "300x250" | "160x300" | "160x600";
@@ -82,6 +83,7 @@ export const DEFAULTS: AdRules = {
     live: slot("native", 8),
     pause: slot("300x250", 10),
     end: slot("300x250", 10),
+    lobby: slot("300x250", 10),
     music: slot("native", 10),
     nowplaying: slot("300x250", 8),
   },
@@ -202,7 +204,7 @@ class Ads {
 
   /** Pages where only the player's own cards may show. */
   private get quietRoute(): boolean {
-    return nav.route.name === "player" || nav.route.name === "ani";
+    return nav.route.name === "player" || nav.route.name === "ani" || nav.route.name === "screening";
   }
 
   /** May this slot be on screen at all? Max, a remote switch-off or a quiet
@@ -211,6 +213,8 @@ class Ads {
     const rule = this.rules.slots[id];
     if (!license.loaded || license.max || !this.rules.enabled || !rule?.enabled) return false;
     if (id === "pause" || id === "end") return nav.route.name === "player";
+    // Theatre: one card in the lobby before the countdown, never during the movie.
+    if (id === "lobby") return nav.route.name === "screening";
     // The expanded music player's card; only mounted while it's open.
     if (id === "nowplaying") return nav.route.name !== "player";
     if (this.quietRoute) return false;
