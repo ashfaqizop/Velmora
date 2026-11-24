@@ -7,5 +7,8 @@ import "./lib/traffic";
 
 import { mount } from "svelte";
 import App from "./App.svelte";
+import { injectSpeedInsights } from "@vercel/speed-insights";
+
+injectSpeedInsights();
 
 mount(App, { target: document.getElementById("app")! });
