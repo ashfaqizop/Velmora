@@ -96,7 +96,7 @@ The changelog has a 0.6.0 entry marked `soon` ("In testing") in
    `library.onAdd`; skips 18+ and titles without a TMDB number),
    Privacy switch for sharing, `components/RateButton.svelte` on the title
    page. Genres are not stored; the website derives top genres from TMDB.
-4. **Admin part 1 (deferred by the user on 2026-11-24, wait for them)** at `admin.getvelmora.dpdns.org`: admin role (`admins`
+4. **Admin part 1: phase 1 BUILT 2026-11-24 (see `docs/admin.md`, which also has the 3-phase plan and owner steps)** at `admin.getvelmora.dpdns.org`: admin role (`admins`
    table) + Supabase TOTP MFA, own origin, all writes through server code with
    the service key (user pastes it into Vercel), overview with free-tier meters
    (Supabase, Upstash, Mailtrap 150/day) and health (CI, providers, mpv

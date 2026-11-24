@@ -86,6 +86,7 @@ export function friendly(e: { message?: string; code?: string } | null | undefin
   if (m.includes("report_limit")) return "You've sent a lot of reports today. Try again tomorrow.";
   if (m.includes("username_cooldown")) return "You changed your username in the last 30 days. Try again later.";
   if (m.includes("username_reserved")) return "That username isn't available.";
+  if (m.includes("blocked_word")) return "That includes a word that isn't allowed here. Change it and try again.";
   if (m.includes("profiles_bio_len")) return "Your bio is too long.";
   if (m.includes("profiles_links_ok")) return "One of your links isn't right.";
   if (m.includes("profiles_favorites_ok")) return "One of your favourites couldn't be saved.";

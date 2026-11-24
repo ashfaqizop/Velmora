@@ -51,3 +51,20 @@ export async function setMax(userId, on) {
     console.warn("max mirror:", e.message);
   }
 }
+
+/** Supabase Auth's admin API (ban, delete) as the server. Returns the parsed body. */
+export async function authAdmin(path, { method = "GET", body } = {}) {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  const headers = { apikey: key, "Content-Type": "application/json" };
+  if (key.startsWith("eyJ")) headers.Authorization = `Bearer ${key}`;
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/admin/${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(10000),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`auth ${r.status}: ${text.slice(0, 300)}`);
+  return text ? JSON.parse(text) : null;
+}

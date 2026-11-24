@@ -1,0 +1,161 @@
+/* Shared look for the admin pages. Component-specific rules live beside the component. */
+.adm-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.adm-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.adm-head h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(34px, 5vw, 46px);
+  line-height: 1;
+}
+.adm-head p {
+  margin: 6px 0 0;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 14px;
+  max-width: 62ch;
+}
+.adm-head .grow {
+  flex: 1;
+}
+.card {
+  border-radius: 24px;
+  padding: 20px;
+  background: var(--md-sys-color-surface-container);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant) 45%, transparent);
+}
+.card > h2 {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  --m3e-icon-size: 20px;
+}
+.card > h2 m3e-icon {
+  color: var(--md-sys-color-primary);
+}
+.grid {
+  display: grid;
+  gap: 16px;
+}
+.cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.cols-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+  .cols-3,
+  .cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .cols-2,
+  .cols-3,
+  .cols-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface-variant);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+  --m3e-icon-size: 20px;
+}
+.field:focus-within {
+  background: var(--md-sys-color-surface-container-highest);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent);
+}
+.field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 15px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface-variant);
+  --m3e-icon-size: 14px;
+}
+.chip.ok {
+  background: color-mix(in srgb, #4fd18b 20%, transparent);
+  color: #8be8b4;
+}
+.chip.warn {
+  background: color-mix(in srgb, var(--amber) 22%, transparent);
+  color: #ffd08a;
+}
+.chip.bad {
+  background: color-mix(in srgb, #ff5449 22%, transparent);
+  color: #ffb4ab;
+}
+.chip.info {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+  color: var(--md-sys-color-primary);
+}
+.empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.err {
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, #ff5449 16%, transparent);
+  color: #ffb4ab;
+  font-size: 14px;
+}
+.row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.muted {
+  color: var(--md-sys-color-on-surface-variant);
+}
+.mono {
+  font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+  font-size: 12.5px;
+}
+.center {
+  display: grid;
+  place-items: center;
+  padding: 80px 0;
+}
