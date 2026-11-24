@@ -84,6 +84,8 @@ class Theatre {
   tickets = $state<Record<string, TicketStatus>>({});
   /** People you follow who booked, per screening id. */
   friends = $state<Record<string, Friend[]>>({});
+  /** Everyone you follow (for "friends first" in a room). */
+  following = $state<Set<string>>(new Set());
   loaded = $state(false);
   failed = $state(false);
   busy = $state<string | null>(null);
@@ -236,6 +238,7 @@ class Theatre {
     }
     const { data: follows } = await account.client.from("follows").select("followee").eq("follower", me).limit(1000);
     const ids = (follows ?? []).map((f: { followee: string }) => f.followee);
+    this.following = new Set(ids);
     if (!ids.length) {
       this.friends = {};
       return;

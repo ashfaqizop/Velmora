@@ -223,3 +223,22 @@ everyone else), front of waitlists. Nothing else differs.
   next, lobby keys ignored while held.
 - New ad slot `lobby` (300x250), only on the screening route; other ads are
   quiet there.
+
+**Phase 4 (chat, reactions, watchers): done.**
+- `app/src/lib/room.svelte.ts`: joins the two private Realtime channels
+  (`theatre:<id>` presence + reactions, `theatre-chat:<id>` listen-only),
+  sends through `theatre_say` with readable refusals (slow mode seconds,
+  links, blocked words, repeats), keeps up to 200 messages in memory only,
+  @mention detection, mute per screening, and **quiet mode**: people beyond
+  the screening's capacity (by arrival) drop the live connection, keep
+  watching in sync, and retry every 2 minutes.
+- `components/theatre/Chat.svelte` (sidebar and overlay layouts, movie-time
+  stamps, mention highlight + @ autocomplete with Tab, reaction bar, "N new"
+  jump, chat-closing timer after the movie), `Who.svelte` (hover/click profile
+  card: picture, badges, bio, followers, View on Social, Mute),
+  `Watchers.svelte` (count + faces, full list friends first),
+  `Reactions.svelte` (floating emoji, bigger in bursts).
+- Screening page: chat column in the lobby and beside the end card; during
+  the movie overlay / sidebar / hidden, C cycles, Enter focuses the box,
+  remembered per PC. The sidebar shrinks the video (mpv
+  `video-margin-ratio-right`) and the controls instead of covering them.

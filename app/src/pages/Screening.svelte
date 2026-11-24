@@ -14,6 +14,10 @@
   import * as api from "../lib/api";
   import { nav, settings } from "../lib/state.svelte";
   import { theatre, type Screening } from "../lib/theatre.svelte";
+  import { room } from "../lib/room.svelte";
+  import Chat from "../components/theatre/Chat.svelte";
+  import Reactions from "../components/theatre/Reactions.svelte";
+  import Watchers from "../components/theatre/Watchers.svelte";
   import type { TitleSummary } from "../lib/types";
 
   let { id }: { id: string } = $props();
@@ -32,7 +36,41 @@
   let ended = $state(false);
   let joinedLate = $state(false);
   let moving = $state(false);
-  let player = $state({ phase: "sources", status: "Finding a source", source: null as string | null, cachedSecs: 0 });
+  let player = $state({ phase: "sources", status: "Finding a source", source: null as string | null, cachedSecs: 0, time: 0 });
+
+  // Where the chat sits during the movie: over it, beside it, or hidden (C cycles).
+  type Layout = "overlay" | "sidebar" | "hidden";
+  const LAYOUT_KEY = "velmora.theatre.layout";
+  let layout = $state<Layout>((() => {
+    try {
+      const v = localStorage.getItem(LAYOUT_KEY);
+      return v === "sidebar" || v === "hidden" ? v : "overlay";
+    } catch {
+      return "overlay";
+    }
+  })());
+  function setLayout(l: Layout) {
+    layout = l;
+    try {
+      localStorage.setItem(LAYOUT_KEY, l);
+    } catch {
+      // Not remembered.
+    }
+  }
+  const SIDEBAR = 360;
+  let chat = $state<ReturnType<typeof Chat>>();
+  const moviePos = () => (stage === "lobby" ? null : player.time);
+
+  function keys(e: KeyboardEvent) {
+    if ((e.target as HTMLElement)?.tagName === "INPUT" || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "c" || e.key === "C") {
+      if (stage !== "show") return;
+      setLayout(layout === "overlay" ? "sidebar" : layout === "sidebar" ? "hidden" : "overlay");
+    } else if (e.key === "Enter" && !room.quiet) {
+      if (stage === "show" && layout === "hidden") setLayout("overlay");
+      setTimeout(() => chat?.focus(), 30);
+    }
+  }
 
   const start = $derived(screening ? Date.parse(screening.starts_at) : 0);
   const end = $derived(screening ? Date.parse(screening.ends_at) : 0);
@@ -48,11 +86,14 @@
 
   onMount(async () => {
     ticker = setInterval(() => (now = theatre.serverNow()), 100);
+    window.addEventListener("keydown", keys);
     await enter();
   });
 
   onDestroy(() => {
     clearInterval(ticker);
+    window.removeEventListener("keydown", keys);
+    room.leave();
     getCurrentWindow().setFullscreen(false).catch(() => {});
   });
 
@@ -72,6 +113,7 @@
       if (!screening) throw new Error("not_found");
       joinedLate = now >= Date.parse(screening.starts_at) + 30_000;
       if (entry.allowed) {
+        room.join(screening.id, screening.capacity);
         const [t] = await api.tmdbTitles([screening.k]);
         title = t ?? null;
         if (!title) problem = "Velmora couldn't load this movie's details.";
@@ -111,6 +153,7 @@
           onstate: (s) => (player = s),
           onended: () => (ended = true),
           onleave: leave,
+          insetRight: stage === "show" && layout === "sidebar" ? SIDEBAR : 0,
         }
       : null,
   );
@@ -174,6 +217,8 @@
       <header class="bar" data-tauri-drag-region>
         <m3e-icon-button variant="tonal" aria-label="Leave the lobby" onclick={leave}><m3e-icon name="arrow_back"></m3e-icon></m3e-icon-button>
         <span class="where" data-tauri-drag-region><m3e-icon name="theaters"></m3e-icon>Theatre · lobby</span>
+        <span class="grow" data-tauri-drag-region></span>
+        <Watchers />
       </header>
 
       <div class="body" in:fly={{ y: 16, duration: 500, easing: cubicOut }}>
@@ -214,9 +259,12 @@
           {/if}
         </div>
 
-        {#if left <= 5 * 60_000 && left > 6_000}
-          <aside class="ad" transition:fade={{ duration: 300 }}><AdSlot id="lobby" /></aside>
-        {/if}
+        <div class="lobby-side">
+          {#if left <= 5 * 60_000 && left > 6_000}
+            <div class="ad" transition:fade={{ duration: 300 }}><AdSlot id="lobby" /></div>
+          {/if}
+          <div class="lobby-chat"><Chat bind:this={chat} layout="sidebar" {moviePos} /></div>
+        </div>
       </div>
 
       {#if finalCount > 0}
@@ -238,10 +286,28 @@
         <p>Thanks for watching together. The chat stays open for {span(end + 30 * 60_000 - now)}.</p>
         <m3e-button variant="filled" onclick={() => nav.replace({ name: "theatre" })}><m3e-icon slot="icon" name="theaters"></m3e-icon>Back to Theatre</m3e-button>
       </div>
+      {#if now < end + 30 * 60_000}
+        <aside class="after-chat"><Chat bind:this={chat} layout="sidebar" {moviePos} closesIn={end + 30 * 60_000 - now} /></aside>
+      {/if}
     </section>
   {:else if !screening && !problem}
     <section class="gate"><m3e-loading-indicator></m3e-loading-indicator></section>
   {/if}
+
+  {#if stage === "show" && entry?.allowed}
+    {#if layout === "sidebar"}
+      <aside class="show-side" style:width="{SIDEBAR}px" transition:fly={{ x: SIDEBAR, duration: 360, easing: cubicOut }}>
+        <Chat bind:this={chat} layout="sidebar" {moviePos} onlayout={setLayout} />
+      </aside>
+    {:else if layout === "overlay"}
+      <Chat bind:this={chat} layout="overlay" {moviePos} onlayout={setLayout} />
+    {:else}
+      <button type="button" class="chat-fab" title="Show chat (C)" onclick={() => setLayout("overlay")} transition:fade={{ duration: 200 }}>
+        <m3e-icon name="forum"></m3e-icon>{room.watchers.length}
+      </button>
+    {/if}
+  {/if}
+  {#if entry?.allowed && stage !== "loading"}<Reactions />{/if}
 
   {#if stage === "show" && joinedLate}
     <div class="toast" in:fly={{ y: -12, duration: 300 }} out:fade={{ duration: 300 }}
@@ -471,6 +537,68 @@
     padding: 12px;
     border-radius: 20px;
     background: rgb(0 0 0 / 35%);
+  }
+
+  .grow {
+    flex: 1;
+  }
+  .lobby-side {
+    flex: none;
+    align-self: stretch;
+    width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+    max-height: calc(100vh - 120px);
+  }
+  .lobby-chat {
+    flex: 1;
+    min-height: 0;
+    border-radius: 24px;
+    overflow: hidden;
+  }
+  .ad {
+    flex: none;
+    align-self: center;
+  }
+  .after {
+    grid-template-columns: 1fr auto;
+  }
+  .after-chat {
+    width: 380px;
+    height: 100vh;
+  }
+  .show-side {
+    position: absolute;
+    z-index: 72;
+    top: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .chat-fab {
+    all: unset;
+    position: absolute;
+    z-index: 74;
+    left: 24px;
+    bottom: 118px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    background: rgb(0 0 0 / 50%);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 150ms ease;
+    --m3e-icon-size: 18px;
+  }
+  .chat-fab:hover,
+  .chat-fab:focus-visible {
+    opacity: 1;
   }
 
   /* ── The last five seconds ── */

@@ -6,7 +6,9 @@
     /** Now, by the server's clock (ms). */
     now: () => number;
     hold: boolean;
-    onstate?: (s: { phase: string; status: string; source: string | null; cachedSecs: number }) => void;
+    onstate?: (s: { phase: string; status: string; source: string | null; cachedSecs: number; time: number }) => void;
+    /** Pixels on the right taken by the chat sidebar; video and controls shrink to fit. */
+    insetRight?: number;
     onended?: () => void;
     onleave?: () => void;
   }
@@ -590,10 +592,18 @@
   });
 
   // Tell the Screening page how it's going (for "Ready" in the lobby).
+  // The chat sidebar takes the right edge: mpv draws the video beside it.
+  $effect(() => {
+    const px = theatre?.insetRight ?? 0;
+    if (!theatre || !ready || web) return;
+    const ratio = Math.min(0.5, Math.max(0, px / Math.max(1, innerWidth)));
+    setProperty("video-margin-ratio-right", ratio).catch(() => {});
+  });
+
   // Depends on the player's own state only, not on the theatre object (which
   // the page recreates), so reporting can't loop.
   $effect(() => {
-    const state = { phase, status, source: source ? providerName(source) : null, cachedSecs };
+    const state = { phase, status, source: source ? providerName(source) : null, cachedSecs, time: Math.floor(time) };
     untrack(() => theatre?.onstate?.(state));
   });
 
@@ -777,6 +787,7 @@
 
 <div
   class="player"
+  style:right="{theatre?.insetRight ?? 0}px"
   class:hide-cursor={!controls && phase === "playing"}
   role="application"
   aria-label="Video player"
@@ -1051,6 +1062,7 @@
     gap: 8px;
   }
   .player {
+    transition: right 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
     position: fixed;
     inset: 0;
     z-index: 60;
