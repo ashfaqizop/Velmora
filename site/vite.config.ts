@@ -35,15 +35,16 @@ const icons = (): Plugin => ({
 });
 
 // One HTML file per page.
-const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html", "admin/index.html", "free-netflix-alternative/index.html"];
+const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html", "admin/index.html", "free-netflix-alternative/index.html", "download/index.html", "features/index.html", "faq/index.html", "docs/install/index.html", "docs/system-requirements/index.html", "docs/account/index.html", "disclaimer/index.html", "contact/index.html"];
 
 export default defineConfig({
   plugins: [svelte(), icons()],
   build: {
     target: "es2022",
+    manifest: true,
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      input: Object.fromEntries(PAGES.map((p) => [p.split("/")[0].replace(".html", "") || "main", resolve(import.meta.dirname, p)])),
+      input: Object.fromEntries(PAGES.map((p) => [p.replace(/index\.html$/, "").replace(/\/$/, "").replace(/\//g, "-") || "main", resolve(import.meta.dirname, p)])),
     },
   },
 });

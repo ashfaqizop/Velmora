@@ -6,12 +6,12 @@
   let scrolled = $state(false);
   let open = $state(false);
   const LINKS = [
-    ["/#features", "Features"],
+    ["/features/", "Features"],
     ["/ani/", "Ani"],
     ["/universeapi/", "Engine"],
-    ["/#install", "Install"],
+    ["/download/", "Download"],
     ["/changelog/", "What's new"],
-    ["/#faq", "FAQ"],
+    ["/faq/", "FAQ"],
   ];
 </script>
 

@@ -1,0 +1,134 @@
+/* Shared look for the content pages (download, features, faq, docs, contact). */
+
+@keyframes pg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+    filter: blur(6px);
+  }
+}
+.pg-rise {
+  animation: pg-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--d, 0s);
+}
+
+.iv {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--delay, 0s);
+}
+.iv.in {
+  opacity: 1;
+  transform: none;
+}
+
+main.pg {
+  padding-bottom: 80px;
+}
+section.pg-section {
+  padding: 84px 0 0;
+}
+.pg-title {
+  margin: 10px 0 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(32px, 4.2vw, 50px);
+  line-height: 1.04;
+  letter-spacing: -0.012em;
+}
+.pg-title em {
+  font-style: italic;
+  background: linear-gradient(100deg, var(--cream), #ffd59a 35%, var(--blue) 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-right: 0.06em;
+}
+.pg-lead {
+  margin: 14px 0 0;
+  max-width: 620px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.65;
+}
+.pg-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 34px;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+}
+.pg-card {
+  position: relative;
+  padding: 26px;
+  border-radius: 28px;
+  border: 1px solid var(--line);
+  background: var(--glass);
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-color 0.3s,
+    background 0.3s;
+}
+a.pg-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.pg-card:hover {
+  transform: translateY(-4px);
+  border-color: rgb(255 255 255 / 16%);
+  background: rgb(255 255 255 / 6%);
+}
+.pg-card h3 {
+  margin: 14px 0 6px;
+  font-size: 18px;
+}
+.pg-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.pg-prose p,
+.pg-prose li {
+  color: var(--muted);
+  font-size: 16.5px;
+  line-height: 1.75;
+}
+.pg-prose strong {
+  color: var(--ink);
+}
+.pg-prose a {
+  color: #c9c1ff;
+}
+.pg-wide {
+  width: min(var(--max), 100% - 48px);
+  margin-inline: auto;
+}
+.pg-split {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 56px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .pg-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+@media (max-width: 600px) {
+  .pg-wide {
+    width: calc(100% - 32px);
+  }
+  section.pg-section {
+    padding-top: 60px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pg-rise {
+    animation: none;
+  }
+}

@@ -4,6 +4,12 @@
 
   const LINKS = [
     ["/changelog/", "What's new"],
+    ["/download/", "Download"],
+    ["/features/", "Features"],
+    ["/faq/", "FAQ"],
+    ["/docs/install/", "Install guide"],
+    ["/docs/system-requirements/", "System requirements"],
+    ["/docs/account/", "Your account"],
     ["/free-netflix-alternative/", "Free Netflix alternative"],
     ["/ani/", "Ani"],
     ["/universeapi/", "UniverseAPI engine"],
@@ -15,6 +21,8 @@
     ["/privacy/", "Privacy policy"],
     ["/stats/", "Velmora by the numbers"],
     ["/terms/", "Terms of use"],
+    ["/disclaimer/", "Disclaimer and DMCA"],
+    ["/contact/", "Contact"],
   ];
 </script>
 
