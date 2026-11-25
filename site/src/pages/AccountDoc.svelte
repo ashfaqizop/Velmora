@@ -1,4 +1,7 @@
 <script lang="ts">
+  import discord from "../assets/brands/discord.svg";
+  import google from "../assets/brands/google.svg";
+  import LogoTile from "./compare/LogoTile.svelte";
   import { inview } from "./inview";
   import Note from "./Note.svelte";
   import PageShell from "./PageShell.svelte";
@@ -9,10 +12,10 @@
   type Method = "google" | "discord" | "email";
   let method = $state<Method>("google");
 
-  const METHODS: { id: Method; label: string; icon: string }[] = [
-    { id: "google", label: "Google", icon: "account_circle" },
-    { id: "discord", label: "Discord", icon: "forum" },
-    { id: "email", label: "Emailed code", icon: "mail" },
+  const METHODS: { id: Method; label: string; icon: string; logo?: string; title: string }[] = [
+    { id: "google", label: "Google", icon: "account_circle", logo: google, title: "Sign in with Google" },
+    { id: "discord", label: "Discord", icon: "forum", logo: discord, title: "Sign in with Discord" },
+    { id: "email", label: "Emailed code", icon: "mail", title: "Sign in with an emailed code" },
   ];
 
   const HOW: Record<Method, { title: string; text: string }[]> = {
@@ -67,12 +70,16 @@
         <m3e-tabs class="tabs" aria-label="Sign-in method">
           {#each METHODS as m (m.id)}
             <m3e-tab selected={method === m.id} onclick={() => (method = m.id)}>
-              <m3e-icon slot="icon" name={m.icon}></m3e-icon>{m.label}
+              {#if m.logo}<span slot="icon" class="tabLogo"><LogoTile src={m.logo} name={m.label} size={26} /></span>{:else}<m3e-icon slot="icon" name={m.icon}></m3e-icon>{/if}{m.label}
             </m3e-tab>
           {/each}
         </m3e-tabs>
         {#each METHODS as m (m.id)}
           <div class="panel" class:on={method === m.id} hidden={method !== m.id}>
+            <div class="ptitle">
+              {#if m.logo}<LogoTile src={m.logo} name={m.label} size={48} />{:else}<span class="mailTile"><m3e-icon name="mail" filled></m3e-icon></span>{/if}
+              <h3>{m.title}</h3>
+            </div>
             <Steps steps={HOW[m.id]} />
           </div>
         {/each}
@@ -151,6 +158,30 @@
   }
   .panel {
     animation: swap 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .ptitle {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 26px;
+  }
+  .ptitle h3 {
+    margin: 0;
+    font-size: 21px;
+    color: var(--ink);
+  }
+  .tabLogo {
+    display: inline-grid;
+  }
+  .mailTile {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--blue) 25%, var(--bg));
+    color: var(--cream);
+    --m3e-icon-size: 26px;
   }
   .panel[hidden] {
     display: none;

@@ -6,7 +6,6 @@ import "@fontsource/instrument-serif/400-italic.css";
 import "./lib/m3e";
 import "@m3e/web/breadcrumb";
 import "@m3e/web/carousel";
-import "@m3e/web/toc";
 import "@m3e/web/split-button";
 import "@m3e/web/button-group";
 import "./app.css";

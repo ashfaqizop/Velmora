@@ -15,7 +15,7 @@ const ICONS = [
   "travel_explore", "trending_up", "verified", "video_library", "view_carousel", "visibility", "visibility_off",
   "volume_up", "wand_stars", "workspace_premium",
   "groups", "mail", "error", "check", "open_in_new", "priority_high", "logout", "edit", "public", "person_add", "insights", "login", "account_circle", "shield", "favorite", "explore", "music_note", "tv", "local_fire_department", "emoji_events", "link_off", "star_rate", "more_vert", "arrow_back",
-  "dashboard", "rate_review", "spellcheck", "block", "monitoring", "health_and_safety", "manage_accounts", "restart_alt", "lock_open", "delete_forever", "task_alt", "undo", "storage", "event_busy", "event", "event_available", "pause_circle", "play_circle", "campaign", "forum", "confirmation_number", "pin_drop", "push_pin", "chat_bubble", "mic_off", "person_remove", "sensors", "calendar_month", "preview", "auto_mode",
+  "dashboard", "rate_review", "spellcheck", "block", "monitoring", "health_and_safety", "manage_accounts", "restart_alt", "lock_open", "delete_forever", "task_alt", "undo", "storage", "balance", "event_busy", "alternate_email", "bug_report", "cloud_sync", "description", "devices_fold", "diversity_3", "face", "fact_check", "gavel", "help", "hub", "language", "laptop_mac", "lightbulb", "memory", "menu_book", "phone_iphone", "privacy_tip", "search_off", "sports_soccer", "subtitles", "sync_alt", "terminal", "verified_user", "event", "event_available", "pause_circle", "play_circle", "campaign", "forum", "confirmation_number", "pin_drop", "push_pin", "chat_bubble", "mic_off", "person_remove", "sensors", "calendar_month", "preview", "auto_mode",
   "share", "flag", "content_copy", "group", "person_remove", "how_to_reg", "add_link", "playlist_add", "list", "delete", "delete_sweep", "desktop_windows", "send", "refresh", "theaters", "confirmation_number", "lock_clock", "auto_awesome", "local_activity", "forum",
 ];
 
@@ -35,7 +35,7 @@ const icons = (): Plugin => ({
 });
 
 // One HTML file per page.
-const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html", "admin/index.html", "free-netflix-alternative/index.html", "download/index.html", "features/index.html", "faq/index.html", "docs/install/index.html", "docs/system-requirements/index.html", "docs/account/index.html", "disclaimer/index.html", "contact/index.html"];
+const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html", "admin/index.html", "free-netflix-alternative/index.html", "download/index.html", "features/index.html", "faq/index.html", "docs/install/index.html", "docs/system-requirements/index.html", "docs/account/index.html", "disclaimer/index.html", "contact/index.html", "velmora-vs-stremio/index.html", "velmora-vs-kodi/index.html", "velmora-vs-plex/index.html", "stremio-alternatives/index.html", "kodi-alternatives/index.html", "best-free-movie-apps-for-windows/index.html"];
 
 export default defineConfig({
   plugins: [svelte(), icons()],

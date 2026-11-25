@@ -3,8 +3,15 @@
 // `path` is where the page lives, and the page's own index.html carries its
 // title, description and social tags; `jsonld` adds structured data.
 import type { Component } from "svelte";
+import { BEST_FREE, KODI, KODI_ALTS, PLEX, STREMIO, STREMIO_ALTS } from "../lib/compare";
 import { FAQ } from "../lib/faq";
 import AccountDoc from "./AccountDoc.svelte";
+import AltKodi from "./compare/AltKodi.svelte";
+import AltStremio from "./compare/AltStremio.svelte";
+import BestFree from "./compare/BestFree.svelte";
+import VsKodi from "./compare/VsKodi.svelte";
+import VsPlex from "./compare/VsPlex.svelte";
+import VsStremio from "./compare/VsStremio.svelte";
 import ContactPage from "./ContactPage.svelte";
 import DisclaimerPage from "./DisclaimerPage.svelte";
 import DownloadPage from "./DownloadPage.svelte";
@@ -43,6 +50,10 @@ function page(def: Omit<PageDef, "jsonld"> & { type?: string; extra?: () => obje
     ],
   };
 }
+
+const faqLd = (faq: { q: string; a: string }[]) => () => [
+  { "@type": "FAQPage", mainEntity: faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
+];
 
 export const PAGES: Record<string, PageDef> = {
   download: page({
@@ -111,5 +122,53 @@ export const PAGES: Record<string, PageDef> = {
     description: "Report a bug, suggest an idea, report a security problem privately, send a copyright notice, or help build Velmora. Where to go for each.",
     component: ContactPage,
     type: "ContactPage",
+  }),
+  vsStremio: page({
+    path: "/velmora-vs-stremio/",
+    crumb: "Velmora vs Stremio",
+    title: "Velmora vs Stremio: which free app is right for you?",
+    description: "Velmora and Stremio compared on price, platforms, where the video comes from, open source and extras, with sources and where Stremio is the better pick.",
+    component: VsStremio,
+    extra: faqLd(STREMIO.faq),
+  }),
+  vsKodi: page({
+    path: "/velmora-vs-kodi/",
+    crumb: "Velmora vs Kodi",
+    title: "Velmora vs Kodi: a media center or an app that works at once?",
+    description: "Velmora and Kodi compared: price, platforms, add-ons, open source and setup, with sources, and when Kodi is the better choice.",
+    component: VsKodi,
+    extra: faqLd(KODI.faq),
+  }),
+  vsPlex: page({
+    path: "/velmora-vs-plex/",
+    crumb: "Velmora vs Plex",
+    title: "Velmora vs Plex: a search app or a server for your own library?",
+    description: "Velmora and Plex compared: what each is for, price, ads, platforms and source code, with sources, and when Plex is the better pick.",
+    component: VsPlex,
+    extra: faqLd(PLEX.faq),
+  }),
+  stremioAlternatives: page({
+    path: "/stremio-alternatives/",
+    crumb: "Stremio alternatives",
+    title: "Stremio alternatives: 7 apps grouped by what you want",
+    description: "Alternatives to Stremio, sorted by what you need: apps that find video, servers for your own library, free licensed catalogs and players. With sources.",
+    component: AltStremio,
+    extra: faqLd(STREMIO_ALTS.faq),
+  }),
+  kodiAlternatives: page({
+    path: "/kodi-alternatives/",
+    crumb: "Kodi alternatives",
+    title: "Kodi alternatives: 7 apps grouped by what you want",
+    description: "Alternatives to Kodi, sorted by what you used it for: your own library, finding video, free catalogs or just playing files. With sources.",
+    component: AltKodi,
+    extra: faqLd(KODI_ALTS.faq),
+  }),
+  bestFree: page({
+    path: "/best-free-movie-apps-for-windows/",
+    crumb: "Best free movie apps for Windows",
+    title: "Best free movie apps for Windows: 9 compared",
+    description: "Nine free ways to watch movies on a Windows PC, grouped by how they work, with what each is best for and what to watch out for. Velmora included, honestly.",
+    component: BestFree,
+    extra: faqLd(BEST_FREE.faq),
   }),
 };

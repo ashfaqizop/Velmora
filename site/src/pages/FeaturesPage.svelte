@@ -112,10 +112,12 @@
 
   <section class="pg-section tight">
     <div class="pg-wide">
-      <m3e-carousel variant="hero" class="car" aria-label="Headline features">
+      <m3e-carousel variant="uncontained" class="car" aria-label="Headline features">
         {#each HEADLINES as h (h.title)}
           <m3e-carousel-item label={h.title} style="--c: {h.color}">
-            <div class="art"><m3e-shape name={h.shape}></m3e-shape></div>
+            <div class="slide">
+              <span class="art"><m3e-shape name={h.shape}></m3e-shape></span>
+            </div>
             <span slot="title">{h.title}</span>
             <span slot="subtitle">{h.sub}</span>
           </m3e-carousel-item>
@@ -129,7 +131,7 @@
     <div id="doc">
       {#each GROUPS as g (g.id)}
         <section class="pg-section grp" id={g.id}>
-          <h2 class="pg-title" use:inview>{g.title} <em>{g.accent}</em></h2>
+          <h2 class="pg-title" use:inview>{g.title}{" "}<em>{g.accent}</em></h2>
           <p class="pg-lead" use:inview={0.05}>{g.lead}</p>
           <div class="pg-grid two">
             {#each g.items as f, i (f.title)}
@@ -162,23 +164,28 @@
     padding-top: 48px;
   }
   .car {
-    height: clamp(260px, 34vw, 380px);
+    display: block;
+    --m3e-carousel-height: clamp(260px, 30vw, 340px);
+    --m3e-carousel-item-width: min(340px, 78vw);
+    --m3e-carousel-item-gap: 14px;
     --m3e-carousel-item-shape: 32px;
   }
-  m3e-carousel-item {
-    background: radial-gradient(120% 100% at 80% 0%, color-mix(in srgb, var(--c) 55%, #0a0d16), #0a0d16 75%);
-  }
-  .art {
+  .slide {
     position: absolute;
     inset: 0;
     display: grid;
     place-items: center;
-    padding-bottom: 54px;
+    padding-bottom: 64px;
+    background: radial-gradient(120% 100% at 80% 0%, color-mix(in srgb, var(--c) 55%, #0a0d16), #0a0d16 75%);
+  }
+  .art {
+    display: grid;
+    place-items: center;
   }
   .art m3e-shape {
-    --m3e-shape-size: clamp(110px, 18vw, 190px);
+    --m3e-shape-size: clamp(100px, 14vw, 150px);
     --m3e-shape-container-color: var(--c);
-    filter: drop-shadow(0 0 40px color-mix(in srgb, var(--c) 70%, transparent));
+    filter: drop-shadow(0 0 36px color-mix(in srgb, var(--c) 70%, transparent));
     animation: spin 40s linear infinite;
   }
   @keyframes spin {
