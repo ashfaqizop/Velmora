@@ -1,0 +1,8 @@
+# Velmora (getvelmora.dpdns.org). Everything public may be crawled.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /open/
+Disallow: /auth/
+
+Sitemap: https://getvelmora.dpdns.org/sitemap.xml

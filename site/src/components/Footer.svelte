@@ -4,6 +4,7 @@
 
   const LINKS = [
     ["/changelog/", "What's new"],
+    ["/free-netflix-alternative/", "Free Netflix alternative"],
     ["/ani/", "Ani"],
     ["/universeapi/", "UniverseAPI engine"],
     [REPO_URL, "Source code"],

@@ -1,0 +1,239 @@
+@import "@fontsource-variable/plus-jakarta-sans/wght.css";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+
+:root {
+  --bg: #0a0d16;
+  --ink: #f4f1fb;
+  --muted: #b2abc4;
+  --cream: #f8e8c8;
+  --blue: #3271fe;
+  --line: rgb(255 255 255 / 9%);
+  --card: rgb(255 255 255 / 4%);
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Plus Jakarta Sans Variable", system-ui, sans-serif;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+a {
+  color: inherit;
+}
+.glow {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 640px;
+  pointer-events: none;
+  background:
+    radial-gradient(45% 60% at 20% 0%, rgb(50 113 254 / 30%), transparent 70%),
+    radial-gradient(35% 45% at 90% 0%, rgb(248 232 200 / 12%), transparent 70%);
+}
+.bar,
+main,
+footer {
+  position: relative;
+  width: min(860px, 100% - 40px);
+  margin-inline: auto;
+}
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 0;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 18px;
+  text-decoration: none;
+}
+.brand img {
+  border-radius: 10px;
+}
+.bar nav {
+  margin-left: auto;
+  display: flex;
+  gap: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.bar nav a {
+  text-decoration: none;
+}
+.bar nav a:hover {
+  color: var(--ink);
+}
+h1,
+h2 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
+  line-height: 1.05;
+  margin: 0;
+}
+h1 {
+  font-size: clamp(44px, 8vw, 76px);
+  margin-top: 32px;
+}
+h2 {
+  font-size: clamp(30px, 5vw, 42px);
+  margin-top: 64px;
+}
+em {
+  color: var(--cream);
+}
+h3 {
+  margin: 28px 0 6px;
+  font-size: 18px;
+}
+p,
+li {
+  color: var(--muted);
+  font-size: 17px;
+}
+.lead {
+  font-size: 20px;
+  margin: 22px 0 0;
+  max-width: 640px;
+  color: #d7d1e6;
+}
+.cta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 26px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--blue);
+  color: #fff;
+}
+.btn.ghost {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.btn:hover {
+  filter: brightness(1.12);
+}
+.note {
+  margin-top: 14px;
+  font-size: 14px;
+}
+table {
+  width: 100%;
+  margin-top: 22px;
+  border-collapse: collapse;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  font-size: 15.5px;
+}
+th,
+td {
+  padding: 14px 16px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+thead th {
+  background: var(--card);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+tbody th {
+  width: 24%;
+  color: var(--ink);
+}
+td {
+  color: var(--muted);
+}
+tr:last-child th,
+tr:last-child td {
+  border-bottom: 0;
+}
+ul.points {
+  padding-left: 20px;
+  display: grid;
+  gap: 10px;
+}
+ul.points strong {
+  color: var(--ink);
+}
+ol.steps {
+  padding-left: 22px;
+  display: grid;
+  gap: 10px;
+}
+details {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 18px;
+  padding: 16px 20px;
+  margin-top: 10px;
+}
+summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--ink);
+}
+details p {
+  margin: 10px 0 0;
+}
+.final {
+  margin: 72px 0 0;
+  padding: 36px 28px;
+  border-radius: 28px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  text-align: center;
+}
+.final h2 {
+  margin-top: 0;
+}
+.final .cta {
+  justify-content: center;
+}
+footer {
+  padding: 48px 0 64px;
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--muted);
+}
+footer a {
+  text-decoration: none;
+}
+footer a:hover {
+  color: var(--ink);
+}
+@media (max-width: 640px) {
+  tbody th {
+    width: auto;
+  }
+  th,
+  td {
+    padding: 12px;
+  }
+}

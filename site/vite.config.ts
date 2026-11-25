@@ -35,7 +35,7 @@ const icons = (): Plugin => ({
 });
 
 // One HTML file per page.
-const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html", "admin/index.html"];
+const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html", "admin/index.html", "free-netflix-alternative/index.html"];
 
 export default defineConfig({
   plugins: [svelte(), icons()],
