@@ -88,7 +88,14 @@ fun VelmoraWordmark(mode: AppMode, onLongPress: (center: Offset) -> Unit) {
           )
         },
   ) {
-    Text("Velmora", fontFamily = Brand.Serif, fontSize = 30.sp, color = MaterialTheme.colorScheme.onSurface)
+    Text(
+      "Velmora",
+      fontFamily = Brand.Serif,
+      fontSize = 27.sp,
+      maxLines = 1,
+      softWrap = false,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
     AnimatedContent(
       targetState = mode,
       transitionSpec = {
@@ -101,11 +108,13 @@ fun VelmoraWordmark(mode: AppMode, onLongPress: (center: Offset) -> Unit) {
           " Music",
           fontFamily = Brand.Serif,
           fontStyle = FontStyle.Italic,
-          fontSize = 30.sp,
+          fontSize = 27.sp,
+          maxLines = 1,
+          softWrap = false,
           color = MaterialTheme.colorScheme.primary,
         )
       } else {
-        Text("", fontSize = 30.sp)
+        Text("", fontSize = 27.sp)
       }
     }
   }

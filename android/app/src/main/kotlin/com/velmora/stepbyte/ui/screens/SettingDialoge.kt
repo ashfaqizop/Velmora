@@ -117,6 +117,28 @@ fun SettingDialoge(
           buildList {
             add(
               Material3SettingsItem(
+                title = { Text(androidx.compose.ui.res.stringResource(R.string.history)) },
+                description = { Text("What you've played, newest first") },
+                icon = painterResource(R.drawable.music_history),
+                onClick = {
+                  onDismissRequest()
+                  onNavigate("history")
+                },
+              ),
+            )
+            add(
+              Material3SettingsItem(
+                title = { Text(androidx.compose.ui.res.stringResource(R.string.stats)) },
+                description = { Text("Your top songs, artists and listening time") },
+                icon = painterResource(R.drawable.stats),
+                onClick = {
+                  onDismissRequest()
+                  onNavigate("stats")
+                },
+              ),
+            )
+            add(
+              Material3SettingsItem(
                 title = { Text(if (isLoggedIn) accountName else "Anonymous") },
                 description = {
                   Text(if (isLoggedIn) accountEmail.ifEmpty { "Logged In" } else "Not Logged In")

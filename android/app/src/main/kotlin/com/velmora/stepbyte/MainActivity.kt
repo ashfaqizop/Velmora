@@ -1350,22 +1350,8 @@ class MainActivity : ComponentActivity() {
                       )
                     },
                     actions = {
-                      if (appMode == AppMode.MUSIC) {
-                        if (showHistoryButton) {
-                          IconButton(onClick = { navController.navigate("history") }) {
-                            Icon(
-                              painter = painterResource(R.drawable.music_history),
-                              contentDescription = stringResource(R.string.history),
-                            )
-                          }
-                        }
-                        IconButton(onClick = { navController.navigate("stats") }) {
-                          Icon(
-                            painter = painterResource(R.drawable.stats),
-                            contentDescription = stringResource(R.string.stats),
-                          )
-                        }
-                      }
+                      // History and Stats live in Music's avatar panel now, so the
+                      // bar is the same in both modes: avatar, Downloads, switch.
                       ShellActions(
                         mode = appMode,
                         accountImageUrl = accountImageUrl,
