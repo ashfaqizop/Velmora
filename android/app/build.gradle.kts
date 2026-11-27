@@ -33,9 +33,9 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true
 
-    // LastFM API keys from GitHub Secrets
-    val lastFmKey = "266d77b5790e413ada7e41ef100d017a"
-    val lastFmSecret = "41d3ae3b039ddac06c37fb30055bf93b"
+    // Last.fm: Velmora's own API account, from CI secrets. Empty = scrobbling off.
+    val lastFmKey = System.getenv("LASTFM_API_KEY") ?: localProperties.getProperty("LASTFM_API_KEY") ?: ""
+    val lastFmSecret = System.getenv("LASTFM_SECRET") ?: localProperties.getProperty("LASTFM_SECRET") ?: ""
 
     buildConfigField("String", "LASTFM_API_KEY", "\"$lastFmKey\"")
     buildConfigField("String", "LASTFM_SECRET", "\"$lastFmSecret\"")

@@ -47,6 +47,8 @@ jobs:
           STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleUniversalGmsDebug --stacktrace --no-configuration-cache
