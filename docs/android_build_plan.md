@@ -10,9 +10,9 @@ developer PC.
 |---|---|---|
 | 1 | Import and rebrand | done, tested on devices |
 | 2 | Rust engine on Android | done, tested on device (search, sources, direct and torrent playback) |
-| 3 | Shell and navigation | built green, waiting for device testing |
-| 4 | Accounts and onboarding | building |
-| 5 | Home, Browse, title pages, search | |
+| 3 | Shell and navigation | done, tested on device |
+| 4 | Accounts and onboarding | done, tested on device (offline start moved to phase 5) |
+| 5 | Home, Browse, title pages, search | building |
 | 6 | Video player | |
 | 7 | Downloads | |
 | 8 | Live TV, Sports, Theatre | |
@@ -104,6 +104,14 @@ How it is built (2026-11-27):
 Home rows (including Live TV and Sports), Browse tabs (Movies, Series, Anime,
 Live TV, Sports), title pages with seasons and episodes, My List, unified
 search with the mode-switch shortcut.
+
+Carried over from phase 4 testing: with no network the app stayed on the
+sign-in / Get started screen for good, and on a slow network that screen
+flashed for a few seconds before going away. Once someone has signed in, the
+app must open straight into the library offline or on a slow connection. The
+saved session decides what shows at launch; the server check runs in the
+background and only signs out when the server really rejects the session,
+never because it couldn't be reached.
 
 ## 6. Video player
 ExoPlayer on engine sources, source picker, subtitles, audio tracks, quality,

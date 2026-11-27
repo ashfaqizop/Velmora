@@ -65,7 +65,8 @@ export const PHASES: Phase[] = [
     n: 3,
     title: "Shell and navigation",
     icon: "dashboard",
-    status: "building",
+    status: "done",
+    date: "2026-11-27",
     summary:
       "The frame of the app. Velmora and Music become two modes with a switch in the top bar, the bottom bar is Home, Browse, Theatre and Search, tablets get a side rail, and both looks arrive: Liquid Glass and Material You.",
     result: "Sliding between movies and music.",
@@ -75,7 +76,8 @@ export const PHASES: Phase[] = [
     n: 4,
     title: "Accounts and onboarding",
     icon: "account_circle",
-    status: "building",
+    status: "done",
+    date: "2026-11-27",
     summary:
       "Sign in with your Velmora account, YouTube Music sign-in for Music, and a first run that sets things up. My List, watch progress and settings sync with desktop.",
     result: "Your desktop library on your phone.",
@@ -85,11 +87,11 @@ export const PHASES: Phase[] = [
     n: 5,
     title: "Home, Browse, title pages, search",
     icon: "movie",
-    status: "planned",
+    status: "building",
     summary:
-      "Trending rows, Browse tabs for Movies, Series, Anime, Live TV and Sports, title pages with seasons and episodes, My List, and one search across everything.",
-    result: "Finding something to watch.",
-    pieces: ["Home rows", "Browse tabs", "Title pages", "One search"],
+      "Trending rows, Browse tabs for Movies, Series, Anime, Live TV and Sports, title pages with seasons and episodes, My List, and one search across everything. It also fixes what phase 4 testing found offline: once you've signed in, the app opens straight to your library with no network, and a slow connection never flashes the sign-in screen.",
+    result: "Finding something to watch, online or not.",
+    pieces: ["Home rows", "Browse tabs", "Title pages", "My List", "One search", "Offline start"],
   },
   {
     n: 6,
