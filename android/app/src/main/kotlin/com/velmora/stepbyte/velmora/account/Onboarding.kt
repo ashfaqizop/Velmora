@@ -14,7 +14,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.ExperimentalLayoutApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -329,7 +328,6 @@ private val LANGUAGES =
     "ar" to "Arabic",
   )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LanguagesStep(onNext: () -> Unit) {
   val context = LocalContext.current
@@ -367,7 +365,6 @@ private fun LanguagesStep(onNext: () -> Unit) {
   }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LanguageChips(label: String, picked: MutableList<String>) {
   Text(label, style = MaterialTheme.typography.titleMedium, color = Brand.Cream, fontWeight = FontWeight.Bold)
