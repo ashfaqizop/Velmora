@@ -66,7 +66,22 @@ impl TorrentEngine {
     /// Start a session that downloads into `dir`.
     pub async fn new(dir: PathBuf) -> Result<Self> {
         tokio::fs::create_dir_all(&dir).await.map_err(terr)?;
-        let session = Session::new_with_opts(dir, SessionOptions::default()).await.map_err(terr)?;
+        #[allow(unused_mut)]
+        let mut opts = SessionOptions::default();
+        // librqbit keeps the DHT routing table in an OS config folder that
+        // Android doesn't have, which fails the whole session. Keep it next
+        // to the pieces instead.
+        #[cfg(target_os = "android")]
+        {
+            opts.dht = Some(librqbit::DhtSessionConfig {
+                persistence: Some(librqbit::dht::DhtPersistenceConfig {
+                    config_filename: Some(dir.join(".dht.json")),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            });
+        }
+        let session = Session::new_with_opts(dir, opts).await.map_err(terr)?;
         Ok(Self { session })
     }
 
