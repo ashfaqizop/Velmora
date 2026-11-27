@@ -1118,8 +1118,6 @@ fun AppearanceSettings(
       items =
         buildList {
           add(
-          )
-          add(
             Material3SettingsItem(
               icon = painterResource(com.velmora.stepbyte.R.drawable.alphabet_cyrillic),
               title = { Text(stringResource(com.velmora.stepbyte.R.string.app_font)) },
