@@ -54,7 +54,7 @@ export const PHASES: Phase[] = [
     n: 2,
     title: "Rust engine on Android",
     icon: "memory",
-    status: "building",
+    status: "testing",
     summary:
       "UniverseAPI, the Rust engine behind desktop Velmora, compiled for Android and called from Kotlin. Search, sources, torrents and the encrypted download vault come with it, plus a small local server that feeds the video player.",
     result: "A hidden engine lab that searches, finds sources and plays one, on all three test devices.",
