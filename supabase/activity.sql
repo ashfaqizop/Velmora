@@ -445,6 +445,13 @@ grant execute on function public.suggested_people(integer) to authenticated;
 --   'reviews'   most reviews written
 --   'followers' most followed (all time)
 
+-- People the admin site keeps off the leaderboards (bots, staff, abuse).
+create table if not exists public.leaderboard_hidden (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.leaderboard_hidden enable row level security;
+
 create or replace function public.leaderboard(board text, lim integer default 20)
 returns table (
   id uuid,
@@ -478,6 +485,7 @@ as $$
   ) t
   join public.profiles p on p.id = t.uid
   where not p.hidden and not p.banned
+    and not exists (select 1 from public.leaderboard_hidden h where h.user_id = p.id)
     and (board <> 'hours' or p.share_activity)
     and t.value > 0
   order by t.value desc, p.followers_count desc

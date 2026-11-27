@@ -6,12 +6,16 @@
   import Live from "./Live.svelte";
   import Overrides from "./Overrides.svelte";
   import Tickets from "./Tickets.svelte";
+  import Tuning from "./Tuning.svelte";
+  import Insights from "./Insights.svelte";
 
   const TABS = [
     { id: "lineup", label: "Lineup" },
     { id: "live", label: "Live now" },
     { id: "tickets", label: "Tickets" },
     { id: "overrides", label: "Pins & blocks" },
+    { id: "insights", label: "Insights" },
+    { id: "tuning", label: "Tuning" },
     { id: "controls", label: "Controls" },
   ] as const;
 
@@ -41,6 +45,10 @@
       <Tickets />
     {:else if tab === "overrides"}
       <Overrides />
+    {:else if tab === "insights"}
+      <Insights />
+    {:else if tab === "tuning"}
+      <Tuning />
     {:else}
       <Controls />
     {/if}

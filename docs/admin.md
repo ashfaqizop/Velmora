@@ -1,7 +1,7 @@
 # Admin site plan
 
 `admin.getvelmora.dpdns.org`. Only the owner is admin, no moderator role.
-Deferred on 2026-11-24, restarted the same day. Phases 1, 2 and 3a are built (see Status below); 3b is not.
+Deferred on 2026-11-24, restarted the same day. All three phases are built (see Status below).
 
 ## Access and safety
 - `admins` table in Supabase plus TOTP MFA. Own origin, no third-party scripts, no ads.
@@ -134,4 +134,14 @@ Owner steps for 3a:
 3. GitHub > Settings > Developer settings > Fine-grained tokens: repository `ashfaqizop/Velmora` only, Contents read and write. Paste into Vercel as `CONFIG_GITHUB_TOKEN`. A fine-grained token can't be limited to one branch; the server code is what keeps it to `config`.
 4. Redeploy, then on the Max page import `%USERPROFILE%\.velmora-license\issued.json`.
 
-Phase 3b (next): platform analytics, social curation, Theatre algorithm knobs, source probe results and auto-skip, show failure rate (needs an app release), per-screening analytics.
+
+**Phase 3b: analytics, curation, Theatre tuning and insight. Built, not yet deployed.**
+- Server: `api/_lib/admin-insights.js` (analytics, curation, curationSet, theatreKnobs, theatreKnobsSet, theatreInsights), `api/_lib/lineup-knobs.js`. Still 11 of 12 functions.
+- Analytics page: installs per day, sign-ups, ratings, follows and feed activity (`admin_growth`), app ads per day, play hours, sources, versions, player, quality, most watched titles and songs (same privacy threshold as the public stats).
+- Curation page: featured people and staff picks (`public.featured`, ordered, with a short note) shown at the top of Social's home; people kept off the leaderboards (`public.leaderboard_hidden`, in activity.sql). Staff picks search movies and shows.
+- Theatre > Tuning: every number the algorithm used to hard-code (per-day min/max and growth, seat budget, overlap, repeat windows, pick on/off and its rating/votes bar, plays vs trending weight, shortest film, excluded genres, most per main genre, source-check rule). Saved in Redis `cfg:lineup`; the next draft uses it. Pins ignore genre rules.
+- Theatre > Insights: per-screening table (seats, tickets, came in vs expected, no-shows, Max, Social, started), app vs Social and Public vs Max shares, genres and start hours by average turnout, source checks on current drafts with what the drop rule will do, lobby ad count, and the failed-start rate.
+- Failed starts: the app posts `/api/theatre/start { id, ok, why }` once per screening per PC (Redis `th:start:<id>`, 90 days). Ships with the next app release, which also adds the site to the app's CSP.
+- App vs Social: `theatre_tickets.via`, set by `theatre_book` from the request's origin (Social's web origin vs anything else).
+
+Owner steps for 3b: re-run `supabase/activity.sql`, `supabase/admin.sql` and `supabase/theatre.sql` (all safe to re-run).

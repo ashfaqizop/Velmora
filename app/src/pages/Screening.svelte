@@ -14,6 +14,7 @@
   import * as api from "../lib/api";
   import { nav, settings } from "../lib/state.svelte";
   import { theatre, type Screening } from "../lib/theatre.svelte";
+  import { SITE } from "../lib/ads.svelte";
   import { room } from "../lib/room.svelte";
   import Chat from "../components/theatre/Chat.svelte";
   import Reactions from "../components/theatre/Reactions.svelte";
@@ -39,6 +40,35 @@
   let joinedLate = $state(false);
   let moving = $state(false);
   let player = $state({ phase: "sources", status: "Finding a source", source: null as string | null, cachedSecs: 0, time: 0 });
+
+  // Did the movie start? The first outcome per screening goes to the site,
+  // anonymously, so the admin site can see how often shows fail to start.
+  const STARTED_KEY = "velmora.theatre.started";
+  let reported = false;
+  $effect(() => {
+    const phase = player.phase;
+    if (reported || !screening || (phase !== "playing" && phase !== "error")) return;
+    reported = true;
+    let seen: string[] = [];
+    try {
+      seen = JSON.parse(localStorage.getItem(STARTED_KEY) ?? "[]");
+    } catch {
+      // Start over.
+    }
+    if (seen.includes(screening.id)) return;
+    const ok = phase === "playing";
+    const why = !navigator.onLine ? "network" : player.source ? "player" : "source";
+    fetch(`${SITE}/api/theatre/start`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(ok ? { id: screening.id, ok } : { id: screening.id, ok, why }),
+    }).catch(() => {});
+    try {
+      localStorage.setItem(STARTED_KEY, JSON.stringify([...seen, screening.id].slice(-50)));
+    } catch {
+      // Might report twice; harmless.
+    }
+  });
 
   // Where the chat sits during the movie: over it, beside it, or hidden (C cycles).
   type Layout = "overlay" | "sidebar" | "hidden";

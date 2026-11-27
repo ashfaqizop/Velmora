@@ -202,6 +202,25 @@ async function personList(order: "followers_count" | "created_at", n: number): P
 export const mostFollowed = () => personList("followers_count", 12);
 export const newestPeople = () => personList("created_at", 12);
 
+/** People the Velmora team features. Their note, if any, stands in for the bio. */
+export async function featuredPeople(): Promise<Person[]> {
+  const { data, error } = await supabase.rpc("featured_people");
+  if (error) return [];
+  const list = ((data ?? []) as (Person & { note: string })[]).map(({ note, ...p }) => ({ ...p, bio: note || "" }));
+  await Promise.all([checkFollowing(list.map((x) => x.id)), loadMax(list.map((x) => x.id))]);
+  return list;
+}
+
+export interface StaffPick {
+  k: string;
+  note: string;
+}
+
+export async function staffPicks(): Promise<StaffPick[]> {
+  const { data, error } = await supabase.from("featured").select("k,note").eq("kind", "title").order("position").limit(12);
+  return error ? [] : ((data ?? []) as StaffPick[]);
+}
+
 // ── Following ─────────────────────────────────────────────────────────────
 
 /** Whether I follow each person I've seen. Missing means not checked yet. */

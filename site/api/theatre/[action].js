@@ -7,6 +7,8 @@
 //                               on the first run sets up today and tomorrow.
 //   GET  /api/theatre/probes    Drafted titles that apps should check for sources.
 //   POST /api/theatre/probe     { k, found } from an app: anonymous, counted per title.
+//   POST /api/theatre/start     { id, ok, why? } from an app when a screening tried to
+//                               play: anonymous, counted per screening (failure rate).
 //
 // Needs in Vercel: SUPABASE_SERVICE_ROLE_KEY, TMDB_READ_TOKEN, CRON_SECRET
 // (and the Upstash variables the site already has).
@@ -64,6 +66,21 @@ async function probe(req, res) {
   return res.status(200).json({ ok: true });
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const WHY = new Set(["source", "player", "network", "other"]);
+
+/** Did the movie start? Counted per screening, kept 90 days. */
+async function start(req, res) {
+  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body ?? {});
+  if (!UUID.test(String(body.id)) || typeof body.ok !== "boolean") return res.status(400).json({ ok: false });
+  if (await rateLimited(req, 30)) return res.status(429).json({ ok: false });
+  const field = body.ok ? "ok" : WHY.has(body.why) ? body.why : "other";
+  const key = `th:start:${body.id}`;
+  await redis("HINCRBY", key, field, "1");
+  await redis("EXPIRE", key, String(90 * 86400));
+  return res.status(200).json({ ok: true });
+}
+
 export default async function handler(req, res) {
   try {
     switch (req.query.action) {
@@ -73,6 +90,8 @@ export default async function handler(req, res) {
         return req.method === "GET" ? await probes(req, res) : res.status(405).end();
       case "probe":
         return req.method === "POST" ? await probe(req, res) : res.status(405).end();
+      case "start":
+        return req.method === "POST" ? await start(req, res) : res.status(405).end();
       default:
         return res.status(404).json({ ok: false });
     }

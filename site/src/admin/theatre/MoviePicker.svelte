@@ -3,7 +3,7 @@
   import { call, sayError } from "../api";
   import type { Movie } from "./types";
 
-  let { onpick, label = "Search for a movie" }: { onpick: (m: Movie) => void; label?: string } = $props();
+  let { onpick, label = "Search for a movie", shows = false }: { onpick: (m: Movie) => void; label?: string; shows?: boolean } = $props();
 
   let q = $state("");
   let results = $state<Movie[]>([]);
@@ -21,7 +21,7 @@
       const mine = ++seq;
       loading = true;
       try {
-        const r = await call<{ results: Movie[] }>("theatreSearch", { q });
+        const r = await call<{ results: Movie[] }>("theatreSearch", { q, shows });
         if (mine === seq) results = r.results;
       } catch (e) {
         if (mine === seq) sayError(e);

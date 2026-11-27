@@ -8,7 +8,7 @@
   import { beginSignIn } from "../lib/session";
   import PersonRow from "./PersonRow.svelte";
   import Badges from "./Badges.svelte";
-  import { auth, mostFollowed, newestPeople, type Person } from "./data.svelte";
+  import { auth, featuredPeople, mostFollowed, newestPeople, staffPicks, type Person, type StaffPick } from "./data.svelte";
   import { count, plural } from "./format";
   import { href, profileHref } from "./nav.svelte";
   import ActivityList from "./ActivityList.svelte";
@@ -20,12 +20,16 @@
   let busy = $state(false);
   let suggested = $state<Person[] | null>(null);
   let trend = $state<Trend[] | null>(null);
+  let featured = $state<Person[]>([]);
+  let picks = $state<StaffPick[]>([]);
 
   $effect(() => {
     document.title = "Velmora Social";
     void auth.phase;
     mostFollowed().then((l) => (top = l)).catch(() => (top = []));
     newestPeople().then((l) => (fresh = l)).catch(() => (fresh = []));
+    featuredPeople().then((l) => (featured = l)).catch(() => (featured = []));
+    staffPicks().then((l) => (picks = l)).catch(() => (picks = []));
     if (auth.me) suggestedPeople().then((l) => (suggested = l)).catch(() => (suggested = []));
     trendingTitles("movie")
       .then(async (m) => {
@@ -113,6 +117,26 @@
   </section>
 {/if}
 
+{#if picks.length}
+  <section class="trend">
+    <header><m3e-icon name="auto_awesome"></m3e-icon><h2>Staff picks</h2></header>
+    <div class="strip">
+      {#each picks as p, i (p.k)}<Poster k={p.k} {i} note={p.note} />{/each}
+    </div>
+  </section>
+{/if}
+
+{#if others(featured).length}
+  <section class="block featured">
+    <header><m3e-icon name="verified"></m3e-icon><h2>Featured people</h2></header>
+    <div class="featured-grid">
+      {#each others(featured) as p, i (p.id)}
+        <div in:fly={{ y: 8, duration: 240, delay: i * 30 }}><PersonRow person={p} /></div>
+      {/each}
+    </div>
+  </section>
+{/if}
+
 {#if auth.phase === "in" && me}
   <div class="home-grid">
     <section class="block feed">
@@ -178,6 +202,11 @@
 {/if}
 
 <style>
+  .featured-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 4px 12px;
+  }
   .hero {
     display: flex;
     flex-direction: column;

@@ -251,3 +251,67 @@ revoke insert, update, delete on public.announcements from anon, authenticated;
 revoke select on public.announcements from anon, authenticated;
 grant select (id, kind, title, body, link_url, link_label, audience, place, starts_at, ends_at, updated_at)
   on public.announcements to anon, authenticated;
+
+-- ═══ Phase 3b: curation and growth numbers ════════════════════════════════
+-- Social shows featured people and staff picks; the admin site picks them.
+-- (Leaderboard hiding lives in activity.sql, next to the leaderboard.)
+
+create table if not exists public.featured (
+  id         bigint generated always as identity primary key,
+  kind       text not null check (kind in ('person', 'title')),
+  user_id    uuid references public.profiles (id) on delete cascade,
+  k          text check (k is null or public.valid_title_key(k)),
+  name       text not null default '' check (char_length(name) <= 200),
+  poster     text not null default '' check (poster = '' or poster ~ '^https://image\.tmdb\.org/'),
+  note       text not null default '' check (char_length(note) <= 140),
+  position   integer not null default 0,
+  created_at timestamptz not null default now(),
+  check ((kind = 'person' and user_id is not null and k is null) or (kind = 'title' and k is not null and user_id is null))
+);
+create unique index if not exists featured_person on public.featured (user_id) where kind = 'person';
+create unique index if not exists featured_title on public.featured (k) where kind = 'title';
+
+alter table public.featured enable row level security;
+drop policy if exists "staff picks are public" on public.featured;
+create policy "staff picks are public" on public.featured for select to anon, authenticated using (kind = 'title');
+revoke insert, update, delete on public.featured from anon, authenticated;
+
+-- Featured people, with what a card needs; hidden or banned accounts drop out.
+create or replace function public.featured_people()
+returns table (id uuid, username text, display_name text, avatar text, verified boolean, followers_count integer, note text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.id, p.username, p.display_name, p.avatar, p.verified, p.followers_count, f.note
+  from public.featured f
+  join public.profiles p on p.id = f.user_id
+  where f.kind = 'person' and not p.hidden and not p.banned
+  order by f.position, f.created_at
+  limit 24;
+$$;
+grant execute on function public.featured_people() to anon, authenticated;
+
+-- Day by day: sign-ups, follows, ratings, reviews and activity rows.
+create or replace function public.admin_growth(days integer default 30)
+returns table (day date, signups integer, follows integer, ratings integer, reviews integer, activity integer)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with d as (
+    select generate_series((now() at time zone 'utc')::date - (least(greatest(days, 1), 120) - 1), (now() at time zone 'utc')::date, interval '1 day')::date as day
+  )
+  select d.day,
+    (select count(*)::int from auth.users u where (u.created_at at time zone 'utc')::date = d.day),
+    (select count(*)::int from public.follows f where (f.created_at at time zone 'utc')::date = d.day),
+    (select count(*)::int from public.ratings r where (r.created_at at time zone 'utc')::date = d.day),
+    (select count(*)::int from public.ratings r where r.review <> '' and (r.created_at at time zone 'utc')::date = d.day),
+    (select count(*)::int from public.activity a where (a.created_at at time zone 'utc')::date = d.day)
+  from d
+  order by d.day;
+$$;
+revoke all on function public.admin_growth(integer) from public, anon, authenticated;
+grant execute on function public.admin_growth(integer) to service_role;

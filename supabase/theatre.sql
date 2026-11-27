@@ -892,3 +892,89 @@ grant execute on function public.admin_theatre_grant(uuid, uuid) to service_role
 grant execute on function public.admin_theatre_revoke(uuid, uuid) to service_role;
 grant execute on function public.admin_theatre_chat(uuid, text) to service_role;
 grant execute on function public.admin_theatre_room(uuid, uuid, text) to service_role;
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- Phase 7: numbers for the admin site (docs/admin.md, phase 3b).
+-- Run the whole file again; it is safe to.
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Where a booking came from. Social is a website, so its requests carry the
+-- social.* origin; everything else is the app.
+alter table public.theatre_tickets add column if not exists via text not null default 'app';
+alter table public.theatre_tickets drop constraint if exists theatre_tickets_via;
+alter table public.theatre_tickets add constraint theatre_tickets_via check (via in ('app', 'social'));
+
+create or replace function public.theatre_book(sid uuid)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  s public.theatre_screenings;
+  current text;
+  result text;
+  via text := case when coalesce(current_setting('request.headers', true)::jsonb ->> 'origin', '') like 'https://social.%' then 'social' else 'app' end;
+begin
+  if me is null then raise exception 'sign_in' using errcode = 'P0001'; end if;
+  if exists (select 1 from public.theatre_settings t where t.paused) then raise exception 'paused' using errcode = 'P0001'; end if;
+  if not public.profile_visible(me) then raise exception 'not_allowed' using errcode = 'P0001'; end if;
+  select * into s from public.theatre_screenings where id = sid for update;
+  if not found or s.status <> 'scheduled' then raise exception 'not_bookable' using errcode = 'P0001'; end if;
+  if now() >= s.ends_at then raise exception 'over' using errcode = 'P0001'; end if;
+  if s.opens_at is not null and now() < public.theatre_opens_for(s, me) then
+    raise exception 'not_open_yet' using errcode = 'P0001';
+  end if;
+
+  select status into current from public.theatre_tickets where screening_id = sid and user_id = me;
+  if current in ('booked', 'waitlist', 'attended') then return 'already'; end if;
+
+  result := case when s.mode = 'fixed' and (s.booked >= s.capacity or s.released) then 'waitlist' else 'booked' end;
+  insert into public.theatre_tickets (screening_id, user_id, status, is_max, created_at, via)
+  values (sid, me, result, public.is_max(me), now(), via)
+  on conflict (screening_id, user_id) do update set status = excluded.status, is_max = excluded.is_max, created_at = now(), joined_at = null, via = excluded.via;
+
+  if result = 'booked' then
+    update public.theatre_screenings set booked = booked + 1 where id = sid;
+    perform public.theatre_post(me, 'booked', s.k);
+  else
+    update public.theatre_screenings set waitlisted = waitlisted + 1 where id = sid;
+  end if;
+  return result;
+end;
+$$;
+revoke all on function public.theatre_book(uuid) from public, anon;
+grant execute on function public.theatre_book(uuid) to authenticated;
+
+-- One row per screening between two UTC days, with how its tickets went.
+create or replace function public.admin_theatre_stats(from_day date, to_day date)
+returns table (
+  id uuid, day date, k text, name text, kind text, special boolean, status text, mode text,
+  starts_at timestamptz, runtime integer, capacity integer, expected integer,
+  booked integer, waitlist integer, attended integer, noshow integer, cancelled integer,
+  came_in integer, max_tickets integer, social_tickets integer
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select s.id, s.day, s.k, s.name, s.kind, s.special, s.status, s.mode,
+    s.starts_at, s.runtime, s.capacity, s.expected,
+    count(*) filter (where t.status in ('booked', 'attended', 'noshow'))::int,
+    count(*) filter (where t.status = 'waitlist')::int,
+    count(*) filter (where t.status = 'attended')::int,
+    count(*) filter (where t.status = 'noshow')::int,
+    count(*) filter (where t.status in ('cancelled', 'released'))::int,
+    count(*) filter (where t.joined_at is not null)::int,
+    count(*) filter (where t.is_max and t.status <> 'cancelled')::int,
+    count(*) filter (where t.via = 'social' and t.status <> 'cancelled')::int
+  from public.theatre_screenings s
+  left join public.theatre_tickets t on t.screening_id = s.id
+  where s.day between from_day and to_day
+  group by s.id
+  order by s.starts_at;
+$$;
+revoke all on function public.admin_theatre_stats(date, date) from public, anon, authenticated;
+grant execute on function public.admin_theatre_stats(date, date) to service_role;

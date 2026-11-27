@@ -8,17 +8,15 @@
 import { hash, redis } from "./license.js";
 import { totals } from "./stats.js";
 import { db } from "./supabase.js";
+import { DEFAULT_KNOBS, loadKnobs } from "./lineup-knobs.js";
 import { titleDetails, tmdbGet } from "./tmdb.js";
 
 export const HOUR = 3_600_000;
 export const DAY = 24 * HOUR;
-/** People connected at once that Theatre may use (Supabase Realtime free: ~200, leave room). */
-export const BUDGET = 160;
-const MAX_OVERLAP = 3;
+/** Default seat budget; the live value is a knob (lineup-knobs.js). */
+export const BUDGET = DEFAULT_KNOBS.budget;
 /** Minutes between the end of one screening and the next that overlaps its slot. */
 export const GAP = 15 * 60_000;
-const REPEAT_DAYS = 14;
-const PICK_REPEAT_DAYS = 60;
 export const MOVIE = /^movie\/\d{1,9}$/;
 
 export const isoDay = (t) => new Date(t).toISOString().slice(0, 10);
@@ -48,14 +46,15 @@ async function audience() {
 
 // ── Picking titles ──
 
-async function history() {
-  const since = new Date(Date.now() - PICK_REPEAT_DAYS * DAY).toISOString();
+async function history(K) {
+  const since = new Date(Date.now() - Math.max(K.pickRepeatDays, K.repeatDays) * DAY).toISOString();
   const rows = await db(`theatre_screenings?select=k,kind,starts_at&starts_at=gte.${since}&status=neq.cancelled`);
   const recent = new Set();
   const recentPicks = new Set();
   for (const r of rows) {
-    if (Date.parse(r.starts_at) > Date.now() - REPEAT_DAYS * DAY) recent.add(r.k);
-    if (r.kind === "pick") recentPicks.add(r.k);
+    const t = Date.parse(r.starts_at);
+    if (t > Date.now() - K.repeatDays * DAY) recent.add(r.k);
+    if (r.kind === "pick" && t > Date.now() - K.pickRepeatDays * DAY) recentPicks.add(r.k);
   }
   return { recent, recentPicks };
 }
@@ -69,7 +68,7 @@ async function overrides(day) {
 }
 
 /** Movies Velmora people played this week (proven to have sources), mixed with TMDB's trending. */
-async function trendingPool(skip) {
+async function trendingPool(skip, K) {
   const [plays, trend] = await Promise.all([
     totals("title", 7, 300).catch(() => []),
     Promise.all([1, 2].map((page) => tmdbGet("/trending/movie/week", { page }).catch(() => ({ results: [] })))),
@@ -87,12 +86,12 @@ async function trendingPool(skip) {
     });
   // Velmora plays weigh most (people here watch it, and it plays); TMDB fills in.
   return [...pool.values()]
-    .map((it) => ({ ...it, score: Math.log1p(it.plays) * 3 + (it.rank === null ? 0 : (40 - Math.min(it.rank, 40)) / 20) + Math.random() * 0.3 }))
+    .map((it) => ({ ...it, score: Math.log1p(it.plays) * K.playsWeight + (it.rank === null ? 0 : ((40 - Math.min(it.rank, 40)) / 20) * K.trendWeight) + Math.random() * 0.3 }))
     .sort((a, b) => b.score - a.score);
 }
 
 /** Tonight's pick: a highly rated film few Velmora people have seen. */
-async function hiddenGem(skip) {
+async function hiddenGem(skip, K) {
   const pages = [1 + Math.floor(Math.random() * 10), 11 + Math.floor(Math.random() * 15)];
   const [lists, plays, rated] = await Promise.all([
     Promise.all(pages.map((page) => tmdbGet("/movie/top_rated", { page }).catch(() => ({ results: [] })))),
@@ -103,7 +102,7 @@ async function hiddenGem(skip) {
   const velmora = new Map((rated ?? []).map((r) => [r.k, Number(r.average)]));
   const pool = lists
     .flatMap((l) => l.results ?? [])
-    .filter((m) => !m.adult && m.vote_count >= 800 && m.vote_average >= 7.4 && !skip.has(`movie/${m.id}`))
+    .filter((m) => !m.adult && m.vote_count >= K.gemMinVotes && m.vote_average >= K.gemMinRating && !skip.has(`movie/${m.id}`))
     .map((m) => {
       const k = `movie/${m.id}`;
       const v = velmora.get(k);
@@ -131,7 +130,7 @@ function slotsOf(day, earliest) {
   return out;
 }
 
-function place(items, day, share, earliest) {
+function place(items, day, share, earliest, K) {
   const slots = slotsOf(day, earliest);
   const placed = [];
   const busyN = Math.ceil(items.length / 2);
@@ -153,7 +152,7 @@ function place(items, day, share, earliest) {
       order = [...slots].sort((a, b) => dist(b) - dist(a) || share[new Date(b).getUTCHours()] - share[new Date(a).getUTCHours()]);
     }
     const start = order.find(
-      (t) => overlaps(placed, t, t + len) < MAX_OVERLAP && placed.every((p) => Math.abs(p.start - t) >= HOUR),
+      (t) => overlaps(placed, t, t + len) < K.maxOverlap && placed.every((p) => Math.abs(p.start - t) >= HOUR),
     );
     if (start !== undefined) placed.push({ ...it, start, end: start + len });
   });
@@ -161,7 +160,7 @@ function place(items, day, share, earliest) {
 }
 
 /** Expected audience, seats from the shared budget, and open vs fixed. */
-function seat(placed, share, daily) {
+function seat(placed, share, daily, K) {
   for (const p of placed) {
     const hourShare = share[new Date(p.start).getUTCHours()] * 24; // 1 = an average hour
     const pull = p.kind === "pick" ? 1 : 0.8 + Math.log1p(p.plays) / 3;
@@ -170,7 +169,7 @@ function seat(placed, share, daily) {
   for (const p of placed) {
     const group = placed.filter((q) => q.start < p.end && p.start < q.end);
     const sum = group.reduce((a, q) => a + q.expected, 0);
-    p.capacity = clamp(Math.floor((BUDGET * p.expected) / sum), 10, BUDGET);
+    p.capacity = clamp(Math.floor((K.budget * p.expected) / sum), 10, K.budget);
     p.mode = p.expected >= p.capacity * 0.8 ? "fixed" : "open";
   }
 }
@@ -184,32 +183,44 @@ export async function draft(day, earliest, { force = false, dry = false } = {}) 
     if (existing.length) return { day, drafted: 0, note: "already drafted" };
   }
 
-  const [{ share, daily }, hist, over] = await Promise.all([audience(), history(), overrides(day)]);
+  const K = await loadKnobs();
+  const [{ share, daily }, hist, over] = await Promise.all([audience(), history(K), overrides(day)]);
   const skip = new Set([...hist.recent, ...over.blocked]);
-  const count = clamp(4 + Math.floor(daily / 30), 4, 12);
+  const count = clamp(K.minPerDay + Math.floor(daily / K.perInstalls), K.minPerDay, K.maxPerDay);
 
-  const [trend, gems] = await Promise.all([trendingPool(skip), hiddenGem(new Set([...skip, ...hist.recentPicks]))]);
+  const [trend, gems] = await Promise.all([trendingPool(skip, K), K.pick ? hiddenGem(new Set([...skip, ...hist.recentPicks]), K) : []]);
   const wanted = [
     ...over.pinned.filter((k) => !over.blocked.has(k)).map((k) => ({ k, plays: 0, kind: "trending", pinned: true })),
     ...trend.map((t) => ({ ...t, kind: "trending" })),
   ];
   const keys = [...new Set([...wanted.map((w) => w.k), ...gems.map((g) => g.k)])].slice(0, 60);
   const details = await titleDetails(keys);
+  const excluded = new Set(K.excludeGenres);
   const usable = (k) => {
     const d = details[k];
-    return d && d.runtime && d.runtime >= 40 && d.poster;
+    return d && d.runtime && d.runtime >= K.minRuntime && d.poster && !(d.genres ?? []).some((g) => excluded.has(g));
+  };
+  const chosen = [];
+  // Genre mix: at most maxPerGenre titles share a main genre (pins don't count against it).
+  const perGenre = new Map();
+  const mainGenre = (k) => details[k]?.genres?.[0] ?? "";
+  const roomFor = (k) => !K.maxPerGenre || !mainGenre(k) || (perGenre.get(mainGenre(k)) ?? 0) < K.maxPerGenre;
+  const take = (item) => {
+    chosen.push(item);
+    const g = mainGenre(item.k);
+    if (g) perGenre.set(g, (perGenre.get(g) ?? 0) + 1);
   };
 
-  const chosen = [];
   const pick = gems.find((g) => usable(g.k));
-  if (pick) chosen.push({ ...pick, kind: "pick" });
+  if (pick) take({ ...pick, kind: "pick" });
   for (const w of wanted) {
     if (chosen.length >= count) break;
-    if (usable(w.k) && !chosen.some((c) => c.k === w.k)) chosen.push(w);
+    if (chosen.some((c) => c.k === w.k)) continue;
+    if (w.pinned ? details[w.k]?.runtime && details[w.k]?.poster : usable(w.k) && roomFor(w.k)) take(w);
   }
   const items = chosen.map((c) => ({ ...c, runtime: details[c.k].runtime }));
-  const placed = place(items, day, share, earliest);
-  seat(placed, share, daily);
+  const placed = place(items, day, share, earliest, K);
+  seat(placed, share, daily, K);
 
   const rows = placed.map((p) => {
     const d = details[p.k];
@@ -237,6 +248,7 @@ export async function draft(day, earliest, { force = false, dry = false } = {}) 
 }
 
 export async function finalize(day, { now = false } = {}) {
+  const K = await loadKnobs();
   const drafts = await db(`theatre_screenings?select=id,k,proven&day=eq.${day}&status=eq.draft&special=eq.false`);
   if (!drafts.length) return { day, scheduled: 0 };
   const dropped = [];
@@ -245,7 +257,7 @@ export async function finalize(day, { now = false } = {}) {
     const p = hash(await redis("HGETALL", `th:probe:${d.k}`));
     const found = Number(p.found) || 0;
     const miss = Number(p.miss) || 0;
-    if (found + miss >= 3 && found / (found + miss) < 0.5) dropped.push(d.id);
+    if (found + miss >= K.probeMinChecks && found / (found + miss) < K.probeMinFound) dropped.push(d.id);
   }
   if (dropped.length) await db(`theatre_screenings?id=in.(${dropped.join(",")})`, { method: "PATCH", body: { status: "cancelled" }, prefer: "return=minimal" });
   const t = Date.now();

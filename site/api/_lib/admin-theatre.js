@@ -3,7 +3,8 @@
 // service key; each one leaves a line in the audit log.
 
 import { audit, DAYKEY, must, num, quote, Refusal, resolveUser, UUID } from "./admin-kit.js";
-import { BUDGET, DAY, draft, finalize, GAP, HOUR, isoDay, MOVIE } from "./lineup.js";
+import { DAY, draft, finalize, GAP, HOUR, isoDay, MOVIE } from "./lineup.js";
+import { loadKnobs } from "./lineup-knobs.js";
 import { db } from "./supabase.js";
 import { titleDetails, tmdbGet } from "./tmdb.js";
 
@@ -57,7 +58,8 @@ async function theatreCheck(b) {
   const end = start + runtime * 60_000;
   const { others, warnings } = await clashes(start, end, UUID.test(b.exclude ?? "") ? b.exclude : null);
   const seats = others.reduce((a, r) => a + r.capacity, 0) + num(b.capacity, 1, 1000, 60);
-  if (seats > BUDGET) warnings.push(`Together these could seat ${seats} people at once. Realtime is sized for about ${BUDGET}.`);
+  const { budget } = await loadKnobs();
+  if (seats > budget) warnings.push(`Together these could seat ${seats} people at once. Realtime is sized for about ${budget}.`);
   if (start < Date.now() + 10 * 60_000) warnings.push("This starts in under 10 minutes, so few people will see it in time.");
   return { runtime, ends_at: iso(end), title, overlaps: others, warnings };
 }
@@ -65,12 +67,14 @@ async function theatreCheck(b) {
 async function theatreSearch(b) {
   const q = String(b.q ?? "").trim().slice(0, 80);
   must(q.length >= 2, "Type at least two letters.");
-  const r = await tmdbGet("/search/movie", { query: q, include_adult: "false" });
+  // Staff picks can be shows too; Theatre screenings are movies only.
+  const r = await tmdbGet(b.shows ? "/search/multi" : "/search/movie", { query: q, include_adult: "false" });
+  const list = (r.results ?? []).filter((m) => !b.shows || m.media_type === "movie" || m.media_type === "tv");
   return {
-    results: (r.results ?? []).slice(0, 8).map((m) => ({
-      k: `movie/${m.id}`,
-      name: m.title,
-      year: m.release_date ? Number(m.release_date.slice(0, 4)) || null : null,
+    results: list.slice(0, 8).map((m) => ({
+      k: `${m.media_type === "tv" ? "tv" : "movie"}/${m.id}`,
+      name: m.title ?? m.name,
+      year: (m.release_date ?? m.first_air_date) ? Number((m.release_date ?? m.first_air_date).slice(0, 4)) || null : null,
       poster: m.poster_path ? `https://image.tmdb.org/t/p/w185${m.poster_path}` : null,
       overview: String(m.overview ?? "").slice(0, 160),
     })),

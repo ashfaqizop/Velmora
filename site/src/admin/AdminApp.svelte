@@ -14,6 +14,8 @@
   import NamesView from "./NamesView.svelte";
   import AuditView from "./AuditView.svelte";
   import MaxView from "./control/MaxView.svelte";
+  import AnalyticsView from "./insight/AnalyticsView.svelte";
+  import CurationView from "./insight/CurationView.svelte";
   import NoticesView from "./control/NoticesView.svelte";
   import AdsView from "./control/AdsView.svelte";
   import ConfigView from "./control/ConfigView.svelte";
@@ -57,6 +59,10 @@
         <div class="view" in:fade={{ duration: 200 }}>
           {#if route.page === "overview"}
             <OverviewView />
+          {:else if route.page === "analytics"}
+            <AnalyticsView />
+          {:else if route.page === "curation"}
+            <CurationView />
           {:else if route.page === "theatre"}
             <TheatreView />
           {:else if route.page === "users"}
