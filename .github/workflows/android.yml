@@ -94,13 +94,43 @@ jobs:
       - name: Name the APK
         run: |
           short=$(git rev-parse --short HEAD)
-          mkdir -p out
-          cp app/build/outputs/apk/universalGms/debug/*.apk "out/Velmora-debug-$short.apk"
+          mkdir -p out/universal out/arm64
+          cp app/build/outputs/apk/universalGms/debug/*.apk "out/universal/Velmora-debug-$short.apk"
+
+      # A smaller copy for 64-bit phones (most of them): the same APK without
+      # the 32-bit libraries, re-signed with the same key so it installs over
+      # either build.
+      - name: 64-bit APK
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          [ -f keystore.jks ] || { echo "no signing key, skipping"; exit 0; }
+          short=$(git rev-parse --short HEAD)
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          work=$(mktemp -d)
+          cp out/universal/*.apk "$work/in.apk"
+          zip -q -d "$work/in.apk" 'lib/armeabi-v7a/*' 'lib/armeabi/*' 'lib/x86/*' 'lib/x86_64/*' || true
+          "$bt/zipalign" -f -p 4 "$work/in.apk" "$work/aligned.apk"
+          "$bt/apksigner" sign --ks keystore.jks --ks-pass env:STORE_PASSWORD \
+            --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD \
+            --out "out/arm64/Velmora-debug-$short-arm64.apk" "$work/aligned.apk"
+          "$bt/apksigner" verify "out/arm64/Velmora-debug-$short-arm64.apk"
+          rm -rf "$work"
+          ls -la out/universal out/arm64
 
       - uses: actions/upload-artifact@v4
         with:
           name: velmora-android-debug
-          path: android/out/*.apk
+          path: android/out/universal/*.apk
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velmora-android-debug-arm64
+          path: android/out/arm64/*.apk
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Remove the key
