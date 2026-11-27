@@ -260,20 +260,6 @@ fun SettingsScreen(
         )
       }
       if (
-        listenTogetherText.lowercase().contains(searchLower) ||
-          listenTogetherDesc.lowercase().contains(searchLower)
-      ) {
-        add(
-          Material3SettingsItem(
-            isHighlighted = (highlightKey == listenTogetherText),
-            icon = painterResource(R.drawable.group),
-            title = { Text(listenTogetherText) },
-            description = { Text(listenTogetherDesc) },
-            onClick = { navController.navigate(Screens.ListenTogether.route) },
-          ),
-        )
-      }
-      if (
         contentText.lowercase().contains(searchLower) ||
           contentDesc.lowercase().contains(searchLower)
       ) {

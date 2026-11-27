@@ -9,7 +9,6 @@ import androidx.compose.runtime.setValue
 import com.velmora.stepbyte.applecanvas.AppleMusicCanvasProvider
 import com.velmora.stepbyte.canvas.CanvasArtwork
 import com.velmora.stepbyte.canvas.TidalCanvasProvider
-import com.velmora.stepbyte.velmoracanvas.velmoraCanvasProvider
 import com.velmora.stepbyte.ui.player.CanvasArtworkPlaybackCache
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -63,10 +62,7 @@ fun rememberAlbumCanvas(
         searchTasks
           .filter { (s, a) -> s.isNotBlank() && a.isNotBlank() }
           .firstNotNullOfOrNull { (s, a) ->
-            velmoraCanvasProvider.getBySongArtist(song = s, artist = a)?.takeIf {
-              !it.preferredAnimationUrl.isNullOrBlank()
-            }
-              ?: AppleMusicCanvasProvider.getByAlbumArtist(
+            AppleMusicCanvasProvider.getByAlbumArtist(
                   album = s,
                   artist = a,
                   storefront = storefront,

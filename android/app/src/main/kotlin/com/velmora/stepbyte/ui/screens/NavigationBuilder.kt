@@ -50,7 +50,6 @@ import com.velmora.stepbyte.ui.screens.search.SearchScreen
 import com.velmora.stepbyte.ui.screens.settings.AboutScreen
 import com.velmora.stepbyte.ui.screens.settings.AccountSettingsScreen
 import com.velmora.stepbyte.ui.screens.settings.AiSettings
-import com.velmora.stepbyte.ui.screens.settings.AppIconSettingsScreen
 import com.velmora.stepbyte.ui.screens.settings.AppearanceSettings
 import com.velmora.stepbyte.ui.screens.settings.BackupAndRestore
 import com.velmora.stepbyte.ui.screens.settings.BlockedArtistsScreen
@@ -100,15 +99,6 @@ fun NavGraphBuilder.navigationBuilder(
 
   composable(Screens.Library.route) { LibraryScreen(navController) }
 
-  composable(Screens.ListenTogether.route) {
-    ListenTogetherScreen(navController, showTopBar = false)
-  }
-
-  composable(route = "listen_together_from_topbar") {
-    ListenTogetherScreen(navController, showTopBar = true)
-  }
-
-  composable("listen_together/chat") { CommentTogetherScreen(navController) }
 
   composable("history") { HistoryScreen(navController) }
 
@@ -420,9 +410,6 @@ fun NavGraphBuilder.navigationBuilder(
     )
   }
 
-  composable("settings/appearance/app_icon") {
-    AppIconSettingsScreen(navController, activity, snackbarHostState)
-  }
 
   composable("settings/appearance/font") {
     com.velmora.stepbyte.ui.screens.settings.FontSelectionScreen(navController, scrollBehavior)
@@ -595,9 +582,6 @@ fun NavGraphBuilder.navigationBuilder(
     )
   }
 
-  composable(route = "settings/integrations/listen_together") {
-    ListenTogetherSettings(navController, scrollBehavior)
-  }
 
   composable(
     route = "settings/about?highlightKey={highlightKey}",

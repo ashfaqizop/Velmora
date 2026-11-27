@@ -268,7 +268,6 @@ dependencies {
   implementation(project(":shazamkit"))
   implementation(project(":artistvideo"))
   implementation(project(":applecanvas"))
-  implementation(project(":velmoracanvas"))
   implementation(project(":paxsenixlyrics"))
   implementation(project(":unison"))
 

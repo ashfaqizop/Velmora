@@ -1118,13 +1118,6 @@ fun AppearanceSettings(
       items =
         buildList {
           add(
-            Material3SettingsItem(
-              isHighlighted = (highlightKey == stringResource(R.string.legacy_icon)),
-              icon = painterResource(R.drawable.grid_view),
-              title = { Text("App Icon") },
-              description = { Text("Choose your launcher icon") },
-              onClick = { navController.navigate("settings/appearance/app_icon") },
-            ),
           )
           add(
             Material3SettingsItem(
@@ -1978,29 +1971,6 @@ fun AppearanceSettings(
               )
             },
             onClick = { onSwipeToRemoveSongChange(!swipeToRemoveSong) },
-          ),
-          Material3SettingsItem(
-            isHighlighted = (highlightKey == stringResource(R.string.listen_together_in_top_bar)),
-            icon = painterResource(R.drawable.group_outlined),
-            title = { Text(stringResource(R.string.listen_together_in_top_bar)) },
-            description = { Text(stringResource(R.string.listen_together_in_top_bar_desc)) },
-            trailingContent = {
-              Switch(
-                checked = listenTogetherInTopBar,
-                onCheckedChange = onListenTogetherInTopBarChange,
-                thumbContent = {
-                  Icon(
-                    painter =
-                      painterResource(
-                        id = if (listenTogetherInTopBar) R.drawable.check else R.drawable.close,
-                      ),
-                    contentDescription = null,
-                    modifier = Modifier.size(SwitchDefaults.IconSize),
-                  )
-                },
-              )
-            },
-            onClick = { onListenTogetherInTopBarChange(!listenTogetherInTopBar) },
           ),
           Material3SettingsItem(
             isHighlighted = (highlightKey == stringResource(R.string.grid_cell_size)),

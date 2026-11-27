@@ -146,6 +146,7 @@ sealed class ListenTogetherEvent {
 class ListenTogetherClient @Inject constructor(private val context: Context) {
   companion object {
     private const val TAG = "ListenTogether"
+    private const val DISABLED = true
     private val DEFAULT_SERVER_URL = ListenTogetherServers.defaultServerUrl
     private const val MAX_RECONNECT_ATTEMPTS = 15
     private const val INITIAL_RECONNECT_DELAY_MS = 1000L
@@ -426,6 +427,8 @@ class ListenTogetherClient @Inject constructor(private val context: Context) {
   }
 
   fun connect() {
+    // Listen Together is not part of Velmora: there is no server to reach.
+    if (DISABLED) return
     if (
       _connectionState.value == ConnectionState.CONNECTED ||
         _connectionState.value == ConnectionState.CONNECTING

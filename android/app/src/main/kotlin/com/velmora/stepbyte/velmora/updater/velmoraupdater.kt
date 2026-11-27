@@ -657,6 +657,12 @@ fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
   return false
 }
 
+/**
+ * Off until Velmora's own updater lands (phase 10): Echo's compared tags like
+ * "v1.4.8", and Velmora's releases ("app-v0.6.6") also hold the Windows installer.
+ */
+private const val UPDATES_ENABLED = false
+
 suspend fun checkForUpdate(
   context: Context,
   onSuccess:
@@ -672,6 +678,7 @@ suspend fun checkForUpdate(
     ) -> Unit,
   onError: () -> Unit,
 ) {
+  if (!UPDATES_ENABLED) return
   withContext(Dispatchers.IO) {
     try {
       val url = URL("https://api.github.com/repos/ashfaqizop/Velmora/releases/latest")

@@ -1939,13 +1939,6 @@ fun getAllSearchableSettings(): List<SearchableSetting> {
     SearchableSetting(stringResource(R.string.preview), null, "Discord", "settings/discord"),
     SearchableSetting(stringResource(R.string.not_logged_in), null, "LastFM", "settings/lastfm"),
 
-    // App Icon Settings
-    SearchableSetting(
-      "App Icon",
-      "Choose your launcher icon",
-      "Appearance",
-      "settings/appearance/app_icon",
-    ),
 
     // About Screen - Social & Support Links
     SearchableSetting("Website", "Visit the Velmora website", "About", "settings/about"),
@@ -2174,12 +2167,6 @@ fun getAllSearchableSettings(): List<SearchableSetting> {
           "settings/extensions",
         ),
         SearchableSetting(
-          "High Quality (320kbps) Music",
-          "Visit 320kbps.getvelmora.dpdns.org for setup guide",
-          "Extensions",
-          "settings/extensions",
-        ),
-        SearchableSetting(
           "Add Custom Server",
           "Add a custom extension server",
           "Extensions",
@@ -2399,90 +2386,6 @@ fun getAllSearchableSettings(): List<SearchableSetting> {
           "settings/appearance/font",
         ),
         // App Launcher Icon
-        SearchableSetting(
-          "Launcher App Icon",
-          "Choose your custom launcher app icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Craft Icon",
-          "Craft launcher icon by CR3TO_",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Sadie Sink Icon",
-          "Sadie Sink app icon on community demand",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Billie Eilish Icon",
-          "Billie Eilish launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Cat Icon",
-          "A pinkish cat-themed launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Crazy Blue Icon",
-          "Vibrant crazy blue launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Velmora Fox Icon",
-          "Playful cat launcher icon by Alarp_Svc",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Legacy Icon",
-          "The OG monochrome launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "New Icon",
-          "Standard vibrant launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Pookie Icon",
-          "Cute pink launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Sabrina Carpenter Icon",
-          "Sabrina Carpenter launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Sky Icon",
-          "Beautiful sky-themed launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Neon Glass Icon",
-          "Futuristic glowing neon glass launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
-        SearchableSetting(
-          "Millie Bobby Brown Icon",
-          "Millie Bobby Brown launcher icon",
-          "Appearance",
-          "settings/appearance/app_icon",
-        ),
         // Cloud & Self-Hosted Media Servers
         SearchableSetting(
           "Subsonic / Navidrome",
@@ -2506,12 +2409,6 @@ fun getAllSearchableSettings(): List<SearchableSetting> {
         SearchableSetting(
           "Prefer Extension Audio",
           "Search extensions before YouTube Music",
-          "Extensions",
-          "settings/extensions",
-        ),
-        SearchableSetting(
-          "High Quality (320kbps) Music",
-          "Setup guide for 320kbps high quality extension playback",
           "Extensions",
           "settings/extensions",
         ),

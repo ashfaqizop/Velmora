@@ -29,7 +29,6 @@ include(
     ":shazamkit",
     ":artistvideo",
     ":canvas",
-    ":velmoracanvas",
     ":applecanvas",
     ":unison",
     ":core",
