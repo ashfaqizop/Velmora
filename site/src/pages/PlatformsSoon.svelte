@@ -1,9 +1,9 @@
 <script lang="ts">
-  // Other platforms: shown as coming soon, with no dates, because none exist yet.
+  // Other platforms. Android is in production development; the rest have no dates yet.
   import { inview } from "./inview";
 
   const PLATFORMS = [
-    { icon: "android", shape: "12-sided-cookie", color: "#3ddc84", name: "Android", text: "A full native build, designed with Material You so it takes its colors from your wallpaper." },
+    { icon: "android", shape: "12-sided-cookie", color: "#3ddc84", name: "Android", status: "In development · soon", text: "In production development now. A full native build for phones and tablets on Android 8 and up, with Material You or Liquid Glass." },
     { icon: "phone_iphone", shape: "soft-burst", color: "#8fb4ff", name: "iPhone and iPad", text: "A native SwiftUI app, designed with Apple's Liquid Glass." },
     { icon: "laptop_mac", shape: "puffy-diamond", color: "#c9c1ff", name: "Mac", text: "A native SwiftUI app with Liquid Glass, made for macOS." },
     { icon: "terminal", shape: "4-leaf-clover", color: "#ffb74d", name: "Linux", text: "Linux builds, so Velmora runs on more than Windows." },
@@ -14,7 +14,7 @@
   <div class="pg-wide">
     <span class="eyebrow" use:inview>More platforms</span>
     <h2 class="pg-title" use:inview={0.05}>Coming <em>soon</em></h2>
-    <p class="pg-lead" use:inview={0.1}>Velmora runs on Windows today. These are on the way. There are no dates yet, and this page will change when there's something to download.</p>
+    <p class="pg-lead" use:inview={0.1}>Velmora runs on Windows today. Android is in production development and drops soon; the others are on the way, with no dates yet. This page changes when there's something to download.</p>
     <div class="grid">
       {#each PLATFORMS as p, i (p.name)}
         <article class="pg-card plat" style="--c: {p.color}" use:inview={i * 0.07}>
@@ -22,7 +22,7 @@
             <m3e-shape name={p.shape}></m3e-shape>
             <m3e-icon name={p.icon}></m3e-icon>
           </span>
-          <span class="soon">Coming soon</span>
+          <span class="soon">{p.status ?? "Coming soon"}</span>
           <h3>{p.name}</h3>
           <p>{p.text}</p>
         </article>

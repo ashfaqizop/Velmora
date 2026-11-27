@@ -62,7 +62,7 @@
       </div>
       <div class="pills">
         <DownloadCount />
-        <a class="soon" href="#android"><m3e-icon name="android"></m3e-icon>Android coming soon</a>
+        <a class="soon" href="#android"><m3e-icon name="android"></m3e-icon>Android drops soon</a>
       </div>
     </div>
     <div class="mock wrap"><AppMock /></div>

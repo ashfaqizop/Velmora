@@ -37,7 +37,7 @@
   });
 
   const REQS = [
-    { icon: "desktop_windows", title: "Windows 10 or 11, 64-bit", text: "Velmora is Windows only for now. Android, iPhone, iPad, Mac and Linux are coming soon." },
+    { icon: "desktop_windows", title: "Windows 10 or 11, 64-bit", text: "Windows only for now. Android is in production development and drops soon; iPhone, iPad, Mac and Linux come later." },
     { icon: "person", title: "No administrator rights", text: "It installs for your own Windows user account only." },
     { icon: "language", title: "Internet", text: "Needed for your first sign-in, the first launch (about 80 MB of tools), and for searching and playing online sources. After the first sign-in, Velmora opens offline, and downloaded episodes play offline." },
   ];
@@ -111,7 +111,7 @@
 
       <section class="pg-section" id="not-yet">
         <h2 class="pg-title" use:inview>Not <em>supported yet</em></h2>
-        <p>macOS, Linux, iPhone, iPad and Android are coming soon: Android as a full build designed with Material You, iPhone, iPad and Mac as native SwiftUI apps with Liquid Glass, and Linux builds. Smart TVs and consoles aren't planned yet. There are no dates, and this page will say when that changes.</p>
+        <p>Android is in production development and drops soon, as a full build for Android 8 and up with Material You or Liquid Glass. macOS, Linux, iPhone and iPad come later: iPhone, iPad and Mac as native SwiftUI apps with Liquid Glass, and Linux builds. Smart TVs and consoles aren't planned yet. There are no dates, and this page will say when that changes.</p>
       </section>
     </article>
   </div>

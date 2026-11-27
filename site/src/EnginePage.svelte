@@ -77,7 +77,7 @@
   const SPECS = [
     ["Language", "Rust (2021 edition), async on Tokio"],
     ["License", "GPL-3.0-or-later"],
-    ["Platforms", "Windows today, Android groundwork in CI"],
+    ["Platforms", "Windows today, Android in production development"],
     ["Metadata", "TMDB · Cinemeta · AniList"],
     ["Torrents", "librqbit, on by default"],
     ["Remux", "ffmpeg sidecar, HLS and DASH to MKV"],

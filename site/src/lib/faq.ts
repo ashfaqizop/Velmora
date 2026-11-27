@@ -63,7 +63,7 @@ export const FAQ: Faq[] = [
   },
   {
     q: "Is there a Mac, Linux, iPhone or Android version?",
-    a: "Not yet. Velmora is Windows only for now. Android (a full build designed with Material You), iPhone, iPad and Mac (native SwiftUI apps with Liquid Glass) and Linux builds are coming soon.",
+    a: "Android is in production development and drops soon: a full build for phones and tablets on Android 8 and up, with Material You or Liquid Glass. iPhone, iPad and Mac (native SwiftUI apps with Liquid Glass) and Linux builds come after that. Today Velmora runs on Windows.",
     group: "install",
     home: true,
   },

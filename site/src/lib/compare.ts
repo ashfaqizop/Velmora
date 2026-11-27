@@ -56,7 +56,7 @@ export const VELMORA_LOGO = velmoraMark;
 // What's true of Velmora, in one place, so every page agrees.
 export const VELMORA = {
   price: "Free. Velmora Public shows a few quiet ads, never while a video plays. Velmora Max has none.",
-  platforms: "Windows 10 and 11 today. Android, iPhone, iPad, Mac and Linux are coming soon.",
+  platforms: "Windows 10 and 11 today. Android is in production development and drops soon; iPhone, iPad, Mac and Linux come later.",
   license: "Open source, GPL-3.0.",
   sources: "Built in. Velmora searches third-party sites for you, so there is nothing to find, install or trust first.",
   hosting: "No. Velmora hosts, uploads and stores no content.",

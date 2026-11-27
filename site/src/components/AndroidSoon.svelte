@@ -1,10 +1,10 @@
 <script lang="ts">
   import Logo from "./Logo.svelte";
 
-  // "Android is coming" card with a small phone drawn in CSS.
+  // Android is in production development: a card with a small phone drawn in CSS.
   let {
     title = "Velmora for Android",
-    text = "The same app on your phone and tablet: search, the player, downloads and Ani. Work on the Android build has started.",
+    text = "Movies, series, anime, live TV, sports, Theatre and Music on your phone and tablet, with Material You or Liquid Glass. It's in production development now and drops soon.",
   }: { title?: string; text?: string } = $props();
 
   const POSTERS = [
@@ -17,10 +17,10 @@
 
 <div class="android">
   <div class="text">
-    <span class="chip"><m3e-icon name="android"></m3e-icon>Coming soon</span>
+    <span class="chip"><m3e-icon name="android"></m3e-icon>In development · dropping soon</span>
     <h3 class="display">{title}</h3>
     <p>{text}</p>
-    <span class="hint"><m3e-icon name="schedule"></m3e-icon>Windows gets it first. Updates arrive on their own, so there's nothing to sign up for.</span>
+    <span class="hint"><m3e-icon name="schedule"></m3e-icon>Android 8 and up, phones and tablets. It will be a free download from this site, like the Windows app.</span>
   </div>
 
   <div class="phone" aria-hidden="true">
