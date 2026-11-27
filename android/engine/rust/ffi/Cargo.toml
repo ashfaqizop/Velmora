@@ -1,0 +1,26 @@
+[package]
+name = "velmora-engine"
+description = "UniverseAPI for Velmora on Android, through UniFFI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+name = "velmora_engine"
+crate-type = ["cdylib"]
+
+[dependencies]
+universeapi = { path = "../../../../universeapi/crates/universeapi" }
+uniffi.workspace = true
+futures = "0.3"
+getrandom = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "net"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "std"] }

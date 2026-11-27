@@ -1,13 +1,17 @@
 name: Velmora Android
 
-# Every build runs here: there is no Gradle or Android Studio on the dev PC.
-# A push to main that touches android/ produces a signed debug APK to test
-# (it installs as com.velmora.stepbyte.debug, next to a release build).
+# Every build runs here: there is no Gradle, Android Studio or cargo on the dev PC.
+# A push to main that touches android/ or the engine produces a signed debug APK
+# to test (it installs as com.velmora.stepbyte.debug, next to a release build).
+#
+# The Rust engine (android/engine/rust, a UniFFI wrapper around UniverseAPI) is
+# built first with cargo-ndk into android/engine/src/main/jniLibs, and its Kotlin
+# bindings are generated from the built library. Both are gitignored.
 
 on:
   push:
     branches: [main]
-    paths: ["android/**", ".github/workflows/android.yml"]
+    paths: ["android/**", "universeapi/crates/universeapi/**", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 concurrency:
@@ -18,7 +22,7 @@ jobs:
   debug:
     name: Debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: android
@@ -34,6 +38,40 @@ jobs:
 
       - name: Android NDK
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;28.2.13676358" > /dev/null
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: android/engine/rust
+          key: android-engine
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+
+      # TMDB and sports keys are built in, the same as the desktop release.
+      - name: Rust engine
+        working-directory: android/engine/rust
+        env:
+          VELMORA_TMDB_READ_TOKEN: ${{ secrets.TMDB_READ_TOKEN }}
+          VELMORA_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          VELMORA_SPORTSDB_KEY: ${{ secrets.SPORTSDB_KEY }}
+          VELMORA_FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+          cargo ndk -t arm64-v8a -t armeabi-v7a -P 26 -o ../src/main/jniLibs build --release -p velmora-engine
+          ls -la ../src/main/jniLibs/*
+
+      - name: Kotlin bindings
+        working-directory: android/engine/rust
+        run: |
+          cargo run -p uniffi-bindgen -- generate \
+            --library target/aarch64-linux-android/release/libvelmora_engine.so \
+            --language kotlin --out-dir ../src/main/kotlin --no-format
+          find ../src/main/kotlin/com/velmora/stepbyte/engine/ffi -name '*.kt' -exec wc -l {} +
 
       # The release key signs debug builds too, so test builds update in place.
       - name: Signing key

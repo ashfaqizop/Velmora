@@ -1,0 +1,10 @@
+[package]
+name = "uniffi-bindgen"
+description = "Writes the Kotlin bindings for libvelmora_engine.so"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+uniffi = { workspace = true, features = ["cli"] }

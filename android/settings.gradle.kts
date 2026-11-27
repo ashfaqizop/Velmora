@@ -38,7 +38,8 @@ include(
     ":metadata",
     ":dsp-core",
     ":audio-dsp",
-    ":domain"
+    ":domain",
+    ":engine"
 )
 
 

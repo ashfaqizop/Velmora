@@ -188,6 +188,7 @@ dependencies {
   implementation(project(":audio-dsp"))
   implementation(project(":dsp-core"))
   implementation(project(":usbaudio"))
+  implementation(project(":engine"))
 
 
   // GMS Location Services for high-accuracy weather AI context

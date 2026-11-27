@@ -1,0 +1,25 @@
+# The Android side of UniverseAPI: a UniFFI wrapper (ffi/) built into
+# libvelmora_engine.so by cargo-ndk in CI, plus the host tool that writes the
+# Kotlin bindings (bindgen/). Its own workspace so the engine's workspace and
+# CI stay as they are. Cargo.lock started as a copy of the engine's, so both
+# resolve the same versions.
+[workspace]
+resolver = "2"
+members = ["ffi", "bindgen"]
+
+[workspace.package]
+version = "0.6.6"
+edition = "2021"
+rust-version = "1.82"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/ashfaqizop/Velmora"
+authors = ["siliconcode-dev <siliconxcode@gmail.com>", "ashfaqizop <ashfaqizop@gmail.com>"]
+
+[workspace.dependencies]
+uniffi = "0.29"
+
+# Not stripped here: the bindings are read from the library's metadata, and
+# the Android Gradle plugin strips the .so when it packages the APK.
+[profile.release]
+lto = "thin"
+codegen-units = 1

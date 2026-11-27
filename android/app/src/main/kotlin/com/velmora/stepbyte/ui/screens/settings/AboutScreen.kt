@@ -138,7 +138,7 @@ fun AboutScreen(
         ),
       verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-      item { AboutAppCard() }
+      item { AboutAppCard(onUnlockLab = { navController.navigate("settings/engine-lab") }) }
 
       if (contributors.isNotEmpty()) {
         item {
@@ -207,21 +207,24 @@ fun AboutScreen(
 }
 
 @Composable
-private fun AboutAppCard() {
+private fun AboutAppCard(onUnlockLab: () -> Unit) {
   Column(
     modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp, horizontal = 20.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val context = LocalContext.current
 
-    var isEasterEggActive by remember { mutableStateOf(false) }
+    // Seven taps open the engine lab, like Android's developer options.
+    var taps by remember { mutableStateOf(0) }
+    var spins by remember { mutableStateOf(0) }
     val rotation by
       animateFloatAsState(
-        targetValue = if (isEasterEggActive) 180f else 0f,
+        targetValue = spins * 360f,
         animationSpec =
           spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "flip",
+        label = "spin",
       )
 
     val interactionSource = remember { MutableInteractionSource() }
@@ -241,41 +244,46 @@ private fun AboutAppCard() {
       modifier =
         Modifier.size(100.dp)
           .graphicsLayer {
-            rotationY = rotation
+            rotationZ = rotation
             scaleX = scale
             scaleY = scale
-            cameraDistance = 12f * density
           }
           .clip(CircleShape)
           .clickable(
             interactionSource = interactionSource,
             indication = null,
-            onClick = { isEasterEggActive = !isEasterEggActive },
+            onClick = {
+              taps += 1
+              when {
+                taps >= 7 -> {
+                  taps = 0
+                  spins += 1
+                  onUnlockLab()
+                }
+                taps >= 4 ->
+                  android.widget.Toast.makeText(
+                      context,
+                      "${7 - taps} more taps to the engine lab",
+                      android.widget.Toast.LENGTH_SHORT,
+                    )
+                    .show()
+              }
+            },
           ),
       contentAlignment = Alignment.Center,
     ) {
-      if (rotation <= 90f) {
-        Image(
-          painter = painterResource(R.drawable.ic_launcher_nobg),
-          contentDescription = null,
-          colorFilter = ColorFilter.tint(if (isDark) Color.White else Color(0xFFEA3829)),
-          modifier = Modifier.fillMaxSize(),
-        )
-      } else {
-        coil3.compose.AsyncImage(
-          model = "https://avatars.githubusercontent.com/u/147871321?v=4",
-          contentDescription = null,
-          modifier =
-            Modifier.fillMaxSize().graphicsLayer { rotationY = 180f }, // Un-flip the backside image
-          contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-        )
-      }
+      Image(
+        painter = painterResource(R.drawable.ic_launcher_nobg),
+        contentDescription = null,
+        colorFilter = ColorFilter.tint(if (isDark) Color.White else Color(0xFF3271FE)),
+        modifier = Modifier.fillMaxSize(),
+      )
     }
 
     Spacer(Modifier.height(4.dp))
 
     Text(
-      text = if (rotation <= 90f) "Velmora" else "Developed by Aditya",
+      text = "Velmora",
       style = MaterialTheme.typography.titleLarge,
       fontWeight = FontWeight.Bold,
       color = MaterialTheme.colorScheme.onSurface,

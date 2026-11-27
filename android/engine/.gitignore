@@ -1,0 +1,5 @@
+/build
+# Written by CI before Gradle runs (cargo-ndk and uniffi-bindgen).
+/src/main/jniLibs/
+/src/main/kotlin/com/velmora/stepbyte/engine/ffi/
+/rust/target/

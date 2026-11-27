@@ -56,6 +56,7 @@ import com.velmora.stepbyte.ui.screens.settings.BlockedArtistsScreen
 import com.velmora.stepbyte.ui.screens.settings.ContentSettings
 import com.velmora.stepbyte.ui.screens.settings.DarkMode
 import com.velmora.stepbyte.ui.screens.settings.DislikedSongsScreen
+import com.velmora.stepbyte.ui.screens.settings.EngineLabScreen
 import com.velmora.stepbyte.ui.screens.settings.VelmoraConnectSettingsScreen
 import com.velmora.stepbyte.ui.screens.settings.GlassEffectSettings
 import com.velmora.stepbyte.ui.screens.settings.MusicFlowSettings
@@ -582,6 +583,9 @@ fun NavGraphBuilder.navigationBuilder(
     )
   }
 
+
+  // Hidden: seven taps on the logo in About.
+  composable("settings/engine-lab") { EngineLabScreen(navController) }
 
   composable(
     route = "settings/about?highlightKey={highlightKey}",
