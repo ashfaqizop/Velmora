@@ -48,7 +48,7 @@ versions of the decisions live in the memory folder
 
 ## Android (active work)
 
-Read `docs/android.md` (40 decisions) and `docs/android_build_plan.md` (10 phases) first.
+Read `docs/android.md` (40 decisions) and `docs/android_build_plan.md` (13 phases) first.
 
 - Echo Music (Kotlin/Compose, GPL-3.0) imported into `android/`, renamed to
   `com.velmora.stepbyte` everywhere (packages, JNI, C++ namespaces). Version
@@ -59,7 +59,7 @@ Read `docs/android.md` (40 decisions) and `docs/android_build_plan.md` (10 phase
   **Listen Together's internals (~4,000 lines) are still in the code, unused:
   delete them in phase 3** when the player and menus are reworked.
 - Echo's updater is off (`UPDATES_ENABLED = false` in
-  `velmora/updater/velmoraupdater.kt`) until phase 10.
+  `velmora/updater/velmoraupdater.kt`) until phase 13.
 - Icons: fox launcher PNGs from `app/src-tauri/icons/android`, plus a flat fox
   glyph (`drawable/ic_velmora_glyph.xml`, also notification, QS tile,
   `ic_launcher_nobg`).

@@ -6,6 +6,7 @@
     ["/changelog/", "What's new"],
     ["/download/", "Download"],
     ["/features/", "Features"],
+    ["/android/", "Android progress"],
     ["/faq/", "FAQ"],
     ["/docs/install/", "Install guide"],
     ["/docs/system-requirements/", "System requirements"],

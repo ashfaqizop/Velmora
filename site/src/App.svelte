@@ -45,8 +45,8 @@
       ]}
     />
     <div class="wrap center">
-      <a class="pill" href="#ani">
-        <span class="new">New</span>Velmora 0.2: meet Ani, and better sound
+      <a class="pill" href="/android/">
+        <span class="new dev"><i></i>Developing</span><span class="pill-text">Velmora for Android</span><span class="pill-sep"></span><span class="pill-go">Check progress</span>
         <m3e-icon name="arrow_forward"></m3e-icon>
       </a>
       <h1 class="display">Every source.<br /><em>One search.</em></h1>
@@ -62,7 +62,7 @@
       </div>
       <div class="pills">
         <DownloadCount />
-        <a class="soon" href="#android"><m3e-icon name="android"></m3e-icon>Android drops soon</a>
+        <a class="soon" href="/android/"><m3e-icon name="android"></m3e-icon>Android drops soon</a>
       </div>
     </div>
     <div class="mock wrap"><AppMock /></div>
@@ -149,6 +149,49 @@
     font-weight: 700;
     background: linear-gradient(90deg, #5d8eff, var(--blue));
     color: #fff;
+  }
+  .new.dev {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 11px 3px 9px;
+    background: rgb(61 220 132 / 16%);
+    color: #8ff0b8;
+    box-shadow: inset 0 0 0 1px rgb(61 220 132 / 35%);
+  }
+  .new.dev i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #3ddc84;
+    animation: dev-ping 2s infinite;
+  }
+  @keyframes dev-ping {
+    0% {
+      box-shadow: 0 0 0 0 rgb(61 220 132 / 60%);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 8px rgb(61 220 132 / 0%);
+    }
+  }
+  .pill-text {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .pill-sep {
+    width: 1px;
+    height: 14px;
+    background: rgb(255 255 255 / 18%);
+  }
+  .pill:hover .pill-go {
+    color: #8ff0b8;
+  }
+  .pill m3e-icon {
+    transition: transform 0.25s;
+  }
+  .pill:hover m3e-icon {
+    transform: translateX(3px);
   }
   h1 {
     margin: 28px 0 0;

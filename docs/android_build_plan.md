@@ -1,6 +1,6 @@
 # Velmora for Android: build plan
 
-Ten phases. Decisions behind them are in [android.md](android.md). Every
+Thirteen phases: nine that build the app, three for UI and UX, then the release. Decisions behind them are in [android.md](android.md). Every
 phase ends with a debug APK from CI, tested on the user's three devices
 (Android 9 phone, Android 14 phone, Android 16 tablet) before the next one
 starts. Nothing is built locally: no Gradle, Android Studio or cargo on the
@@ -8,8 +8,8 @@ developer PC.
 
 | # | Phase | Status |
 |---|---|---|
-| 1 | Import and rebrand | built, waiting for device testing |
-| 2 | Rust engine on Android | |
+| 1 | Import and rebrand | done, tested on devices |
+| 2 | Rust engine on Android | built, waiting for device testing |
 | 3 | Shell and navigation | |
 | 4 | Accounts and onboarding | |
 | 5 | Home, Browse, title pages, search | |
@@ -17,7 +17,10 @@ developer PC.
 | 7 | Downloads | |
 | 8 | Live TV, Sports, Theatre | |
 | 9 | Social and the rest | |
-| 10 | Updates and release | |
+| 10 | UI/UX I: look and motion | |
+| 11 | UI/UX II: every screen size | |
+| 12 | UI/UX III: polish with testers | |
+| 13 | Updates and release | |
 
 ## 1. Import and rebrand
 Echo Music copied into `android/` without its git history. Renamed to
@@ -35,6 +38,34 @@ Kotlin `:engine` module. The torrent engine and the `.vlm` vault compiled for
 Android. Result: a hidden test screen that searches and resolves a stream
 through Rust, proving the bridge on Android 9, 14 and 16 before anything is
 built on it.
+
+How it is built (2026-11-27):
+
+- `android/engine/rust/ffi` is the UniFFI wrapper (crate `velmora-engine`,
+  library `libvelmora_engine.so`). It is its own Cargo workspace with a path
+  dependency on UniverseAPI, so the engine's own CI is untouched. Calls take
+  and return JSON in the shapes the desktop frontend gets from its Tauri
+  commands. Long calls report progress through an `EventSink` callback.
+- The engine runs on its own Tokio runtime; a cancelled coroutine stops
+  waiting and the engine finishes and caches the work, as on desktop.
+- `stream.rs` is the desktop stream server ported over: ExoPlayer plays
+  `http://127.0.0.1:{port}/p|t|v|f/...` (proxied hosts, torrents while they
+  download, vault files decrypted on the fly, plain files).
+- The vault key lives in `noBackupFilesDir/vault/key.bin`; downloads go to the
+  app's external Movies folder for now (phase 7 decides the final place).
+- Engine logs go to logcat: `adb logcat -s VelmoraEngine`.
+- `:engine` (Kotlin) wraps the generated bindings in a typed coroutine API,
+  `Universe`. Titles and sources keep the engine's exact JSON so nothing is
+  lost when they go back across.
+- CI builds the library for arm64-v8a and armeabi-v7a with cargo-ndk, then
+  generates the Kotlin bindings from it, then runs Gradle. TMDB keys are built
+  in from the repo secrets, the same as the desktop release.
+- The engine lab: About, tap the logo seven times. It starts the engine, runs
+  the self-test (stream server, vault round trip, torrent session, TLS), runs
+  a live search, finds sources with per-provider progress, and plays one.
+- Not on Android yet: the hidden-WebView solver for JavaScript hosts and the
+  browser-fingerprint fallback (BoringSSL does not build for Android). Hosts
+  that need them fail over to other sources.
 
 ## 3. Shell and navigation
 The Velmora/Music mode system, each mode with its own back stack. Top bar
@@ -71,7 +102,30 @@ Social in a WebView, App Links (verification file on the site), deep links,
 announcements, anonymous stats and privacy settings, Velmora Find / Connect /
 Wrapped renames, Transfer from Echo Music (old and new backups), settings pass.
 
-## 10. Updates and release
+## 10. UI/UX I: look and motion
+Phases 3 to 9 make every screen work; these three make them feel like
+Velmora. This one is the design language: Material 3 Expressive shapes and
+motion throughout, shared-element transitions (poster to title page, mini
+player to full player), the Velmora/Music switch animation finished, Liquid
+Glass tuned so both looks are equally good, Velmora's fonts and type scale,
+per-title color taken from the poster, haptics, and loading, empty and error
+states with skeletons instead of spinners.
+
+## 11. UI/UX II: every screen size
+Phone, tablet and foldable layouts designed on purpose rather than
+stretched: list-detail panes, a two-column title page, a landscape player
+with its own controls, the side rail on tablets. Edge to edge with gesture
+navigation, Android 8 to 11 looking as finished as 16, keyboard and mouse on
+tablets, and accessibility: TalkBack labels, large font scales, contrast and
+touch targets.
+
+## 12. UI/UX III: polish with testers
+Every screen walked through on the three test devices and fixed:
+micro-interactions, the details nobody lists, jank and startup time
+(baseline profiles), a copy pass in plain language, the onboarding refined
+from what testers stumble on, and the screenshots for the website.
+
+## 13. Updates and release
 In-app updater (background download, install prompt), one `app-v` tag builds
-both apps into one Release, the website offers the APK, a speed and polish
-pass on all three devices, release.
+both apps into one Release, the website offers the APK, a last speed check on
+all three devices, release.

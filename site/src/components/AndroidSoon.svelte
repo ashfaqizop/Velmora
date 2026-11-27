@@ -21,6 +21,7 @@
     <h3 class="display">{title}</h3>
     <p>{text}</p>
     <span class="hint"><m3e-icon name="schedule"></m3e-icon>Android 8 and up, phones and tablets. It will be a free download from this site, like the Windows app.</span>
+    <a class="progress" href="/android/">See the build progress, phase by phase<m3e-icon name="arrow_forward"></m3e-icon></a>
   </div>
 
   <div class="phone" aria-hidden="true">
@@ -93,6 +94,21 @@
     font-size: 13px;
     color: var(--muted);
     --m3e-icon-size: 16px;
+  }
+
+  .progress {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    font-weight: 600;
+    font-size: 15px;
+    color: #8ff0b8;
+    text-decoration: none;
+    --m3e-icon-size: 18px;
+  }
+  .progress:hover {
+    text-decoration: underline;
   }
 
   /* The phone peeks up from the bottom edge. */

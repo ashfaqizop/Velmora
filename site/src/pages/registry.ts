@@ -6,6 +6,7 @@ import type { Component } from "svelte";
 import { BEST_FREE, KODI, KODI_ALTS, PLEX, STREMIO, STREMIO_ALTS } from "../lib/compare";
 import { FAQ } from "../lib/faq";
 import AccountDoc from "./AccountDoc.svelte";
+import AndroidPage from "./AndroidPage.svelte";
 import AltKodi from "./compare/AltKodi.svelte";
 import AltStremio from "./compare/AltStremio.svelte";
 import BestFree from "./compare/BestFree.svelte";
@@ -56,6 +57,24 @@ const faqLd = (faq: { q: string; a: string }[]) => () => [
 ];
 
 export const PAGES: Record<string, PageDef> = {
+  android: page({
+    path: "/android/",
+    crumb: "Android",
+    title: "Velmora for Android: build progress, phase by phase",
+    description: "Velmora for Android is in production development. See all 13 phases, what each one brings, and which one is being built and tested right now.",
+    component: AndroidPage,
+    extra: () => [
+      {
+        "@type": "FAQPage",
+        mainEntity: [
+          { q: "When does Velmora for Android come out?", a: "When the last of its 13 phases is done. There's no date yet; this page shows how close it is." },
+          { q: "Will Velmora for Android be free?", a: "Yes, and the Android app has no ads." },
+          { q: "Which Android versions does it support?", a: "Android 8 and newer, on phones and tablets." },
+          { q: "Where will I get it?", a: "From getvelmora.dpdns.org as an APK. It updates itself and won't be on the Play Store." },
+        ].map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+      },
+    ],
+  }),
   download: page({
     path: "/download/",
     crumb: "Download",

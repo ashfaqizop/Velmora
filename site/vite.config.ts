@@ -5,6 +5,7 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 // Material Symbols the site uses. The full font is 4 MB, so Google Fonts
 // serves just these. Keep the list sorted; add a name when you use a new icon.
 const ICONS = [
+  "science", "rocket_launch", "phone_android", "tablet_android", "photo_camera",
   "add", "add_circle", "android", "arrow_downward", "arrow_forward", "arrow_outward", "arrow_upward",
   "back_hand", "badge", "bedtime", "bookmark", "build", "calendar_month", "check_circle", "checklist",
   "close", "cloud_off", "code", "compare_arrows", "donut_large", "download", "edit_note", "equalizer",
@@ -36,7 +37,7 @@ const icons = (): Plugin => ({
 });
 
 // One HTML file per page.
-const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html", "admin/index.html", "free-netflix-alternative/index.html", "download/index.html", "features/index.html", "faq/index.html", "docs/install/index.html", "docs/system-requirements/index.html", "docs/account/index.html", "disclaimer/index.html", "contact/index.html", "velmora-vs-stremio/index.html", "velmora-vs-kodi/index.html", "velmora-vs-plex/index.html", "stremio-alternatives/index.html", "kodi-alternatives/index.html", "best-free-movie-apps-for-windows/index.html"];
+const PAGES = ["index.html", "changelog/index.html", "ani/index.html", "universeapi/index.html", "privacy/index.html", "terms/index.html", "auth/index.html", "stats/index.html", "social/index.html", "open/index.html", "admin/index.html", "free-netflix-alternative/index.html", "download/index.html", "features/index.html", "faq/index.html", "docs/install/index.html", "docs/system-requirements/index.html", "docs/account/index.html", "disclaimer/index.html", "contact/index.html", "velmora-vs-stremio/index.html", "velmora-vs-kodi/index.html", "velmora-vs-plex/index.html", "stremio-alternatives/index.html", "kodi-alternatives/index.html", "best-free-movie-apps-for-windows/index.html", "android/index.html"];
 
 export default defineConfig({
   plugins: [svelte(), icons()],

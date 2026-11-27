@@ -47,7 +47,7 @@ Asked in batches on 2026-11-27.
     in `%USERPROFILE%\.velmora-android\` on the developer PC as a backup. Never
     in the repo. Losing it means nobody can update without reinstalling.
 12. **Devices:** phones and tablets, Android 8.0 (API 26) and up. No TV.
-13. **Phases:** 10 phases, proposed by Claude once the questions are done.
+13. **Phases:** 10 phases, proposed by Claude once the questions are done. Grown to 13 on 2026-11-27: three UI/UX phases (10 to 12) before the release.
 14. **Engine boundary:** Kotlin calls UniverseAPI for search, sources, stream
     resolving, metadata (TMDB/AniList), torrents, sports and Live TV. Kotlin
     owns UI, playback, download storage and the local database. Music stays on
