@@ -1,178 +1,125 @@
-# Handoff: where Velmora stands (2026-11-24, after 0.6.0)
+# Handoff: where Velmora stands (2026-11-27)
 
-Notes for the next session, so work can carry on without re-reading the whole
-history. Memory files in `~/.claude/projects/g--1AA-Velmora/memory/` hold the
-same decisions in short form (`accounts-plan.md`, `social-plan.md`,
-`improvement-list.md`, `push-allowed.md`).
+For the next session, so work carries on without re-reading history. Short
+versions of the decisions live in the memory folder
+(`~/.claude/projects/g--1AA-Velmora/memory/`, index in `MEMORY.md`).
 
 ## House rules
 
-- **No local cargo, rustfmt or Rust builds.** Rust is only checked on GitHub
-  Actions (`app.yml` for the app, `universeapi.yml` for the engine). Frontend
-  checks run locally: `npx svelte-check --tsconfig ./tsconfig.json` and
-  `npm run build` in `app/` and in `site/`.
-- **Commit and push freely** (the user allowed it on 2026-11-24). **Never tag
-  or publish a release** without the user saying so.
+- **Nothing compiles locally except the web frontends.** No cargo, rustfmt,
+  Gradle or Android Studio on this PC. Rust and Android build only on GitHub
+  Actions (`app.yml` desktop, `universeapi.yml` engine, `android.yml`
+  Android). Locally: `npx svelte-check` and `npm run build` in `app/` and `site/`.
+- **Commit and push freely.** Never tag or publish a release unless the user says so.
 - Commit author `siliconcode-dev`, with only this trailer:
   `Co-Authored-By: ashfaqizop <ashfaqizop@gmail.com>`.
-- Write replies, commits and docs in plain language with no AI tells (the
-  humanizer style).
-- Never write a secret into a file, commit or memory: Supabase service key,
-  Upstash token, Mailtrap token, Turnstile secret, Max signing key, GitHub
-  tokens. They go into the Supabase or Vercel dashboards by the user. Public
-  values are fine in the repo (Supabase URL and publishable key, Turnstile site key).
-- UI work uses `@m3e/web` components as much as possible (the user asked for
-  "ultra stunning" m3e UI).
-- The laptop is slow: don't leave background processes running.
+- Plain-language writing everywhere (humanizer style, no AI tells).
+- Never write a secret into a file, commit or memory. Secrets live in Vercel,
+  Supabase or GitHub Actions secrets. Public values (Supabase URL and
+  publishable key, Turnstile site key, Discord app ID) are fine in the repo.
+- UI uses `@m3e/web` (site on 2.13.7, desktop app on 2.10.3). Admin pages use
+  the full width with 12px gaps.
+- The user eyeballs UI themselves; screenshot only to debug.
+- Slow laptop: don't leave background processes running.
 
-## Stack in one paragraph
+## Stack
 
-Tauri 2 + Svelte 5 (runes) + `@m3e/web` desktop app in `app/`; Rust engine
-`universeapi/`; website `site/` (Svelte + Vite, Vercel functions in
-`site/api/`, Upstash Redis via `KV_REST_API_URL`/`KV_REST_API_TOKEN`); accounts
-on Supabase (project `htvirqckkhfekgfwxops`), SQL in `supabase/`. Hosts:
-`getvelmora.dpdns.org` (main site, has ads), `auth.` (sign-in, no ads),
-`social.` (Velmora Social, no ads), `admin.` (planned). DNS on Cloudflare,
-each host added as a Vercel domain; host routing in `site/vercel.json`
-(Vercel serves static files before rewrites, so hosts use redirects to
-`/auth/`, `/social/`).
+- `app/`: Tauri 2 + Svelte 5 desktop app (Windows). Latest release **0.6.6** (`app-v0.6.6`).
+- `universeapi/`: Rust engine (sources, resolving, metadata, torrents, `.vlm` vault). GPL-3.0.
+- `site/`: Svelte + Vite multi-page site on Vercel, functions in `site/api/`
+  (Hobby plan: **11 of 12 functions used**), Upstash Redis, Supabase.
+  Hosts: `getvelmora.dpdns.org`, `auth.`, `social.`, `admin.` (rules in `site/vercel.json`).
+- `supabase/*.sql`: all database code; the user runs files in the SQL editor
+  (all safe to re-run).
+- `android/`: Velmora for Android, built on Echo Music (see below).
 
-## What shipped since 0.5.0 (all pushed, nothing released)
+## Recently done (all pushed)
 
-| Commit | What |
-|---|---|
-| 5ba852c..346309a | Accounts: web sign-in (Google, Discord, email code + Turnstile), handoff to the app by loopback + PKCE (`app/src-tauri/src/account.rs`, `site/api/auth/{handoff,exchange}.js`), profiles, Settings > Velmora account |
-| 847207a | Max on the account (`site/api/license/[action].js` action `account`, `license_account` in `license.rs`) |
-| bed7b82 | Sync of My List, progress, settings (`app/src/lib/sync.svelte.ts`, `supabase/sync.sql`) |
-| ce8f3ad | Anonymous stats, Popular on Velmora row, Settings > Privacy, `/stats/` page (`site/api/_lib/stats.js`) |
-| b6395f9, 9e4bad6 | Engine test fixes for clippy |
-| e33a863 | Social phase 1 (below) |
+- **Admin site, all 3 phases** (`docs/admin.md`): overview, people, reports,
+  reviews, names, audit; Theatre ops; Max licences online, announcements,
+  app ads (`/ads.json` now served from Redis `cfg:ads`), remote config
+  (`registry.json` on the `config` branch via `CONFIG_GITHUB_TOKEN`),
+  analytics, curation (featured people, staff picks, leaderboard hiding),
+  Theatre Tuning (`cfg:lineup` knobs read by `api/_lib/lineup.js`) and Insights.
+- **Site**: 8 content pages + 6 comparison pages (prerendered), SEO basics,
+  SmartScreen animation on `/docs/install/`, Android copy now says "in
+  production development, drops soon".
+- **Android phase 1** (below).
 
-The changelog has a 0.6.0 entry marked `soon` ("In testing") in
-`site/src/lib/changes.ts`.
+## Android (active work)
 
-## Social + admin plan (user approved, 5 phases)
+Read `docs/android.md` (40 decisions) and `docs/android_build_plan.md` (10 phases) first.
 
-1. **Groundwork — done, e33a863.** Nine animal avatars (`animal:<name>`,
-   assets in `app/src/assets/avatars` and `site/src/assets/avatars`), bio and
-   links (`lib/links.ts` in both, `public.valid_links` in SQL), web sign-in for
-   other Velmora sites (`site/src/lib/session.ts`; the auth page takes
-   `?return=` for allowed origins), social shell (`site/social/`,
-   `site/src/social/SocialApp.svelte`), auth page rebuilt on m3e, **required
-   sign-in** (below), `velmora://` deep links (deep-link + single-instance
-   plugins, `app/src/lib/deeplink.ts`, website fallback `/open/?to=`), music
-   listens in stats (group `mus`, `/api/stats/trending?kind=music`),
-   `supabase/social.sql`.
-2. **Social core: done.** Single-page app in
-   `site/src/social/`: `nav.svelte.ts` (routes `/social/`, `/@name`,
-   `/@name/followers|following|visitors`, `/search?q=`, `/settings`; dev and
-   fallback use `/social/?at=/@name`), `data.svelte.ts` (all Supabase reads and
-   writes, follow state, Max badges, reports, favourites from My List),
-   views `HomeView` (most followed, new people), `ProfileView`, `SearchView`,
-   `SettingsView` (edit picture, names, username with 30-day cooldown, bio,
-   links, six favourites), `ReportDialog`, `PeopleList`, `PersonRow`,
-   `FollowButton`, `Badges`. Server: `site/api/social/[action].js` (`max`:
-   which accounts hold Max, from Redis `acct:<uid>`; `page`: serves the
-   shell with link-preview meta for `/@name`). `vercel.json` rewrites on the
-   social host. SQL appended to `supabase/social.sql`: `profiles.favorites` +
-   `valid_favorites`, `search_profiles(q, lim)`, follow limits (120/hour,
-   5000 total, not to hidden/banned), report limits (one open per reason,
-   20/day). App: Settings > Velmora account has "View profile".
-3. **Discovery + activity: done, released in 0.6.0.** SQL in
-   `supabase/activity.sql` (run after social.sql): `activity` (rows only via
-   `post_activity`, episodes fold into one row per 12 h, hidden when
-   `share_activity` is off), `ratings` (1-10, review <= 500, spoiler flag,
-   trigger posts a `rated` activity), `lists` (<= 100 items, public or
-   private, 50 per person), `my_feed`, `user_activity`, `profile_stats`,
-   `title_score`, `top_rated`, `suggested_people`, `leaderboard`. Server:
-   `api/social/[action].js` actions `titles` (TMDB, cached in Redis `tm:<k>`
-   for a week, needs `TMDB_READ_TOKEN` or `TMDB_API_KEY` in Vercel env) and
-   `songs` (YouTube oEmbed, `yt:<id>`). Web: feed + suggestions + trending
-   strip on home, `/trending[/shows|music|rated]`, `/leaderboards`,
-   `/title/movie/603` (score, rate, reviews, add to list), `/list/<id>` and
-   `/list/new`, profile tabs Activity, Reviews, Lists, Stats. App:
-   `lib/activity.svelte.ts` (queue in localStorage tagged with the user id,
-   posts watching after 1 min, finished at 95%, listed via
-   `library.onAdd`; skips 18+ and titles without a TMDB number),
-   Privacy switch for sharing, `components/RateButton.svelte` on the title
-   page. Genres are not stored; the website derives top genres from TMDB.
-4. **Admin part 1: phase 1 BUILT 2026-11-24 (see `docs/admin.md`, which also has the 3-phase plan and owner steps)** at `admin.getvelmora.dpdns.org`: admin role (`admins`
-   table) + Supabase TOTP MFA, own origin, all writes through server code with
-   the service key (user pastes it into Vercel), overview with free-tier meters
-   (Supabase, Upstash, Mailtrap 150/day) and health (CI, providers, mpv
-   fallback rate), users (hide/ban/reset fields/verify/delete, no private
-   history), moderation queue, reserved names, blocked words, audit log.
-5. **Admin part 2:** Max fully online (signing key moves into Vercel env, user
-   agreed), ads controls, remote config on the `config` branch via a GitHub
-   token, in-app announcements + maintenance message, analytics, social
-   curation (featured, staff picks, leaderboard control).
-
-Only the user is admin; no moderator role. No DMs, no chat. Theatre (watch
-together) comes after these phases.
-
-## Required sign-in (decided 2026-11-24)
-
-Velmora needs an account from 0.6.0. `account.saved` is true when a refresh
-token is in Credential Manager; `account.needsSignIn` shows
-`components/SignInGate.svelte` only when nothing is saved. With a saved
-sign-in the app opens straight in, **online or offline** (the user stressed
-this twice). `account.gateReason` picks the wording: `new`, `upgrade` (was
-onboarded on 0.5.0: "From now on, Velmora needs an account"), `returning`.
-
-## Theatre (next big feature)
-
-Spec and build status: `docs/theatre.md` (read it first). All 5 phases are
-built (database + daily lineup, app section, lobby + live player, chat and
-reactions, after-show + Velmora Social booking). The user re-runs
-`supabase/theatre.sql` after phase 5. Nothing of Theatre has been released
-yet (last release 0.6.0); end-to-end testing with two accounts is pending.
+- Echo Music (Kotlin/Compose, GPL-3.0) imported into `android/`, renamed to
+  `com.velmora.stepbyte` everywhere (packages, JNI, C++ namespaces). Version
+  0.6.6 / code 6006 (code = major*1e6 + minor*1e3 + patch, matches desktop).
+- Removed: Firebase, Echo's translations, Echo's services (canvas server,
+  320 kbps extension, share domain), donation/social links, 14 alternate icons
+  and the picker, Android TV entry, Listen Together's UI and networking.
+  **Listen Together's internals (~4,000 lines) are still in the code, unused:
+  delete them in phase 3** when the player and menus are reworked.
+- Echo's updater is off (`UPDATES_ENABLED = false` in
+  `velmora/updater/velmoraupdater.kt`) until phase 10.
+- Icons: fox launcher PNGs from `app/src-tauri/icons/android`, plus a flat fox
+  glyph (`drawable/ic_velmora_glyph.xml`, also notification, QS tile,
+  `ic_launcher_nobg`).
+- About screen credits Echo Music; `android/README.md` too. Keep the credit.
+- CI: `.github/workflows/android.yml` builds `:app:assembleUniversalGmsDebug`
+  on pushes touching `android/`, signed with the release key, artifact
+  `velmora-android-debug` (about 135 MB debug).
+- Secrets in GitHub: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEY_ALIAS`,
+  `ANDROID_KEY_PASSWORD`, `ANDROID_STORE_PASSWORD` (backup copy only in
+  `%USERPROFILE%\.velmora-android\`), `LASTFM_API_KEY`, `LASTFM_SECRET`.
+  Discord app ID `1533360080928378930` is in `app/build.gradle.kts`
+  (redirect and Public Client set by the user).
+- **Status:** phase 1 built green (run 45983475036). Waiting for the user to
+  test on Android 9, Android 14 and an Android 16 tablet. Next is **phase 2**:
+  UniverseAPI through UniFFI + cargo-ndk in CI, a Kotlin `:engine` module and a
+  hidden test screen.
+- Editing Kotlin without a compiler: scripts in the session scratchpad cut
+  whole blocks by brace matching. After any cut, scan for empty wrappers like
+  `add(\n)` (one slipped through once). Check resources references too:
+  AAPT fails on a missing `@mipmap`/`@drawable`.
 
 ## Waiting on the user
 
-- Theatre setup: enable pg_cron, run `supabase/theatre.sql`, add
-  `SUPABASE_SERVICE_ROLE_KEY` and `CRON_SECRET` to Vercel, then trigger the
-  first lineup by hand (see docs/theatre.md, Build status).
+- Re-run in Supabase, in order: `supabase/activity.sql`, `supabase/admin.sql`,
+  `supabase/theatre.sql` (admin phase 3a/3b tables: announcements, featured,
+  leaderboard_hidden, admin_growth, theatre_tickets.via, admin_theatre_stats).
+- Max online: `node tools/license/velmora-license.mjs secret signing` (tool is
+  local, gitignored), paste into Vercel as `LICENSE_SIGNING_KEY`, redeploy,
+  then import `%USERPROFILE%\.velmora-license\issued.json` on the admin Max page.
+- `CONFIG_GITHUB_TOKEN` is set (user did it on 2026-11-27).
+- Search Console: resubmit `sitemap.xml`. Mailtrap domain for email codes.
+  Theatre two-account test.
+- Android phase 1 device testing (see above).
 
-- Run `supabase/activity.sql` (after social.sql). Until then the feed,
-  activity, ratings, lists, stats and leaderboards show errors or stay empty.
-- Add `TMDB_READ_TOKEN` (the same TMDB v4 read token the release workflow
-  uses) to Vercel's environment variables and redeploy. Without it title
-  pages, posters in the feed and trending show "couldn't find this title".
+## Not yet released
 
-- Run `supabase/social.sql` (after `schema.sql`, `sync.sql`). Until then,
-  saving animal avatars, bio, links or favourites fails and the social site
-  can't follow, search or count visits. It is safe to run again.
-- Cloudflare CNAME `social` (proxy off) + Vercel domain
-  `social.getvelmora.dpdns.org`.
-- Test from the installed CI build: fresh install shows the gate; offline
-  launch goes straight in; Max link/restore; sync between two PCs; Privacy page.
-- The user said they finished: `sync.sql`, Mailtrap SMTP fix, Turnstile secret
-  in Supabase. Email sign-in hasn't been re-tested in this session.
+The desktop app changes since 0.6.6 (announcement banner, Theatre start-event
+report, CSP allowing the site) ship with the next desktop release. The admin
+failure-rate and app-vs-Social numbers fill in after that.
 
 ## Known problems
 
-- **Engine lint job fails on rustfmt**: about 200 formatting diffs across the
-  engine crate, starting from the 0.5.0 release commit (probably a new stable
-  rustfmt; `universeapi/rustfmt.toml` is `max_width = 120`,
-  `use_small_heuristics = "Max"`). Can't run rustfmt locally. Proposed: a
-  manual `workflow_dispatch` GitHub Action that runs `cargo fmt` and commits.
-  Not done yet; ask or just do it.
-- The "Android check (impersonate, informational)" engine job always fails
-  (BoringSSL); it's informational.
-- CI for e33a863 (deep-link + single-instance plugins, first compile) was
-  still running at handoff. Check `gh run list` first.
+- Engine rustfmt job fails (~200 diffs since 0.5.0); a `workflow_dispatch`
+  job that runs `cargo fmt` and commits was proposed, not built.
+- "Android check (impersonate)" engine job always fails (BoringSSL); informational.
 
 ## Useful facts
 
 - Supabase publishable key and URL: `app/src/lib/account.svelte.ts`,
   `site/src/auth/config.ts`, `site/api/_lib/config.js`.
-- Avatars must agree in three places: `app/src/lib/avatars.ts`,
-  `site/src/auth/avatars.ts`, the `profiles_avatar_ok` constraint.
-- `profiles_guard` (social.sql version) protects `verified`, `hidden`,
-  `banned` and the follow counters from non-service writes; counters move via
-  the `follows_count` trigger using the `velmora.counting` setting.
-- Stats live in Redis zsets `an:<day>:<group>` (groups title, src, eng, q,
-  ver, inst, mus), one EVAL per report, `MIN_PEOPLE = 3` for trending.
-- Site Material Symbols are subset: add new icon names to `ICONS` in
-  `site/vite.config.ts`. New site pages go into `PAGES` there.
-- Android port is paused.
+- Site Material Symbols are a subset: add new names to `ICONS` in
+  `site/vite.config.ts` (check with the Google Fonts css2 URL). New pages go
+  into `PAGES` there and into `src/pages/registry.ts`; run
+  `node scripts/make-pages.mjs` after editing the registry.
+- Content pages are prerendered (`npm run build` = vite build + `scripts/prerender.mjs`).
+- Instagram posters: HTML at `<scratchpad>/posters/` (1080x1350, rendered with
+  headless Chrome: `chrome.exe --headless=new --screenshot --window-size=1080,1350
+  "file:///.../android.html?s=N"`). Final Android set exported to
+  `C:\Users\Azam\Pictures\velmora-android\1..5-velmora-android.png`. The
+  scratchpad can be cleared; the exports are the durable copies.
+- User's Instagram: @ashfaqizop and @stepbyte.studios.
+- Git Bash rewrites `/CN=...`-style arguments into paths; use `MSYS_NO_PATHCONV=1`.
+- Many repo files are CRLF; normalize (`\r\n` → `\n`) before exact-match edits.
