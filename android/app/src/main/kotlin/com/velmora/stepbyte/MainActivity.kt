@@ -14,6 +14,23 @@ import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.navigation.compose.navigation
+import com.velmora.stepbyte.velmora.screens.velmoraGraph
+import com.velmora.stepbyte.velmora.shell.AppMode
+import com.velmora.stepbyte.velmora.shell.AppModeKey
+import com.velmora.stepbyte.velmora.shell.LocalAppMode
+import com.velmora.stepbyte.velmora.shell.LocalSwitchMode
+import com.velmora.stepbyte.velmora.shell.MUSIC_GRAPH
+import com.velmora.stepbyte.velmora.shell.ModeReveal
+import com.velmora.stepbyte.velmora.shell.ModeSwitchPanel
+import com.velmora.stepbyte.velmora.shell.ShellActions
+import com.velmora.stepbyte.velmora.shell.VELMORA_GRAPH
+import com.velmora.stepbyte.velmora.shell.VelmoraQuickPanel
+import com.velmora.stepbyte.velmora.shell.VelmoraRoutes
+import com.velmora.stepbyte.velmora.shell.VelmoraWordmark
+import com.velmora.stepbyte.velmora.shell.rememberModeRevealState
+import com.velmora.stepbyte.velmora.shell.rememberReducedMotion
+import com.velmora.stepbyte.velmora.shell.switchMode
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -611,68 +628,6 @@ class MainActivity : ComponentActivity() {
       }
     }
 
-    val HasShownBirthdayNotificationKey = remember {
-      androidx.datastore.preferences.core.booleanPreferencesKey("has_shown_birthday_notification")
-    }
-    LaunchedEffect(Unit) {
-      val today = java.time.LocalDate.now()
-      if (today.month == java.time.Month.OCTOBER && today.dayOfMonth == 14) {
-        val prefs = context.dataStore.data.first()
-        val hasShown = prefs[HasShownBirthdayNotificationKey] ?: false
-        if (!hasShown) {
-          if (
-            android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU ||
-              androidx.core.content.ContextCompat.checkSelfPermission(
-                context,
-                android.Manifest.permission.POST_NOTIFICATIONS,
-              ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-          ) {
-
-            val channelId = "birthday_channel"
-            val notificationManager =
-              context.getSystemService(android.app.NotificationManager::class.java)
-
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-              val channel =
-                android.app.NotificationChannel(
-                  channelId,
-                  "Birthday",
-                  android.app.NotificationManager.IMPORTANCE_HIGH,
-                )
-              notificationManager.createNotificationChannel(channel)
-            }
-
-            val bitmap =
-              android.graphics.BitmapFactory.decodeResource(
-                context.resources,
-                R.drawable.birthday_image,
-              )
-
-            val notification =
-              androidx.core.app.NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(R.drawable.velmoranotification) // transparent Velmora icon
-                .setContentTitle("Happy Birthday Aditya!")
-                .setContentText("Today is the developer's birthday!")
-                .setLargeIcon(bitmap)
-                .setStyle(
-                  androidx.core.app.NotificationCompat.BigPictureStyle()
-                    .bigPicture(bitmap)
-                    .bigLargeIcon(null as android.graphics.Bitmap?),
-                )
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-                .build()
-
-            notificationManager.notify(1014, notification)
-
-            context.dataStore.edit { preferences ->
-              preferences[HasShownBirthdayNotificationKey] = true
-            }
-          }
-        }
-      }
-    }
-
     LaunchedEffect(enableHighRefreshRate) {
       val window = this@MainActivity.window
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -821,6 +776,15 @@ class MainActivity : ComponentActivity() {
         val bottomInsetDp = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
 
         val navController = rememberNavController()
+
+        // Velmora or Music. The app reopens in the mode it was last in, and
+        // each mode keeps its own back stack (see velmora/shell/AppMode.kt).
+        var appMode by remember { mutableStateOf(AppMode.from(dataStore[AppModeKey])) }
+        val startMode = remember { appMode }
+        val revealState = rememberModeRevealState()
+        val reduceMotion = rememberReducedMotion()
+        var showModeSwitch by remember { mutableStateOf(false) }
+        var showVelmoraPanel by remember { mutableStateOf(false) }
         val blockedArtists by
           dataStore.data
             .map { it[BlockedArtistsKey] ?: emptySet() }
@@ -848,8 +812,10 @@ class MainActivity : ComponentActivity() {
         val (listenTogetherInTopBar) =
           rememberPreference(ListenTogetherInTopBarKey, defaultValue = true)
         val navigationItems =
-          remember(listenTogetherInTopBar) {
-            if (listenTogetherInTopBar) {
+          remember(listenTogetherInTopBar, appMode) {
+            if (appMode == AppMode.VELMORA) {
+              Screens.VelmoraScreens
+            } else if (listenTogetherInTopBar) {
               Screens.MainScreens.filter { it != Screens.ListenTogether }
             } else {
               Screens.MainScreens
@@ -876,6 +842,10 @@ class MainActivity : ComponentActivity() {
             Screens.Library.route,
             Screens.ListenTogether.route,
             "settings",
+            Screens.VelmoraHome.route,
+            Screens.VelmoraBrowse.route,
+            Screens.VelmoraTheatre.route,
+            Screens.VelmoraSearch.route,
           )
         }
 
@@ -921,7 +891,7 @@ class MainActivity : ComponentActivity() {
           }
 
         // Unified floating pill navigation toolbar across both portrait and landscape views
-        val showRail = false
+        val showRail = maxWidth >= 600.dp
 
         val navPadding =
           if (shouldShowNavigationBar && !showRail) {
@@ -1137,6 +1107,23 @@ class MainActivity : ComponentActivity() {
         }
 
         val coroutineScope = rememberCoroutineScope()
+
+        val switchModeNow: (AppMode) -> Unit = { to ->
+          if (to != appMode) {
+            if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
+            appMode = to
+            navController.switchMode(to)
+            coroutineScope.launch { dataStore.edit { it[AppModeKey] = to.name } }
+          }
+        }
+        val switchWithReveal: (AppMode, androidx.compose.ui.geometry.Offset) -> Unit = { to, center ->
+          showModeSwitch = false
+          showVelmoraPanel = false
+          coroutineScope.launch { revealState.play(center, to, reduceMotion) { switchModeNow(to) } }
+        }
+        val screenCenter =
+          with(density) { androidx.compose.ui.geometry.Offset(maxWidth.toPx() / 2f, maxHeight.toPx() / 2.6f) }
+
         var sharedSong: SongItem? by remember { mutableStateOf(null) }
         val snackbarHostState = remember { SnackbarHostState() }
         var showSettingDialoge by remember { mutableStateOf(false) }
@@ -1332,6 +1319,8 @@ class MainActivity : ComponentActivity() {
           LocalSyncUtils provides syncUtils,
           LocalListenTogetherManager provides listenTogetherManager,
           LocalExpandPlayer provides expandPlayer,
+          LocalAppMode provides appMode,
+          LocalSwitchMode provides { to -> switchWithReveal(to, screenCenter) },
         ) {
           Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -1344,95 +1333,44 @@ class MainActivity : ComponentActivity() {
                 Row {
                   TopAppBar(
                     title = {
-                      Text(
-                        text = currentTitle,
-                        style =
-                          MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 24.sp,
-                          ),
+                      VelmoraWordmark(
+                        mode = appMode,
+                        onLongPress = { center -> switchWithReveal(appMode.other, center) },
                       )
                     },
                     actions = {
-                      if (showHistoryButton) {
-                        IconButton(onClick = { navController.navigate("history") }) {
-                          Icon(
-                            painter = painterResource(R.drawable.music_history),
-                            contentDescription = stringResource(R.string.history),
-                          )
-                        }
-                      }
-                      IconButton(onClick = { navController.navigate("stats") }) {
-                        Icon(
-                          painter = painterResource(R.drawable.stats),
-                          contentDescription = stringResource(R.string.stats),
-                        )
-                      }
-                      IconButton(onClick = { showSettingDialoge = true }) {
-                        val profileRingTransition =
-                          rememberInfiniteTransition(label = "TopBarProfileRing")
-                        val profileRingAngle by
-                          profileRingTransition.animateFloat(
-                            initialValue = 0f,
-                            targetValue = 360f,
-                            animationSpec =
-                              infiniteRepeatable(
-                                animation = tween(12000, easing = LinearEasing),
-                                repeatMode = RepeatMode.Restart,
-                              ),
-                            label = "profileRingAngle",
-                          )
-                        val profileRingAlpha by
-                          profileRingTransition.animateFloat(
-                            initialValue = 0.65f,
-                            targetValue = 1f,
-                            animationSpec =
-                              infiniteRepeatable(
-                                animation = tween(2400, easing = FastOutSlowInEasing),
-                                repeatMode = RepeatMode.Reverse,
-                              ),
-                            label = "profileRingAlpha",
-                          )
-                        Box(
-                          modifier = Modifier.size(34.dp),
-                          contentAlignment = Alignment.Center,
-                        ) {
-                          // Light Red Story / Wrapped Ring with slight gentle animation
-                          Box(
-                            modifier =
-                              Modifier.fillMaxSize()
-                                .rotate(profileRingAngle)
-                                .border(
-                                  width = 2.dp,
-                                  brush =
-                                    Brush.sweepGradient(
-                                      listOf(
-                                        Color(0xFFFF5252).copy(alpha = profileRingAlpha),
-                                        Color(0xFFFF7A8A).copy(alpha = profileRingAlpha * 0.85f),
-                                        Color(0xFFFF8E9E).copy(alpha = profileRingAlpha),
-                                        Color(0xFFFF6B6B).copy(alpha = profileRingAlpha * 0.9f),
-                                        Color(0xFFFF5252).copy(alpha = profileRingAlpha),
-                                      ),
-                                    ),
-                                  shape = CircleShape,
-                                ),
-                          )
-                          if (accountImageUrl != null) {
-                            AsyncImage(
-                              model = accountImageUrl,
-                              contentDescription = stringResource(R.string.account),
-                              modifier = Modifier.size(24.dp).clip(CircleShape),
-                            )
-                          } else {
+                      if (appMode == AppMode.MUSIC) {
+                        if (showHistoryButton) {
+                          IconButton(onClick = { navController.navigate("history") }) {
                             Icon(
-                              painter = painterResource(R.drawable.settings),
-                              contentDescription = stringResource(R.string.account),
-                              modifier = Modifier.size(18.dp),
-                              tint = MaterialTheme.colorScheme.onSurface,
+                              painter = painterResource(R.drawable.music_history),
+                              contentDescription = stringResource(R.string.history),
                             )
                           }
                         }
+                        IconButton(onClick = { navController.navigate("stats") }) {
+                          Icon(
+                            painter = painterResource(R.drawable.stats),
+                            contentDescription = stringResource(R.string.stats),
+                          )
+                        }
                       }
+                      ShellActions(
+                        mode = appMode,
+                        accountImageUrl = accountImageUrl,
+                        onAvatar = {
+                          if (appMode == AppMode.MUSIC) showSettingDialoge = true
+                          else showVelmoraPanel = true
+                        },
+                        onDownloads = {
+                          if (appMode == AppMode.MUSIC) {
+                            navController.navigate("auto_playlist/downloaded")
+                          } else {
+                            navController.navigate(VelmoraRoutes.DOWNLOADS) { launchSingleTop = true }
+                          }
+                        },
+                        onSwitch = { showModeSwitch = true },
+                      )
                     },
                     scrollBehavior = topAppBarScrollBehavior,
                     colors =
@@ -1479,7 +1417,12 @@ class MainActivity : ComponentActivity() {
                       val popped = navController.popBackStack(screen.route, inclusive = false)
                       if (!popped) {
                         navController.navigate(screen.route) {
-                          popUpTo(navController.graph.startDestinationId) { saveState = true }
+                          popUpTo(
+                            if (screen in Screens.VelmoraScreens) Screens.VelmoraHome.route
+                            else Screens.Home.route,
+                          ) {
+                            saveState = true
+                          }
                           launchSingleTop = true
                           restoreState = true
                         }
@@ -1539,7 +1482,8 @@ class MainActivity : ComponentActivity() {
                       pureBlack = pureBlack,
                       showPlayerAccessory = hasDockedPlayerAccessory,
                       onAccessoryClick = { playerBottomSheetState.expandSoft() },
-                      onMusicRecognitionClick = onMusicRecognitionClick,
+                      onMusicRecognitionClick =
+                        if (appMode == AppMode.MUSIC) onMusicRecognitionClick else null,
                       musicRecognitionContentDescription = stringResource(R.string.recognition),
                       onSearchLongClick = onRailSearchLongClick,
                       modifier =
@@ -1572,25 +1516,28 @@ class MainActivity : ComponentActivity() {
                         items = navigationItems,
                         pureBlack = pureBlack,
                         onMusicFlowClick =
-                          if (musicFlowEnabled) {
+                          if (musicFlowEnabled && appMode == AppMode.MUSIC) {
                             { navController.navigate("music_flow") { launchSingleTop = true } }
                           } else null,
                         musicFlowIconRes = R.drawable.swipe_vertical,
                         musicFlowContentDescription = stringResource(R.string.music_flow),
-                        onShuffleClick = onShuffleClick,
+                        onShuffleClick = if (appMode == AppMode.MUSIC) onShuffleClick else null,
                         shuffleEnabled = shuffleEnabled,
                         shuffleIconRes = R.drawable.shuffle,
                         shuffleContentDescription = stringResource(R.string.shuffle),
-                        onMusicRecognitionClick = onMusicRecognitionClick,
+                        onMusicRecognitionClick =
+                          if (appMode == AppMode.MUSIC) onMusicRecognitionClick else null,
                         musicRecognitionContentDescription = stringResource(R.string.recognition),
-                        onAiHubClick = {
-                          navController.navigate("settings/ai") { launchSingleTop = true }
-                        },
+                        onAiHubClick =
+                          if (appMode == AppMode.MUSIC) {
+                            { navController.navigate("settings/ai") { launchSingleTop = true } }
+                          } else null,
                         aiHubIconRes = R.drawable.ai_pfp,
                         aiHubContentDescription = stringResource(R.string.ai_lyrics_translation),
-                        onWrappedClick = {
-                          navController.navigate("wrapped") { launchSingleTop = true }
-                        },
+                        onWrappedClick =
+                          if (appMode == AppMode.MUSIC) {
+                            { navController.navigate("wrapped") { launchSingleTop = true } }
+                          } else null,
                         onSearchLongClick = onRailSearchLongClick,
                         isCollapsed = isDefaultNavCollapsed && playerBottomSheetState.isCollapsed,
                         onExpandClick = { floatingNavBarScrollConnection.expand() },
@@ -1710,7 +1657,12 @@ class MainActivity : ComponentActivity() {
                       val popped = navController.popBackStack(screen.route, inclusive = false)
                       if (!popped) {
                         navController.navigate(screen.route) {
-                          popUpTo(navController.graph.startDestinationId) { saveState = true }
+                          popUpTo(
+                            if (screen in Screens.VelmoraScreens) Screens.VelmoraHome.route
+                            else Screens.Home.route,
+                          ) {
+                            saveState = true
+                          }
                           launchSingleTop = true
                           restoreState = true
                         }
@@ -1726,21 +1678,23 @@ class MainActivity : ComponentActivity() {
                   onItemClick = onRailItemClick,
                   pureBlack = pureBlack,
                   onSearchLongClick = onRailSearchLongClick,
-                  onMusicRecognitionClick = onMusicRecognitionClick,
+                  onMusicRecognitionClick =
+                    if (appMode == AppMode.MUSIC) onMusicRecognitionClick else null,
                   musicRecognitionContentDescription = stringResource(R.string.recognition),
                   onMusicFlowClick =
-                    if (musicFlowEnabled) {
+                    if (musicFlowEnabled && appMode == AppMode.MUSIC) {
                       { navController.navigate("music_flow") { launchSingleTop = true } }
                     } else null,
                   musicFlowIconRes = R.drawable.swipe_vertical,
                   musicFlowContentDescription = stringResource(R.string.music_flow),
-                  onShuffleClick = onShuffleClick,
+                  onShuffleClick = if (appMode == AppMode.MUSIC) onShuffleClick else null,
                   shuffleEnabled = shuffleEnabled,
                   shuffleIconRes = R.drawable.shuffle,
                   shuffleContentDescription = stringResource(R.string.shuffle),
-                  onAiHubClick = {
-                    navController.navigate("settings/ai") { launchSingleTop = true }
-                  },
+                  onAiHubClick =
+                    if (appMode == AppMode.MUSIC) {
+                      { navController.navigate("settings/ai") { launchSingleTop = true } }
+                    } else null,
                   aiHubIconRes = R.drawable.ai_pfp,
                   aiHubContentDescription = stringResource(R.string.ai_lyrics_translation),
                 )
@@ -1748,12 +1702,7 @@ class MainActivity : ComponentActivity() {
               Box(Modifier.weight(1f)) {
                 NavHost(
                   navController = navController,
-                  startDestination =
-                    when (tabOpenedFromShortcut ?: defaultOpenTab) {
-                      NavigationTab.HOME -> Screens.Home
-                      NavigationTab.LIBRARY -> Screens.Library
-                      else -> Screens.Home
-                    }.route,
+                  startDestination = startMode.graph,
                   enterTransition = {
                     val currentRouteIndex = navigationItems.indexOfFirst {
                       it.route == targetState.destination.route
@@ -1826,12 +1775,25 @@ class MainActivity : ComponentActivity() {
                     Modifier.layerBackdrop(appBackdrop)
                       .nestedScroll(topAppBarScrollBehavior.nestedScrollConnection),
                 ) {
-                  navigationBuilder(
-                    navController = navController,
-                    scrollBehavior = topAppBarScrollBehavior,
-                    activity = this@MainActivity,
-                    snackbarHostState = snackbarHostState,
-                  )
+                  navigation(route = VELMORA_GRAPH, startDestination = Screens.VelmoraHome.route) {
+                    velmoraGraph(navController)
+                  }
+                  navigation(
+                    route = MUSIC_GRAPH,
+                    startDestination =
+                      when (tabOpenedFromShortcut ?: defaultOpenTab) {
+                        NavigationTab.HOME -> Screens.Home
+                        NavigationTab.LIBRARY -> Screens.Library
+                        else -> Screens.Home
+                      }.route,
+                  ) {
+                    navigationBuilder(
+                      navController = navController,
+                      scrollBehavior = topAppBarScrollBehavior,
+                      activity = this@MainActivity,
+                      snackbarHostState = snackbarHostState,
+                    )
+                  }
                 }
               }
             }
@@ -1966,6 +1928,23 @@ class MainActivity : ComponentActivity() {
             )
           }
 
+          if (showVelmoraPanel) {
+            VelmoraQuickPanel(
+              onDismissRequest = { showVelmoraPanel = false },
+              onNavigate = { route -> navController.navigate(route) },
+              onSwitchToMusic = { switchWithReveal(AppMode.MUSIC, screenCenter) },
+            )
+          }
+
+          ModeSwitchPanel(
+            visible = showModeSwitch,
+            current = appMode,
+            onDismiss = { showModeSwitch = false },
+            onCommit = switchWithReveal,
+          )
+
+          ModeReveal(revealState)
+
           if (showWelcomeDialog) {
             WelcomeDialog(
               onDismissRequest = {
@@ -1980,59 +1959,6 @@ class MainActivity : ComponentActivity() {
             )
           }
 
-          var showPartyBomb by remember {
-            val today = java.time.LocalDate.now()
-            mutableStateOf(today.month == java.time.Month.OCTOBER && today.dayOfMonth == 14)
-          }
-          if (showPartyBomb) {
-            val parties = remember {
-              listOf(
-                Party(
-                  speed = 30f,
-                  maxSpeed = 70f,
-                  damping = 0.9f,
-                  angle = 270,
-                  spread = 60,
-                  colors = listOf(0xfce18a, 0xff726d, 0xf4306d, 0xb48def),
-                  emitter = Emitter(duration = 300, TimeUnit.MILLISECONDS).max(300),
-                  position = Position.Relative(0.5, 1.0),
-                ),
-                Party(
-                  speed = 30f,
-                  maxSpeed = 70f,
-                  damping = 0.9f,
-                  angle = 315,
-                  spread = 45,
-                  colors = listOf(0xfce18a, 0xff726d, 0xf4306d, 0xb48def),
-                  emitter = Emitter(duration = 300, TimeUnit.MILLISECONDS).max(300),
-                  position = Position.Relative(0.0, 1.0),
-                ),
-                Party(
-                  speed = 30f,
-                  maxSpeed = 70f,
-                  damping = 0.9f,
-                  angle = 225,
-                  spread = 45,
-                  colors = listOf(0xfce18a, 0xff726d, 0xf4306d, 0xb48def),
-                  emitter = Emitter(duration = 300, TimeUnit.MILLISECONDS).max(300),
-                  position = Position.Relative(1.0, 1.0),
-                ),
-              )
-            }
-            KonfettiView(
-              modifier = Modifier.fillMaxSize(),
-              parties = parties,
-              updateListener =
-                object : OnParticleSystemUpdateListener {
-                  override fun onParticleSystemEnded(
-                    system: nl.dionsegijn.konfetti.core.PartySystem,
-                    activeSystems: Int,
-                  ) {
-                    if (activeSystems == 0) showPartyBomb = false
-                  }
-                },
-            )
-          }
         }
       }
     }

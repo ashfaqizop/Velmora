@@ -27,7 +27,9 @@ import com.velmora.stepbyte.constants.AppFont
 import com.velmora.stepbyte.constants.SelectedFontKey
 import com.velmora.stepbyte.utils.rememberPreference
 
-val DefaultThemeColor = Color(0xFFED5564)
+// Velmora blue. On Android 12+ the default means "use wallpaper colours" (Material You);
+// before 12 it seeds a fixed Velmora palette.
+val DefaultThemeColor = Color(0xFF3271FE)
 
 @Composable
 fun velmoraTheme(
@@ -38,7 +40,7 @@ fun velmoraTheme(
   content: @Composable () -> Unit,
 ) {
   val context = LocalContext.current
-  val selectedFontValue by rememberPreference(SelectedFontKey, AppFont.SYSTEM.value)
+  val selectedFontValue by rememberPreference(SelectedFontKey, AppFont.PLUS_JAKARTA_SANS.value)
   val customFontPathValue by rememberPreference(com.velmora.stepbyte.constants.CustomFontPathKey, "")
 
   val brandFont =

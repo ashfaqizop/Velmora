@@ -66,6 +66,9 @@ data class TitleDetailInfo(
 
 class TitleDetail(val title: Title, val info: TitleDetailInfo)
 
+/** A row on the home screen (Trending movies, Popular anime...). */
+class Rail(val id: String, val title: String, val items: List<Title>)
+
 @Serializable
 data class ReleaseTags(
   /** Vertical resolution: 360, 480, 720, 1080, 2160. */

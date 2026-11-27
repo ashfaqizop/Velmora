@@ -61,7 +61,7 @@ fun FontSelectionScreen(
   navController: NavController,
   scrollBehavior: TopAppBarScrollBehavior,
 ) {
-  val selectedFontState = rememberPreference(SelectedFontKey, defaultValue = AppFont.SYSTEM.value)
+  val selectedFontState = rememberPreference(SelectedFontKey, defaultValue = AppFont.PLUS_JAKARTA_SANS.value)
   val selectedFont = selectedFontState.value
   val onSelectedFontChange: (String) -> Unit = { selectedFontState.value = it }
   val context = LocalContext.current

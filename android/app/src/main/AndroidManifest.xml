@@ -95,7 +95,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.velmora"
+            android:theme="@style/Theme.velmora.Starting"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

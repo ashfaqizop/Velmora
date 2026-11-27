@@ -46,6 +46,18 @@ class Universe private constructor(private val ffi: VelmoraEngine) {
   /** Pull the remote config (mirrors, kill switches). The engine keeps its current one on failure. */
   suspend fun refreshConfig() = call { ffi.refreshConfig() }
 
+  /** The home screen's rows: trending movies, series, anime... */
+  suspend fun home(): List<Rail> = call {
+    parse(ffi.home()).jsonArray.mapNotNull { el ->
+      val o = el as? JsonObject ?: return@mapNotNull null
+      Rail(
+        id = o.string("id") ?: "",
+        title = o.string("title") ?: "",
+        items = titles(o["items"] as? JsonArray ?: JsonArray(emptyList())),
+      )
+    }
+  }
+
   /** Merged results across providers. */
   suspend fun search(query: String): List<Title> = call { titles(parse(ffi.search(query)).jsonArray) }
 

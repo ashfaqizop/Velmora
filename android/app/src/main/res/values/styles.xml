@@ -12,6 +12,14 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
+    <!-- Launch splash: the fox on Velmora's night background, the same from
+         Android 8 (AndroidX SplashScreen backport) to 16, then the app theme. -->
+    <style name="Theme.velmora.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#0A0D16</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.velmora</item>
+    </style>
+
     <!-- Widget Theme with Material 3 colors fallback for API < 31 -->
     <style name="Theme.Widget.velmora" parent="@android:style/Theme.DeviceDefault.DayNight">
         <item name="android:colorBackground">#E6E1E5</item>

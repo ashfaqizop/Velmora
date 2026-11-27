@@ -60,7 +60,41 @@ sealed class Screens(
       route = "generate",
     )
 
+  // Velmora (video) mode tabs. Their routes live in the "velmora" graph.
+  object VelmoraHome :
+    Screens(
+      titleId = R.string.velmora_tab_home,
+      iconIdInactive = R.drawable.home_outlined,
+      iconIdActive = R.drawable.home_filled,
+      route = "v/home",
+    )
+
+  object VelmoraBrowse :
+    Screens(
+      titleId = R.string.velmora_tab_browse,
+      iconIdInactive = R.drawable.explore_outlined,
+      iconIdActive = R.drawable.explore_filled,
+      route = "v/browse",
+    )
+
+  object VelmoraTheatre :
+    Screens(
+      titleId = R.string.velmora_tab_theatre,
+      iconIdInactive = R.drawable.theaters_outlined,
+      iconIdActive = R.drawable.theaters_filled,
+      route = "v/theatre",
+    )
+
+  object VelmoraSearch :
+    Screens(
+      titleId = R.string.velmora_tab_search,
+      iconIdInactive = R.drawable.search,
+      iconIdActive = R.drawable.search,
+      route = "v/search",
+    )
+
   companion object {
     val MainScreens = listOf(Home, Podcast, Search, Library)
+    val VelmoraScreens = listOf(VelmoraHome, VelmoraBrowse, VelmoraTheatre, VelmoraSearch)
   }
 }

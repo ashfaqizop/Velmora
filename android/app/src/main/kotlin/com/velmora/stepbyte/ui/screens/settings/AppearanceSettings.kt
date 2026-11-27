@@ -153,7 +153,7 @@ fun AppearanceSettings(
 ) {
   val scrollState = androidx.compose.foundation.rememberScrollState()
 
-  val (selectedFontValue) = rememberPreference(SelectedFontKey, defaultValue = AppFont.SYSTEM.value)
+  val (selectedFontValue) = rememberPreference(SelectedFontKey, defaultValue = AppFont.PLUS_JAKARTA_SANS.value)
   val (customFontPathValue) =
     rememberPreference(com.velmora.stepbyte.constants.CustomFontPathKey, defaultValue = "")
 
@@ -1109,6 +1109,10 @@ fun AppearanceSettings(
         LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top),
       ),
     )
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    com.velmora.stepbyte.velmora.shell.LookPicker()
 
     Spacer(modifier = Modifier.height(16.dp))
 

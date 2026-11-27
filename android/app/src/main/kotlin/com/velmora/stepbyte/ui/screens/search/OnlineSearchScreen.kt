@@ -129,6 +129,15 @@ fun OnlineSearchScreen(
       Modifier.fillMaxSize()
         .background(if (pureBlack) Color.Black else MaterialTheme.colorScheme.background),
   ) {
+    // Typing "movie" or "velmora" offers the jump back to Velmora mode.
+    com.velmora.stepbyte.velmora.shell.modeFromQuery(query)
+      ?.takeIf { it == com.velmora.stepbyte.velmora.shell.AppMode.VELMORA }
+      ?.let { to ->
+        item(key = "velmora_mode_jump") {
+          val switchMode = com.velmora.stepbyte.velmora.shell.LocalSwitchMode.current
+          com.velmora.stepbyte.velmora.screens.SwitchSuggestion(to) { switchMode(to) }
+        }
+      }
     if (viewState.history.isNotEmpty()) {
       item(key = "history_header") {
         Text(
