@@ -58,8 +58,9 @@
 
   async function load() {
     try {
-      data = await call<Data>("ads");
-      rules = structuredClone(data.rules);
+      const fresh = await call<Data>("ads");
+      data = fresh;
+      rules = structuredClone(fresh.rules);
     } catch (e) {
       sayError(e);
     }
