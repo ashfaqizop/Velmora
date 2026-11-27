@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for Velmora's own screens (video mode and the shell). -->
+<resources>
+    <string name="velmora_tab_home">Home</string>
+    <string name="velmora_tab_browse">Browse</string>
+    <string name="velmora_tab_theatre">Theatre</string>
+    <string name="velmora_tab_search">Search</string>
+    <string name="velmora_switch_to_music">Switch to Music</string>
+    <string name="velmora_switch_to_velmora">Switch to Velmora</string>
+    <string name="velmora_downloads">Downloads</string>
+    <string name="velmora_switch_mode">Switch between Velmora and Music</string>
+</resources>
