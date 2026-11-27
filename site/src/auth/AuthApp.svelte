@@ -6,7 +6,10 @@
   //    back through a one-time code sent to the app's local address (or typed in
   //    by hand as a short code if something blocks that);
   //  - a Velmora website (social, admin), with ?return=&state=&challenge=: the
-  //    same one-time code goes back to that page, which trades it for the session.
+  //    same one-time code goes back to that page, which trades it for the session;
+  //  - the Android app, with ?android=<scheme>&state=&challenge=: the code goes
+  //    back through the app's link (velmora://auth/callback), with the same
+  //    short code to type if the browser won't open the app.
   // We sign the person in (Google, Discord or an emailed code) and make their
   // profile the first time. The session never stays on this origin.
   import { onMount } from "svelte";
@@ -23,7 +26,11 @@
   type View = "loading" | "nocontext" | "signin" | "code" | "setup" | "return" | "done" | "error";
   type Ctx =
     | { kind: "app"; port: number; state: string; challenge: string }
-    | { kind: "web"; back: string; state: string; challenge: string };
+    | { kind: "web"; back: string; state: string; challenge: string }
+    | { kind: "android"; scheme: string; state: string; challenge: string };
+
+  /** Link schemes the Android app answers: release, and the debug build next to it. */
+  const ANDROID_SCHEMES = ["velmora", "velmora-debug"];
 
   /** Velmora sites that may ask this page for a sign-in. */
   const WEB_ORIGINS = ["https://social.getvelmora.dpdns.org", "https://admin.getvelmora.dpdns.org", "http://localhost:5173"];
@@ -261,6 +268,11 @@
       if (!WEB_ORIGINS.includes(url.origin)) return null;
       return { kind: "web", back: `${url.origin}${url.pathname}`, state, challenge };
     }
+    const android = p.get("android");
+    if (android) {
+      if (!ANDROID_SCHEMES.includes(android)) return null;
+      return { kind: "android", scheme: android, state, challenge };
+    }
     const port = Number(p.get("port"));
     if (!Number.isInteger(port) || port < 1024 || port > 65535) return null;
     return { kind: "app", port, state, challenge };
@@ -269,7 +281,7 @@
   /** Where the person came from, for the headings. */
   const site = $derived(ctx?.kind === "web" ? (ctx.back.includes("admin.") ? "Velmora admin" : "Velmora Social") : "the Velmora app");
   const tintOf = (a: string) => animalOf(a)?.color ?? "#3271fe";
-  const siteIcon = $derived(ctx?.kind === "web" ? (ctx.back.includes("admin.") ? "shield" : "groups") : "desktop_windows");
+  const siteIcon = $derived(ctx?.kind === "web" ? (ctx.back.includes("admin.") ? "shield" : "groups") : ctx?.kind === "android" ? "phone_android" : "desktop_windows");
 
   // The art leans toward the pointer a little.
   let tiltX = $state(0);
@@ -614,7 +626,8 @@
       location.replace(`${ctx.back}?vcode=${encodeURIComponent(j.code)}&vstate=${encodeURIComponent(ctx.state)}`);
       return;
     }
-    const url = `http://127.0.0.1:${ctx.port}/callback?code=${encodeURIComponent(j.code)}&state=${encodeURIComponent(ctx.state)}`;
+    const query = `code=${encodeURIComponent(j.code)}&state=${encodeURIComponent(ctx.state)}`;
+    const url = ctx.kind === "android" ? `${ctx.scheme}://auth/callback?${query}` : `http://127.0.0.1:${ctx.port}/callback?${query}`;
     back = { short: j.short, url, until: Date.now() + (j.expires_in - 5) * 1000 };
     store.set(BACK, JSON.stringify(back));
     view = "return";
@@ -696,7 +709,7 @@
       <section class="view" in:step>
         <h1 class="title">Start where you are</h1>
         <p class="muted">
-          Choose <strong>Sign in</strong> in the Velmora app on your PC, or on Velmora Social. Either one brings you here and finishes the job when you're done.
+          Choose <strong>Sign in</strong> in the Velmora app on your PC or phone, or on Velmora Social. Either one brings you here and finishes the job when you're done.
         </p>
         <div class="row">
           <m3e-button variant="filled" href="https://social.getvelmora.dpdns.org/">
