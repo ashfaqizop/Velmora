@@ -113,6 +113,40 @@ saved session decides what shows at launch; the server check runs in the
 background and only signs out when the server really rejects the session,
 never because it couldn't be reached.
 
+How it is built (2026-11-27):
+
+- Offline start: `VelmoraAccount.init` builds the signed-in state from what
+  is saved (profile, or at least the user id) before any network call. Only
+  a 400/401 from Supabase that names the refresh token signs out; timeouts,
+  proxies and server errors keep the saved session, and a network callback
+  checks again when the phone is back online. `OnboardingGate` reads
+  "onboarding finished" from DataStore before its first frame; the old gate
+  started from the flow's default (`false`), which is what showed
+  "Get started".
+- Home (`velmora/screens/VelmoraScreens.kt`): the spotlight is a
+  `HorizontalPager` with parallax art, stretching page dots and auto-advance;
+  then collection chips, Continue watching, My List, Live now (scores
+  refreshed each minute) and every engine row with See all. `HomeFeed` saves
+  the last good rows to `files/velmora/home.json`, so Home has posters
+  offline and says so.
+- Browse (`BrowseScreen.kt`): tabs in a pager. Movies and Series are TMDB
+  `/discover` (or `/trending`) with genre chips and Popular / Trending / Top
+  rated / New, paged as you scroll. Anime is AniList with genres and
+  Popular / Trending / This season / Top rated / Airing. Live TV lists
+  iptv-org channels by category and name (they play in phase 8). Sports shows
+  live, upcoming by day and recent results. Catalogs live for the whole run,
+  so a title page and back keeps the scroll and the list.
+- Title page (`TitleScreen.kt`): the title travels in the route as the
+  engine's JSON, so the poster's data shows at once and survives process
+  death; the engine's detail fills in seasons and episodes, cast with
+  photos, gallery, details and More like this. Play waits for phase 6.
+- My List and progress (`velmora/library/VelmoraLibrary.kt`): saved on the
+  phone first, synced with desktop's `list_items` / `progress` tables and
+  `sync_push_*` functions, newest edit wins, removals as deleted rows.
+- The bridge gained `tmdb_list`, `tmdb_raw`, `tmdb_titles`, `anilist_find`,
+  `tv_channels`, `tv_categories`, `tv_countries`, `sports_live`,
+  `sports_upcoming` and `sports_results`.
+
 ## 6. Video player
 ExoPlayer on engine sources, source picker, subtitles, audio tracks, quality,
 picture-in-picture, background audio, mobile data rules, continue watching,
