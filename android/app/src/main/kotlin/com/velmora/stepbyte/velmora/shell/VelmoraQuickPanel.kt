@@ -13,6 +13,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import com.velmora.stepbyte.velmora.account.AccountAvatar
+import com.velmora.stepbyte.velmora.account.AccountState
+import com.velmora.stepbyte.velmora.account.VelmoraAccount
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -34,6 +40,9 @@ fun VelmoraQuickPanel(
   onSwitchToMusic: () -> Unit,
 ) {
   val uriHandler = LocalUriHandler.current
+  val context = LocalContext.current
+  val account by VelmoraAccount.state.collectAsState()
+  val signedIn = account as? AccountState.SignedIn
   val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
   ModalBottomSheet(
     onDismissRequest = onDismissRequest,
@@ -52,23 +61,66 @@ fun VelmoraQuickPanel(
         title = "Velmora account",
         compact = true,
         items =
-          listOf(
-            Material3SettingsItem(
-              title = { Text("Sign in to Velmora") },
-              description = { Text("My List, watch progress and Max, synced with desktop. Arrives in phase 4.") },
-              icon = painterResource(R.drawable.account),
-              onClick = { uriHandler.openUri(Brand.PROGRESS_URL) },
-            ),
-            Material3SettingsItem(
-              title = { Text("Velmora Social") },
-              description = { Text("Your profile, friends and what they watch") },
-              icon = painterResource(R.drawable.person),
-              onClick = {
-                onDismissRequest()
-                uriHandler.openUri("https://social.getvelmora.dpdns.org")
-              },
-            ),
-          ),
+          buildList {
+            if (signedIn != null) {
+              val p = signedIn.profile
+              add(
+                Material3SettingsItem(
+                  title = { Text(p.displayName) },
+                  description = {
+                    Text(
+                      buildString {
+                        append("@" + p.username)
+                        if (signedIn.max) append("  ·  Velmora Max")
+                        if (signedIn.offline) append("  ·  offline")
+                      },
+                    )
+                  },
+                  customIcon = { AccountAvatar(p, size = 36.dp) },
+                  onClick = {
+                    onDismissRequest()
+                    uriHandler.openUri("https://social.getvelmora.dpdns.org/@" + p.username)
+                  },
+                ),
+              )
+            } else {
+              add(
+                Material3SettingsItem(
+                  title = { Text("Sign in to Velmora") },
+                  description = { Text("My List, watch progress and Max, synced with desktop") },
+                  icon = painterResource(R.drawable.account),
+                  onClick = {
+                    onDismissRequest()
+                    VelmoraAccount.beginSignIn(context)
+                  },
+                ),
+              )
+            }
+            add(
+              Material3SettingsItem(
+                title = { Text("Velmora Social") },
+                description = { Text("Your profile, friends and what they watch") },
+                icon = painterResource(R.drawable.person),
+                onClick = {
+                  onDismissRequest()
+                  uriHandler.openUri("https://social.getvelmora.dpdns.org")
+                },
+              ),
+            )
+            if (signedIn != null) {
+              add(
+                Material3SettingsItem(
+                  title = { Text("Sign out") },
+                  description = { Text("Velmora asks you to sign in again next time") },
+                  icon = painterResource(R.drawable.logout),
+                  onClick = {
+                    onDismissRequest()
+                    VelmoraAccount.signOut()
+                  },
+                ),
+              )
+            }
+          },
       )
       Material3SettingsGroup(
         title = "App",

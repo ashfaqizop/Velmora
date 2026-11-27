@@ -98,6 +98,14 @@
             android:theme="@style/Theme.velmora.Starting"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize">
+            <!-- Velmora sign-in returns here: velmora://auth/callback?code=&state= -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${velmoraScheme}" android:host="auth" />
+            </intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>

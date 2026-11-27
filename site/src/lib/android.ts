@@ -75,7 +75,7 @@ export const PHASES: Phase[] = [
     n: 4,
     title: "Accounts and onboarding",
     icon: "account_circle",
-    status: "planned",
+    status: "building",
     summary:
       "Sign in with your Velmora account, YouTube Music sign-in for Music, and a first run that sets things up. My List, watch progress and settings sync with desktop.",
     result: "Your desktop library on your phone.",

@@ -16,6 +16,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.navigation.compose.navigation
 import com.velmora.stepbyte.velmora.screens.velmoraGraph
+import com.velmora.stepbyte.velmora.account.AccountState
+import com.velmora.stepbyte.velmora.account.OnboardingDoneKey
+import com.velmora.stepbyte.velmora.account.OnboardingGate
+import com.velmora.stepbyte.velmora.account.VelmoraAccount
+import com.velmora.stepbyte.velmora.account.YouTubeMusicGate
+import com.velmora.stepbyte.velmora.account.isYouTubeMusicSignedIn
 import com.velmora.stepbyte.velmora.shell.AppMode
 import com.velmora.stepbyte.velmora.shell.AppModeKey
 import com.velmora.stepbyte.velmora.shell.LocalAppMode
@@ -411,6 +417,7 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     installSplashScreen()
     super.onCreate(savedInstanceState)
+    VelmoraAccount.init(this)
 
     try {
       startService(Intent(this, com.velmora.stepbyte.playback.MusicService::class.java))
@@ -785,6 +792,10 @@ class MainActivity : ComponentActivity() {
         val reduceMotion = rememberReducedMotion()
         var showModeSwitch by remember { mutableStateOf(false) }
         var showVelmoraPanel by remember { mutableStateOf(false) }
+        val velmoraAccount by VelmoraAccount.state.collectAsState()
+        val (onboardingDone) = rememberPreference(OnboardingDoneKey, defaultValue = false)
+        val (youTubeCookie) =
+          rememberPreference(com.velmora.stepbyte.constants.InnerTubeCookieKey, defaultValue = "")
         val blockedArtists by
           dataStore.data
             .map { it[BlockedArtistsKey] ?: emptySet() }
@@ -1358,6 +1369,7 @@ class MainActivity : ComponentActivity() {
                       ShellActions(
                         mode = appMode,
                         accountImageUrl = accountImageUrl,
+                        velmoraProfile = (velmoraAccount as? AccountState.SignedIn)?.profile,
                         onAvatar = {
                           if (appMode == AppMode.MUSIC) showSettingDialoge = true
                           else showVelmoraPanel = true
@@ -1943,9 +1955,25 @@ class MainActivity : ComponentActivity() {
             onCommit = switchWithReveal,
           )
 
+          // Music needs a YouTube Music account (like desktop); Echo's own sign-in
+          // page and settings stay reachable.
+          val musicGateOpen =
+            appMode == AppMode.MUSIC &&
+              !isYouTubeMusicSignedIn(youTubeCookie) &&
+              currentRoute != "login" &&
+              currentRoute?.startsWith("settings") != true
+          if (musicGateOpen) {
+            YouTubeMusicGate(
+              onSignIn = { navController.navigate("login") },
+              onBackToVelmora = { switchWithReveal(AppMode.VELMORA, screenCenter) },
+            )
+          }
+
           ModeReveal(revealState)
 
-          if (showWelcomeDialog) {
+          OnboardingGate()
+
+          if (showWelcomeDialog && onboardingDone) {
             WelcomeDialog(
               onDismissRequest = {
                 showWelcomeDialog = false
@@ -1965,6 +1993,7 @@ class MainActivity : ComponentActivity() {
   }
 
   private fun handleDeepLinkIntent(intent: Intent, navController: NavHostController) {
+    if (VelmoraAccount.handleLink(intent.data)) return
     var uri = intent.data
     if (uri == null) {
       val extraText = intent.extras?.getString(Intent.EXTRA_TEXT)

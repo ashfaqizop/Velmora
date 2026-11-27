@@ -116,11 +116,18 @@ fun VelmoraWordmark(mode: AppMode, onLongPress: (center: Offset) -> Unit) {
 fun ShellActions(
   mode: AppMode,
   accountImageUrl: String?,
+  /** The Velmora profile, shown as the avatar in Velmora mode. */
+  velmoraProfile: com.velmora.stepbyte.velmora.account.Profile? = null,
   onAvatar: () -> Unit,
   onDownloads: () -> Unit,
   onSwitch: () -> Unit,
 ) {
-  IconButton(onClick = onAvatar) { ShellAvatar(accountImageUrl) }
+  IconButton(onClick = onAvatar) {
+    ShellAvatar(
+      accountImageUrl = if (mode == AppMode.VELMORA) null else accountImageUrl,
+      profile = if (mode == AppMode.VELMORA) velmoraProfile else null,
+    )
+  }
   IconButton(onClick = onDownloads) {
     Icon(
       painterResource(R.drawable.download),
@@ -132,7 +139,7 @@ fun ShellActions(
 
 /** The avatar with a slowly turning Velmora-coloured ring. */
 @Composable
-private fun ShellAvatar(accountImageUrl: String?) {
+private fun ShellAvatar(accountImageUrl: String?, profile: com.velmora.stepbyte.velmora.account.Profile?) {
   val ring = rememberInfiniteTransition(label = "avatarRing")
   val angle by
     ring.animateFloat(
@@ -147,7 +154,9 @@ private fun ShellAvatar(accountImageUrl: String?) {
         .rotate(angle)
         .border(2.dp, Brush.sweepGradient(listOf(Brand.Blue, Brand.Violet, Brand.Cream, Brand.Amber, Brand.Blue)), CircleShape),
     )
-    if (!accountImageUrl.isNullOrBlank()) {
+    if (profile != null) {
+      com.velmora.stepbyte.velmora.account.AccountAvatar(profile, size = 25.dp)
+    } else if (!accountImageUrl.isNullOrBlank()) {
       AsyncImage(
         model = accountImageUrl,
         contentDescription = "Account",

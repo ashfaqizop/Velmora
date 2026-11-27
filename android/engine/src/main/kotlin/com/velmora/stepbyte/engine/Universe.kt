@@ -197,17 +197,48 @@ class Universe private constructor(private val ffi: VelmoraEngine) {
       // Not in auto-backup: a restored key on another phone would open nothing
       // and hide that the real one is gone. Key backup is its own feature.
       val key = File(context.noBackupFilesDir, "vault/key.bin")
-      return mapErrors {
-        VelmoraEngine(
-          EngineConfig(
-            cacheDir = cache.absolutePath,
-            downloadDir = downloads.absolutePath,
-            vaultKeyPath = key.absolutePath,
-            preferencesJson = null,
-          ),
+      fun config(prefs: String?) =
+        EngineConfig(
+          cacheDir = cache.absolutePath,
+          downloadDir = downloads.absolutePath,
+          vaultKeyPath = key.absolutePath,
+          preferencesJson = prefs,
         )
+      val saved = savedPreferences(context)
+      return try {
+        mapErrors { VelmoraEngine(config(saved)) }
+      } catch (e: EngineError) {
+        // Saved preferences the engine can't read must not stop it from starting.
+        if (!e.badInput || saved == null) throw e
+        prefs(context).edit().remove(PREFS_KEY).apply()
+        mapErrors { VelmoraEngine(config(null)) }
       }
     }
+
+    private const val PREFS_FILE = "velmora_engine"
+    private const val PREFS_KEY = "preferences"
+
+    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+
+    /** The engine preferences saved on this phone (desktop's Preferences JSON), if any. */
+    fun savedPreferences(context: Context): String? = prefs(context).getString(PREFS_KEY, null)
+
+    /**
+     * Merge [patch] (some Preferences fields) into the engine's preferences:
+     * right away if the engine is running, and on every later start.
+     */
+    suspend fun updatePreferences(context: Context, patch: JsonObject) =
+      withContext(Dispatchers.IO) {
+        val running = instance
+        val base =
+          running?.let { runCatching { parse(it.ffi.preferences()).jsonObject }.getOrNull() }
+            ?: savedPreferences(context)?.let { runCatching { parse(it).jsonObject }.getOrNull() }
+            ?: JsonObject(emptyMap())
+        val merged = JsonObject(base + patch).toString()
+        prefs(context).edit().putString(PREFS_KEY, merged).apply()
+        running?.let { mapErrors { it.ffi.setPreferences(merged) } }
+        Unit
+      }
 
     private fun parse(text: String): JsonElement = json.parseToJsonElement(text)
 

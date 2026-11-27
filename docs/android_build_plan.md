@@ -10,8 +10,8 @@ developer PC.
 |---|---|---|
 | 1 | Import and rebrand | done, tested on devices |
 | 2 | Rust engine on Android | done, tested on device (search, sources, direct and torrent playback) |
-| 3 | Shell and navigation | building |
-| 4 | Accounts and onboarding | |
+| 3 | Shell and navigation | built green, waiting for device testing |
+| 4 | Accounts and onboarding | building |
 | 5 | Home, Browse, title pages, search | |
 | 6 | Video player | |
 | 7 | Downloads | |
@@ -78,6 +78,27 @@ two looks (Liquid Glass, Material You), Velmora fonts and colors, Android 8 to
 Velmora sign-in through `auth.` with the return to the app, required YouTube
 Music sign-in for Music, onboarding (welcome, sign in, personalize, pick the
 look), sync (My List, progress, shared settings), Max restore, vault key backup.
+
+How it is built (2026-11-27):
+
+- Sign-in is desktop's flow with a different way back: the app makes a PKCE
+  secret, opens the auth site with , and the
+  site returns through  ( for
+  test builds), or the short code typed by hand. The code is traded at
+  . Code: .
+- The refresh token is kept encrypted with an Android Keystore key
+  (, outside auto-backup). A saved sign-in opens the app offline;
+  the server checks it in the background.
+- After a sign-in (): the account's synced settings (desktop's
+  ) go into the engine's saved preferences, and the download key is
+  backed up to  (), or restored from it on a
+  fresh install that has no downloads yet. Max comes from .
+- My List and watch progress sync arrive with their screens (phases 5 and 6);
+  the server side is already desktop's .
+- Onboarding (): welcome, sign in (required), look, languages
+  (pushed to the account's settings), done. The sign-in step returns whenever
+  the account is signed out. Music mode shows a YouTube Music sign-in gate
+  () until Echo's login has a signed-in cookie.
 
 ## 5. Home, Browse, title pages, search
 Home rows (including Live TV and Sports), Browse tabs (Movies, Series, Anime,

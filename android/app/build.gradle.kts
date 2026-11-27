@@ -99,12 +99,17 @@ android {
         else signingConfigs.getByName("debug")
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       buildConfigField("String", "ARCHITECTURE", "\"release\"")
+      // Sign-in comes back through velmora://auth/callback (velmora-debug:// for test builds).
+      manifestPlaceholders["velmoraScheme"] = "velmora"
+      buildConfigField("String", "VELMORA_SCHEME", "\"velmora\"")
     }
     debug {
       applicationIdSuffix = ".debug"
       isDebuggable = true
       if (releaseKeystore.exists()) signingConfig = signingConfigs.getByName("release")
       buildConfigField("String", "ARCHITECTURE", "\"debug\"")
+      manifestPlaceholders["velmoraScheme"] = "velmora-debug"
+      buildConfigField("String", "VELMORA_SCHEME", "\"velmora-debug\"")
     }
   }
 
