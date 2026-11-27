@@ -96,7 +96,7 @@
   }
   .nums {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     flex-wrap: wrap;
     font-size: 13.5px;
   }

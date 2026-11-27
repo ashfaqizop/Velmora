@@ -75,7 +75,7 @@
   .entry {
     display: grid;
     grid-template-columns: 150px minmax(0, 1fr) auto;
-    gap: 14px;
+    gap: 12px;
     align-items: start;
     padding: 12px 4px;
     font-size: 14px;

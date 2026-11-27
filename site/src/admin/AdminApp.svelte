@@ -98,8 +98,8 @@
     height: 100vh;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding: 20px 14px;
+    gap: 12px;
+    padding: 12px;
     border-right: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant) 40%, transparent);
     background: color-mix(in srgb, var(--md-sys-color-surface-container-low) 70%, transparent);
   }
@@ -157,11 +157,10 @@
   }
   .main {
     min-width: 0;
-    padding: 36px clamp(16px, 4vw, 48px) 72px;
+    padding: 12px;
   }
   .view {
-    width: min(1100px, 100%);
-    margin: 0 auto;
+    width: 100%;
   }
   @media (max-width: 800px) {
     .shell {
@@ -192,7 +191,7 @@
       padding: 0 12px;
     }
     .main {
-      padding-top: 24px;
+      padding-top: 12px;
     }
   }
 </style>

@@ -112,7 +112,7 @@
   .form {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
   .picked {
     display: flex;

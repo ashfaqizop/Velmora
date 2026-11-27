@@ -180,12 +180,12 @@
   .body {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    width: min(520px, 76vw);
+    gap: 12px;
+    width: 100%;
   }
   .who {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     align-items: center;
   }
   .who strong {

@@ -156,7 +156,7 @@
   }
   .item {
     display: flex;
-    gap: 14px;
+    gap: 12px;
     align-items: flex-start;
     padding: 12px 0;
     transition: opacity 160ms ease;

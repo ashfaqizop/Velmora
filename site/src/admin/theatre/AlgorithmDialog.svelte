@@ -94,8 +94,8 @@
   .body {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    width: min(600px, 80vw);
+    gap: 12px;
+    width: 100%;
   }
   .lead,
   p {

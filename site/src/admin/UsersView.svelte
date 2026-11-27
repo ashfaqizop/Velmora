@@ -134,7 +134,7 @@
     display: grid;
     grid-template-columns: 40px minmax(0, 1fr) auto auto;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     padding: 10px 12px;
     border: 0;
     border-radius: 16px;

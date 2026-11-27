@@ -210,7 +210,7 @@
   .nums {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-    gap: 16px;
+    gap: 12px;
   }
   .hint {
     font-weight: 400;

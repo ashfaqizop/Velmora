@@ -93,7 +93,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     padding: 32px 28px;
     text-align: center;
     border-radius: 32px;

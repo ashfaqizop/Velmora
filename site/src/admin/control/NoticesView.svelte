@@ -368,8 +368,8 @@
   .body {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    width: min(620px, 80vw);
+    gap: 12px;
+    width: 100%;
   }
   .on {
     display: flex;

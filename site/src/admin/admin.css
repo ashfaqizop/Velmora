@@ -2,12 +2,12 @@
 .adm-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
 }
 .adm-head {
   display: flex;
   align-items: flex-end;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 .adm-head h1 {
@@ -28,7 +28,7 @@
 }
 .card {
   border-radius: 24px;
-  padding: 20px;
+  padding: 16px;
   background: var(--md-sys-color-surface-container);
   border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant) 45%, transparent);
 }
@@ -47,7 +47,7 @@
 }
 .grid {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 .cols-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -208,4 +208,17 @@
   .two {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Dialogs use the screen: 12px from each edge, as wide as the content wants. */
+m3e-dialog {
+  --m3e-dialog-min-width: min(1040px, calc(100vw - 24px));
+  --m3e-dialog-max-width: calc(100vw - 24px);
+  --m3e-dialog-max-height: calc(100dvh - 24px);
+}
+m3e-dialog .body {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }

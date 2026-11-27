@@ -180,13 +180,13 @@
   .body {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    width: min(540px, 78vw);
+    gap: 12px;
+    width: 100%;
   }
   .picked {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     padding: 10px;
     border-radius: 18px;
     background: var(--md-sys-color-surface-container-high);

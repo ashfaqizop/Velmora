@@ -407,7 +407,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    max-width: 560px;
   }
   .actions {
     display: flex;

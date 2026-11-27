@@ -127,7 +127,7 @@
   .list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
   .rev {
     display: flex;

@@ -127,7 +127,7 @@
   }
   .who {
     display: flex;
-    gap: 14px;
+    gap: 12px;
     align-items: center;
     margin-bottom: 14px;
   }

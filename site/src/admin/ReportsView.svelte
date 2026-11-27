@@ -138,7 +138,7 @@
   .list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
   .rep {
     display: flex;
@@ -157,7 +157,7 @@
   }
   .target {
     display: flex;
-    gap: 14px;
+    gap: 12px;
     align-items: flex-start;
   }
   .target strong {

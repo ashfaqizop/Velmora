@@ -151,8 +151,8 @@
   .body {
     display: flex;
     flex-direction: column;
-    gap: 18px;
-    width: min(600px, 80vw);
+    gap: 12px;
+    width: 100%;
   }
   .top {
     display: flex;
