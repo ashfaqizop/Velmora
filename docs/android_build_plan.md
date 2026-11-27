@@ -82,23 +82,23 @@ look), sync (My List, progress, shared settings), Max restore, vault key backup.
 How it is built (2026-11-27):
 
 - Sign-in is desktop's flow with a different way back: the app makes a PKCE
-  secret, opens the auth site with , and the
-  site returns through  ( for
+  secret, opens the auth site with `?android=velmora&state=&challenge=`, and the
+  site returns through `velmora://auth/callback?code=&state=` (`velmora-debug` for
   test builds), or the short code typed by hand. The code is traded at
-  . Code: .
+  `/api/auth/exchange`. Code: `velmora/account/VelmoraAccount.kt`.
 - The refresh token is kept encrypted with an Android Keystore key
-  (, outside auto-backup). A saved sign-in opens the app offline;
+  (`SecureStore`, outside auto-backup). A saved sign-in opens the app offline;
   the server checks it in the background.
-- After a sign-in (): the account's synced settings (desktop's
-  ) go into the engine's saved preferences, and the download key is
-  backed up to  (), or restored from it on a
-  fresh install that has no downloads yet. Max comes from .
+- After a sign-in (`AccountSync`): the account's synced settings (desktop's
+  `PREF_KEYS`) go into the engine's saved preferences, and the download key is
+  backed up to `vault_keys` (`supabase/vault.sql`), or restored from it on a
+  fresh install that has no downloads yet. Max comes from `/api/social/max`.
 - My List and watch progress sync arrive with their screens (phases 5 and 6);
-  the server side is already desktop's .
-- Onboarding (): welcome, sign in (required), look, languages
+  the server side is already desktop's `supabase/sync.sql`.
+- Onboarding (`Onboarding.kt`): welcome, sign in (required), look, languages
   (pushed to the account's settings), done. The sign-in step returns whenever
   the account is signed out. Music mode shows a YouTube Music sign-in gate
-  () until Echo's login has a signed-in cookie.
+  (`YouTubeMusicGate.kt`) until Echo's login has a signed-in cookie.
 
 ## 5. Home, Browse, title pages, search
 Home rows (including Live TV and Sports), Browse tabs (Movies, Series, Anime,
