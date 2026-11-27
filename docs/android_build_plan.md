@@ -8,7 +8,7 @@ developer PC.
 
 | # | Phase | Status |
 |---|---|---|
-| 1 | Import and rebrand | in progress |
+| 1 | Import and rebrand | built, waiting for device testing |
 | 2 | Rust engine on Android | |
 | 3 | Shell and navigation | |
 | 4 | Accounts and onboarding | |
