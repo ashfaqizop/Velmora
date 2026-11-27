@@ -54,7 +54,8 @@ export const PHASES: Phase[] = [
     n: 2,
     title: "Rust engine on Android",
     icon: "memory",
-    status: "testing",
+    status: "done",
+    date: "2026-11-27",
     summary:
       "UniverseAPI, the Rust engine behind desktop Velmora, compiled for Android and called from Kotlin. Search, sources, torrents and the encrypted download vault come with it, plus a small local server that feeds the video player.",
     result: "A hidden engine lab that searches, finds sources and plays one, on all three test devices.",
@@ -64,7 +65,7 @@ export const PHASES: Phase[] = [
     n: 3,
     title: "Shell and navigation",
     icon: "dashboard",
-    status: "planned",
+    status: "building",
     summary:
       "The frame of the app. Velmora and Music become two modes with a switch in the top bar, the bottom bar is Home, Browse, Theatre and Search, tablets get a side rail, and both looks arrive: Liquid Glass and Material You.",
     result: "Sliding between movies and music.",

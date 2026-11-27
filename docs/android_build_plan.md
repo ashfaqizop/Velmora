@@ -9,8 +9,8 @@ developer PC.
 | # | Phase | Status |
 |---|---|---|
 | 1 | Import and rebrand | done, tested on devices |
-| 2 | Rust engine on Android | built, waiting for device testing |
-| 3 | Shell and navigation | |
+| 2 | Rust engine on Android | done, tested on device (search, sources, direct and torrent playback) |
+| 3 | Shell and navigation | building |
 | 4 | Accounts and onboarding | |
 | 5 | Home, Browse, title pages, search | |
 | 6 | Video player | |
