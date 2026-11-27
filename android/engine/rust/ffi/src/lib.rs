@@ -294,6 +294,97 @@ impl VelmoraEngine {
         on_runtime(async move { to_json(&engine.detail(&origin).await.map_err(failed)?) }).await
     }
 
+    // ── Browse: catalog lists behind the Browse tabs and title pages ──
+
+    /// Titles from a TMDB list endpoint (`/discover/movie`, `/trending/tv/week`,
+    /// `/movie/603/recommendations`...), as `TitleSummary[]`. `query_json` is a
+    /// flat object of query parameters; `field` names the array (usually
+    /// `results`); `kind` is `movie` or `tv` for lists that don't say.
+    pub async fn tmdb_list(&self, path: String, query_json: String, field: String, kind: String) -> Result<String, EngineError> {
+        let query: HashMap<String, serde_json::Value> = from_json("query", &query_json)?;
+        let pairs: Vec<(String, String)> = query
+            .into_iter()
+            .map(|(k, v)| (k, v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string())))
+            .collect();
+        let engine = self.engine.clone();
+        on_runtime(async move {
+            let show_adult = engine.preferences().show_adult;
+            let mut items = engine.tmdb().list(&path, &pairs, &field, &kind).await.map_err(failed)?;
+            items.retain(|i| show_adult || !i.badges.iter().any(|b| b == "18+"));
+            to_json(&items)
+        })
+        .await
+    }
+
+    /// A read-only TMDB call (the engine only allows catalog paths), as TMDB's
+    /// own JSON. The title page uses it for cast photos, the age rating, the
+    /// gallery and "More like this" in one request.
+    pub async fn tmdb_raw(&self, path: String, query_json: String) -> Result<String, EngineError> {
+        let query: HashMap<String, serde_json::Value> = from_json("query", &query_json)?;
+        let pairs: Vec<(String, String)> = query
+            .into_iter()
+            .map(|(k, v)| (k, v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string())))
+            .collect();
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.tmdb().raw(&path, &pairs).await.map_err(failed)?) }).await
+    }
+
+    /// Summaries for TMDB ids like `movie/603` or `tv/1396`, as `TitleSummary[]`.
+    pub async fn tmdb_titles(&self, ids_json: String) -> Result<String, EngineError> {
+        let ids: Vec<String> = from_json("ids", &ids_json)?;
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.tmdb().titles(&ids).await) }).await
+    }
+
+    /// Anime from AniList filters (`search`, `genres`, `sort`, `year`,
+    /// `season`, `status`, `format`), as `TitleSummary[]`.
+    pub async fn anilist_find(&self, filters_json: String) -> Result<String, EngineError> {
+        let filters: serde_json::Value = from_json("filters", &filters_json)?;
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.anilist().find(filters).await.map_err(failed)?) }).await
+    }
+
+    // ── Live TV ──
+
+    /// One page of channels (`TvQuery`: country, category, text, offset, limit), as `TvPage`.
+    pub async fn tv_channels(&self, query_json: String) -> Result<String, EngineError> {
+        let query: universeapi::tv::TvQuery = from_json("tv query", &query_json)?;
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.tv().channels(&query).await.map_err(failed)?) }).await
+    }
+
+    /// Channel categories with counts, as `Facet[]`.
+    pub async fn tv_categories(&self) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.tv().categories().await.map_err(failed)?) }).await
+    }
+
+    /// Countries with channel counts, as `Facet[]`.
+    pub async fn tv_countries(&self) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.tv().countries().await.map_err(failed)?) }).await
+    }
+
+    // ── Sports ──
+
+    /// Matches being played now, as `Match[]`.
+    pub async fn sports_live(&self) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.sports().live().await.map_err(failed)?) }).await
+    }
+
+    /// Fixtures over the next `days` days, as `Match[]`.
+    pub async fn sports_upcoming(&self, days: u32) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.sports().upcoming(days.clamp(1, 7)).await.map_err(failed)?) }).await
+    }
+
+    /// Results from the last `days` days, as `Match[]`.
+    pub async fn sports_results(&self, days: u32) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.sports().results(days.clamp(1, 7)).await.map_err(failed)?) }).await
+    }
+
     /// Ranked, probed sources for a movie or one episode, as `SourcesReport`.
     /// `target_json` is `{"type":"movie"}` or `{"type":"episode","season":1,"episode":2}`.
     pub async fn sources(&self, title_json: String, target_json: String, mode: String) -> Result<String, EngineError> {

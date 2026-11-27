@@ -1,23 +1,27 @@
 package com.velmora.stepbyte.velmora.screens
 
-import android.widget.Toast
+import android.content.Context
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -25,14 +29,43 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.Bookmarks
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.material.icons.rounded.SportsSoccer
+import androidx.compose.material.icons.rounded.Theaters
+import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.Tv
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -54,30 +87,35 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavType
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import coil3.compose.AsyncImage
 import com.velmora.stepbyte.LocalPlayerAwareWindowInsets
 import com.velmora.stepbyte.R
+import com.velmora.stepbyte.engine.Match
 import com.velmora.stepbyte.engine.SearchBatch
 import com.velmora.stepbyte.engine.Title
+import com.velmora.stepbyte.engine.TitleSummary
 import com.velmora.stepbyte.engine.Universe
-import com.velmora.stepbyte.ui.component.NavigationTitle
-import com.velmora.stepbyte.ui.component.shimmer.ShimmerHost
-import com.velmora.stepbyte.ui.component.shimmer.TextPlaceholder
+import com.velmora.stepbyte.engine.Wire
 import com.velmora.stepbyte.ui.screens.Screens
+import com.velmora.stepbyte.velmora.library.VelmoraLibrary
 import com.velmora.stepbyte.velmora.shell.AppMode
 import com.velmora.stepbyte.velmora.shell.Brand
 import com.velmora.stepbyte.velmora.shell.HomeFeed
@@ -88,19 +126,14 @@ import com.velmora.stepbyte.velmora.shell.modeFromQuery
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 
 /** Velmora mode's destinations, inside the "velmora" graph. */
 fun NavGraphBuilder.velmoraGraph(navController: NavController) {
-  composable(Screens.VelmoraHome.route) { VelmoraHomeScreen() }
-  composable(Screens.VelmoraBrowse.route) {
-    ComingScreen(
-      icon = R.drawable.explore_filled,
-      title = "Browse",
-      text = "Movies, Series, Anime, Live TV and Sports, each with its own tab, filters and genres.",
-      phase = 5,
-    )
-  }
+  composable(Screens.VelmoraHome.route) { VelmoraHomeScreen(navController) }
+  composable(Screens.VelmoraBrowse.route) { BrowseScreen(navController) }
   composable(Screens.VelmoraTheatre.route) {
     ComingScreen(
       icon = R.drawable.theaters_filled,
@@ -109,7 +142,7 @@ fun NavGraphBuilder.velmoraGraph(navController: NavController) {
       phase = 8,
     )
   }
-  composable(Screens.VelmoraSearch.route) { VelmoraSearchScreen() }
+  composable(Screens.VelmoraSearch.route) { VelmoraSearchScreen(navController) }
   composable(VelmoraRoutes.DOWNLOADS) {
     ComingScreen(
       icon = R.drawable.download,
@@ -118,240 +151,330 @@ fun NavGraphBuilder.velmoraGraph(navController: NavController) {
       phase = 7,
     )
   }
+  composable(VRoutes.TITLE, arguments = listOf(navArgument("t") { type = NavType.StringType })) { entry ->
+    val title = remember(entry) { entry.arguments?.getString("t")?.let(::decodeTitle) }
+    if (title != null) TitleScreen(title, navController) else LaunchedEffect(Unit) { navController.navigateUp() }
+  }
+  composable(VRoutes.COLLECTION, arguments = listOf(navArgument("id") { type = NavType.StringType })) { entry ->
+    CollectionScreen(entry.arguments?.getString("id") ?: "", navController)
+  }
+  composable(VRoutes.MY_LIST) { MyListScreen(navController) }
 }
 
-private fun Throwable.text(): String = message?.takeIf { it.isNotBlank() } ?: javaClass.simpleName
+private fun decodeTitle(text: String): Title? =
+  runCatching {
+      val o = Universe.json.parseToJsonElement(text) as JsonObject
+      Wire(Universe.json.decodeFromJsonElement(TitleSummary.serializer(), o), o)
+    }
+    .getOrNull()
 
-private fun titleKey(t: Title) = "${t.value.origin.provider}:${t.value.origin.id}"
+private fun railIcon(id: String): ImageVector =
+  when (id) {
+    "trending_movies" -> Icons.Rounded.LocalFireDepartment
+    "trending_series" -> Icons.Rounded.Tv
+    "trending_anime" -> Icons.Rounded.AutoAwesome
+    "airing_today" -> Icons.Rounded.CalendarMonth
+    "hdhub_latest" -> Icons.Rounded.NewReleases
+    "kdrama" -> Icons.Rounded.Favorite
+    "hdhub_bollywood" -> Icons.Rounded.Theaters
+    "hdhub_south" -> Icons.Rounded.Translate
+    else -> Icons.Rounded.Movie
+  }
+
+/** One colour per collection chip, as on desktop. */
+private val DOTS = listOf(0xFFFF6B6B, 0xFFFFB547, 0xFF5AD17A, 0xFF4FA3FF, 0xFFA77BFF, 0xFFFF7AD9, 0xFF3FD3C6, 0xFFC792EA).map { Color(it) }
 
 // ── Home ───────────────────────────────────────────────────────────────
 
 @Composable
-fun VelmoraHomeScreen() {
+fun VelmoraHomeScreen(navController: NavController) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   val rails by HomeFeed.rails.collectAsState()
   val loading by HomeFeed.loading.collectAsState()
   val error by HomeFeed.error.collectAsState()
+  val stale by HomeFeed.stale.collectAsState()
+  val myList by VelmoraLibrary.myList.collectAsState()
+  val progress by VelmoraLibrary.progress.collectAsState()
+  val continuing = remember(progress) { progress.filter { it.resumable }.take(12) }
+  var live by remember { mutableStateOf<List<Match>>(emptyList()) }
 
   LaunchedEffect(Unit) { HomeFeed.load(context) }
+  // Scores while Home is open, once a minute; a failure just hides the row.
+  LaunchedEffect(Unit) {
+    while (isActive) {
+      live = runCatching { Universe.get(context).sportsLive() }.getOrDefault(live)
+      delay(60_000)
+    }
+  }
+  val spotlight = remember(rails) { HomeFeed.spotlight() }
 
-  LazyColumn(
-    modifier = Modifier.fillMaxSize(),
-    contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
-  ) {
-    if (rails.isEmpty() && (loading || error == null)) {
-      item(key = "shimmer") { HomeShimmer() }
+  LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+    if (stale) {
+      item(key = "offline") {
+        OfflineBanner("You're offline. These are the rows from last time.", onRetry = { scope.launch { HomeFeed.load(context, force = true) } })
+      }
+    }
+    if (spotlight.isNotEmpty()) {
+      item(key = "hero") { HeroCarousel(spotlight, onOpen = { navController.openTitle(it) }) }
+    } else if (loading || (rails.isEmpty() && error == null)) {
+      item(key = "hero-ghost") { HeroGhost() }
+    }
+    if (rails.isNotEmpty()) {
+      item(key = "chips") {
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+          item {
+            AssistChip(
+              onClick = { navController.navigate(VRoutes.MY_LIST) },
+              label = { Text("My List") },
+              leadingIcon = { Icon(Icons.Rounded.Bookmarks, contentDescription = null, modifier = Modifier.size(AssistChipDefaults.IconSize)) },
+            )
+          }
+          items(rails.size) { i ->
+            val r = rails[i]
+            AssistChip(
+              onClick = { navController.navigate(VRoutes.collection(r.id)) },
+              label = { Text(r.title) },
+              leadingIcon = { Box(Modifier.size(10.dp).clip(CircleShape).background(DOTS[i % DOTS.size])) },
+            )
+          }
+        }
+      }
+    }
+    if (continuing.isNotEmpty()) {
+      item(key = "continue") {
+        SectionHeader("Continue watching", icon = Icons.Rounded.History)
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+          items(continuing, key = { titleKey(it.title) }) { p -> ContinueCard(p, onClick = { navController.openTitle(p.title) }) }
+        }
+      }
+    }
+    if (myList.isNotEmpty()) {
+      item(key = "mylist") {
+        SectionHeader("My List", icon = Icons.Rounded.Bookmarks, onSeeAll = { navController.navigate(VRoutes.MY_LIST) })
+        PosterRow(myList.take(20), onOpen = { navController.openTitle(it) })
+      }
+    }
+    if (live.isNotEmpty()) {
+      item(key = "live") {
+        SectionHeader("Live now", icon = Icons.Rounded.SportsSoccer, onSeeAll = {
+          BrowseTabs.request(BrowseTab.Sports)
+          navController.navigate(Screens.VelmoraBrowse.route) { launchSingleTop = true }
+        })
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+          items(live.take(12), key = { it.id }) { m -> MatchCard(m, Modifier.width(280.dp)) }
+        }
+      }
+    }
+    if (rails.isEmpty() && loading) {
+      item(key = "ghost1") { PosterRowShimmer() }
+      item(key = "ghost2") { PosterRowShimmer() }
     }
     if (rails.isEmpty() && !loading && error != null) {
       item(key = "error") {
-        ErrorCard(
-          message = error ?: "",
-          onRetry = { scope.launch { HomeFeed.load(context, force = true) } },
+        EmptyState(
+          icon = Icons.Rounded.CloudOff,
+          title = "Nothing to show yet",
+          text = error ?: "",
+          action = "Try again",
+          onAction = { scope.launch { HomeFeed.load(context, force = true) } },
         )
       }
     }
-    rails.firstOrNull()?.items?.firstOrNull()?.let { hero ->
-      item(key = "hero") { HeroCard(hero, label = rails.first().title) }
+    rails.forEach { rail ->
+      item(key = "rail:${rail.id}") {
+        SectionHeader(rail.title, icon = railIcon(rail.id), onSeeAll = { navController.navigate(VRoutes.collection(rail.id)) })
+        PosterRow(rail.items, onOpen = { navController.openTitle(it) })
+      }
     }
-    rails.forEachIndexed { index, rail ->
-      item(key = "rail:$index:${rail.id}") {
-        Column {
-          NavigationTitle(title = rail.title)
-          LazyRow(
-            contentPadding = PaddingValues(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-          ) {
-            items(rail.items.distinctBy(::titleKey), key = ::titleKey) { t -> PosterCard(t) }
+    item(key = "end") { Spacer(Modifier.height(16.dp)) }
+  }
+}
+
+/** The big swipeable spotlight: art drifts as it slides, and it moves on by itself. */
+@Composable
+private fun HeroCarousel(items: List<Title>, onOpen: (Title) -> Unit) {
+  val context = LocalContext.current
+  val pager = rememberPagerState { items.size }
+  LaunchedEffect(pager, items.size) {
+    while (isActive && items.size > 1) {
+      delay(6_500)
+      if (!pager.isScrollInProgress) pager.animateScrollToPage((pager.currentPage + 1) % items.size, animationSpec = tween(700))
+    }
+  }
+  Column {
+    HorizontalPager(
+      state = pager,
+      contentPadding = PaddingValues(horizontal = 16.dp),
+      pageSpacing = 10.dp,
+      modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    ) { page ->
+      val t = items[page]
+      val v = t.value
+      val offset = ((pager.currentPage - page) + pager.currentPageOffsetFraction)
+      Box(
+        Modifier.fillMaxWidth()
+          .height(260.dp)
+          .graphicsLayer {
+            // The card leaving shrinks a touch, the one arriving grows in.
+            val f = 1f - (kotlin.math.abs(offset) * 0.08f).coerceIn(0f, 0.08f)
+            scaleX = f
+            scaleY = f
+          }
+          .clip(RoundedCornerShape(30.dp))
+          .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+          .pressable { onOpen(t) },
+      ) {
+        AsyncImage(
+          model = v.backdrop ?: v.poster,
+          contentDescription = null,
+          contentScale = ContentScale.Crop,
+          modifier =
+            Modifier.fillMaxSize().graphicsLayer {
+              // Parallax inside the card.
+              translationX = offset * size.width * 0.25f
+              scaleX = 1.15f
+              scaleY = 1.15f
+            },
+        )
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.4f to Color.Black.copy(alpha = 0.1f), 1f to Color.Black.copy(alpha = 0.88f))))
+        Column(Modifier.align(Alignment.BottomStart).padding(20.dp)) {
+          Surface(shape = RoundedCornerShape(50), color = Brand.Blue) {
+            Text(
+              listOfNotNull(kindLabel(v.kind), v.year?.toString()).joinToString(" · ").ifEmpty { "Trending" },
+              color = Color.White,
+              style = MaterialTheme.typography.labelMedium,
+              fontWeight = FontWeight.Bold,
+              modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            )
           }
           Spacer(Modifier.height(8.dp))
+          Text(v.name, color = Color.White, fontFamily = Brand.Serif, fontSize = 34.sp, lineHeight = 36.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+          v.overview?.let {
+            Text(it, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, end = 64.dp))
+          }
         }
-      }
-    }
-  }
-}
-
-@Composable
-private fun HeroCard(title: Title, label: String) {
-  val v = title.value
-  val context = LocalContext.current
-  Box(
-    modifier =
-      Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-        .fillMaxWidth()
-        .height(230.dp)
-        .clip(RoundedCornerShape(28.dp))
-        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-        .clickable { comingSoon(context) },
-  ) {
-    AsyncImage(
-      model = v.backdrop ?: v.poster,
-      contentDescription = null,
-      contentScale = ContentScale.Crop,
-      modifier = Modifier.fillMaxSize(),
-    )
-    Box(
-      Modifier.fillMaxSize()
-        .background(
-          Brush.verticalGradient(
-            0f to Color.Transparent,
-            0.45f to Color.Black.copy(alpha = 0.15f),
-            1f to Color.Black.copy(alpha = 0.85f),
-          ),
-        ),
-    )
-    Column(modifier = Modifier.align(Alignment.BottomStart).padding(18.dp)) {
-      Surface(shape = RoundedCornerShape(50), color = Brand.Blue.copy(alpha = 0.9f)) {
-        Text(
-          label,
-          color = Color.White,
-          style = MaterialTheme.typography.labelMedium,
-          fontWeight = FontWeight.Bold,
-          modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-        )
-      }
-      Spacer(Modifier.height(8.dp))
-      Text(
-        v.name,
-        color = Color.White,
-        fontFamily = Brand.Serif,
-        fontSize = 34.sp,
-        lineHeight = 36.sp,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-      )
-      v.overview?.let {
-        Text(
-          it,
-          color = Color.White.copy(alpha = 0.8f),
-          style = MaterialTheme.typography.bodySmall,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
-          modifier = Modifier.padding(top = 4.dp),
-        )
-      }
-    }
-  }
-}
-
-@Composable
-private fun PosterCard(title: Title, modifier: Modifier = Modifier.width(118.dp)) {
-  val v = title.value
-  val context = LocalContext.current
-  Column(modifier = modifier.clip(RoundedCornerShape(16.dp)).clickable { comingSoon(context) }) {
-    Box(
-      modifier =
-        Modifier.fillMaxWidth()
-          .aspectRatio(2f / 3f)
-          .clip(RoundedCornerShape(16.dp))
-          .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-    ) {
-      AsyncImage(
-        model = v.poster,
-        contentDescription = v.name,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize(),
-      )
-      v.rating?.takeIf { it > 0f }?.let { r ->
-        Surface(
-          shape = RoundedCornerShape(8.dp),
-          color = Color.Black.copy(alpha = 0.6f),
-          modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+        FilledIconButton(
+          onClick = { playerSoon(context) },
+          colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.White, contentColor = Color.Black),
+          modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp).size(52.dp),
         ) {
-          Text(
-            "%.1f".format(r),
-            color = Color.White,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-          )
+          Icon(Icons.Rounded.PlayArrow, contentDescription = "Play", modifier = Modifier.size(30.dp))
         }
       }
     }
-    Text(
-      v.name,
-      style = MaterialTheme.typography.bodyMedium,
-      fontWeight = FontWeight.Medium,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
-      modifier = Modifier.padding(top = 6.dp, start = 2.dp, end = 2.dp),
-    )
-    Text(
-      listOfNotNull(v.year?.toString(), kindLabel(v.kind)).joinToString(" · "),
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      maxLines = 1,
-      modifier = Modifier.padding(horizontal = 2.dp).padding(bottom = 4.dp),
-    )
-  }
-}
-
-private fun kindLabel(kind: String) =
-  when (kind) {
-    "movie" -> "Movie"
-    "series" -> "Series"
-    "anime" -> "Anime"
-    "asian_drama" -> "Drama"
-    else -> null
-  }
-
-private fun comingSoon(context: android.content.Context) {
-  Toast.makeText(context, "Title pages arrive in phase 5", Toast.LENGTH_SHORT).show()
-}
-
-@Composable
-private fun HomeShimmer() {
-  ShimmerHost {
-    Box(
-      Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-        .fillMaxWidth()
-        .height(230.dp)
-        .clip(RoundedCornerShape(28.dp))
-        .background(MaterialTheme.colorScheme.onSurface),
-    )
-    repeat(2) {
-      TextPlaceholder(
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp).width(160.dp),
-        height = 20.dp,
-        shape = RoundedCornerShape(8.dp),
-      )
-      Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        repeat(4) {
-          Box(
-            Modifier.width(118.dp)
-              .aspectRatio(2f / 3f)
-              .clip(RoundedCornerShape(16.dp))
-              .background(MaterialTheme.colorScheme.onSurface),
-          )
-        }
+    // Page dots that stretch toward the next page as you swipe.
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.Center) {
+      repeat(items.size) { i ->
+        val distance = kotlin.math.abs((pager.currentPage + pager.currentPageOffsetFraction) - i).coerceIn(0f, 1f)
+        Box(
+          Modifier.padding(horizontal = 3.dp)
+            .height(6.dp)
+            .width(lerp(22.dp, 6.dp, distance))
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = 1f - distance * 0.7f)),
+        )
       }
     }
   }
 }
 
 @Composable
-private fun ErrorCard(message: String, onRetry: () -> Unit) {
-  Surface(
-    shape = RoundedCornerShape(24.dp),
-    color = MaterialTheme.colorScheme.errorContainer,
-    modifier = Modifier.padding(12.dp).fillMaxWidth(),
-  ) {
-    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-      Text(
-        "Couldn't load Home",
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onErrorContainer,
+private fun HeroGhost() {
+  com.velmora.stepbyte.ui.component.shimmer.ShimmerHost {
+    Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().height(260.dp).clip(RoundedCornerShape(30.dp)).background(MaterialTheme.colorScheme.onSurface))
+  }
+}
+
+// ── Collection (a home row, all of it) ─────────────────────────────────
+
+@Composable
+fun CollectionScreen(id: String, navController: NavController) {
+  val rails by HomeFeed.rails.collectAsState()
+  val rail = remember(rails, id) { rails.firstOrNull { it.id == id } }
+  GridPage(
+    title = rail?.title ?: "Collection",
+    items = rail?.items.orEmpty(),
+    navController = navController,
+    empty = { EmptyState(Icons.Rounded.CloudOff, "Nothing here", "This row is empty right now. Home refreshes it when you're online.") },
+  )
+}
+
+@Composable
+fun MyListScreen(navController: NavController) {
+  val list by VelmoraLibrary.myList.collectAsState()
+  GridPage(
+    title = "My List",
+    subtitle = if (list.isEmpty()) null else if (list.size == 1) "1 title" else "${list.size} titles",
+    items = list,
+    navController = navController,
+    empty = {
+      EmptyState(
+        Icons.Rounded.BookmarkBorder,
+        "Nothing saved yet",
+        "Tap the bookmark on any title to keep it here. My List syncs with desktop.",
+        action = "Find something",
+        onAction = { navController.navigate(Screens.VelmoraBrowse.route) },
       )
-      Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
-      FilledTonalButton(onClick = onRetry) { Text("Try again") }
+    },
+  )
+}
+
+/** A page of posters with its own back bar. */
+@Composable
+private fun GridPage(title: String, items: List<Title>, navController: NavController, subtitle: String? = null, empty: @Composable () -> Unit) {
+  Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+      IconButton(onClick = { navController.navigateUp() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
+    }
+    LazyVerticalGrid(
+      columns = GridCells.Adaptive(minSize = 108.dp),
+      contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottomInsets().asPaddingValues().calculateBottomPadding() + 16.dp),
+      horizontalArrangement = Arrangement.spacedBy(12.dp),
+      verticalArrangement = Arrangement.spacedBy(6.dp),
+      modifier = Modifier.fillMaxSize(),
+    ) {
+      item(span = { GridItemSpan(maxLineSpan) }) {
+        Column(Modifier.padding(bottom = 12.dp)) {
+          Text(title, fontFamily = Brand.Serif, fontSize = 42.sp, lineHeight = 44.sp)
+          subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+      }
+      if (items.isEmpty()) {
+        item(span = { GridItemSpan(maxLineSpan) }) { empty() }
+      }
+      items(items.distinctBy(::titleKey), key = ::titleKey) { t ->
+        PosterCard(t, onClick = { navController.openTitle(t) }, modifier = Modifier.fillMaxWidth().animateItem())
+      }
     }
   }
 }
 
 // ── Search ─────────────────────────────────────────────────────────────
 
+private object RecentSearches {
+  private const val PREFS = "velmora_search"
+  private const val KEY = "recent"
+
+  fun read(context: Context): List<String> =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)?.split('\n')?.filter { it.isNotBlank() } ?: emptyList()
+
+  fun add(context: Context, q: String): List<String> {
+    val next = (listOf(q) + read(context).filterNot { it.equals(q, ignoreCase = true) }).take(10)
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, next.joinToString("\n")).apply()
+    return next
+  }
+
+  fun remove(context: Context, q: String): List<String> {
+    val next = read(context).filterNot { it == q }
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, next.joinToString("\n")).apply()
+    return next
+  }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun VelmoraSearchScreen() {
+fun VelmoraSearchScreen(navController: NavController) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   val switchMode = LocalSwitchMode.current
@@ -363,9 +486,11 @@ fun VelmoraSearchScreen() {
   var error by remember { mutableStateOf<String?>(null) }
   var job by remember { mutableStateOf<Job?>(null) }
   var searched by rememberSaveable { mutableStateOf("") }
+  var recent by remember { mutableStateOf(RecentSearches.read(context)) }
 
-  fun startSearch(q: String) {
+  fun startSearch(q: String, keep: Boolean = false) {
     val text = q.trim()
+    if (keep && text.length >= 2) recent = RecentSearches.add(context, text)
     if (text.length < 2 || text == searched) return
     job?.cancel()
     batches.clear()
@@ -379,7 +504,7 @@ fun VelmoraSearchScreen() {
         } catch (e: CancellationException) {
           throw e
         } catch (e: Throwable) {
-          error = e.text()
+          error = e.plain()
           searched = ""
         } finally {
           searching = false
@@ -393,12 +518,10 @@ fun VelmoraSearchScreen() {
     startSearch(query)
   }
 
-  val results =
-    batches
-      .flatMap { it.items }
-      .distinctBy { "${it.value.name.lowercase()}|${it.value.year}" }
-      .take(60)
+  val results = batches.flatMap { it.items }.distinctBy { "${it.value.name.lowercase()}|${it.value.year}" }.take(60)
+  val answered = batches.size
   val jump = modeFromQuery(query)?.takeIf { it != mode }
+  val nothing = !searching && searched.isNotEmpty() && results.isEmpty() && error == null && query.trim() == searched
 
   LazyVerticalGrid(
     columns = GridCells.Adaptive(minSize = 108.dp),
@@ -415,21 +538,15 @@ fun VelmoraSearchScreen() {
         singleLine = true,
         shape = RoundedCornerShape(28.dp),
         placeholder = { Text("Movies, series, anime…") },
-        leadingIcon = { Icon(painterResource(R.drawable.search), contentDescription = null) },
+        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
         trailingIcon = {
           if (query.isNotEmpty()) {
-            IconButton(onClick = { query = "" }) {
-              Icon(painterResource(R.drawable.close), contentDescription = "Clear")
-            }
+            IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, contentDescription = "Clear") }
           }
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-        keyboardActions = KeyboardActions(onSearch = { startSearch(query) }),
-        colors =
-          TextFieldDefaults.colors(
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-          ),
+        keyboardActions = KeyboardActions(onSearch = { startSearch(query, keep = true) }),
+        colors = TextFieldDefaults.colors(focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
       )
     }
     if (jump != null) {
@@ -437,20 +554,45 @@ fun VelmoraSearchScreen() {
     }
     if (searching) {
       item(key = "progress", span = { GridItemSpan(maxLineSpan) }) {
-        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp))
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+          LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+          Text(
+            if (answered == 0) "Asking every source…" else "$answered sources answered",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+          )
+        }
       }
     }
     error?.let { e ->
-      item(key = "error", span = { GridItemSpan(maxLineSpan) }) {
-        Text(
-          e,
-          color = MaterialTheme.colorScheme.error,
-          style = MaterialTheme.typography.bodySmall,
-          modifier = Modifier.padding(12.dp),
-        )
-      }
+      item(key = "error", span = { GridItemSpan(maxLineSpan) }) { OfflineBanner("Search couldn't finish: $e", onRetry = { startSearch(query) }) }
     }
     if (query.isBlank() && results.isEmpty()) {
+      if (recent.isNotEmpty()) {
+        item(key = "recent", span = { GridItemSpan(maxLineSpan) }) {
+          Column(Modifier.padding(horizontal = 12.dp)) {
+            Text("Recent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(4.dp, 10.dp))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              recent.forEach { r ->
+                InputChip(
+                  selected = false,
+                  onClick = { query = r },
+                  label = { Text(r) },
+                  leadingIcon = { Icon(Icons.Rounded.History, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                  trailingIcon = {
+                    Icon(
+                      Icons.Rounded.Close,
+                      contentDescription = "Forget",
+                      modifier = Modifier.size(18.dp).clip(CircleShape).pressable { recent = RecentSearches.remove(context, r) },
+                    )
+                  },
+                )
+              }
+            }
+          }
+        }
+      }
       item(key = "hint", span = { GridItemSpan(maxLineSpan) }) {
         Text(
           "One search across every source. Type \"music\" to jump to Music.",
@@ -461,8 +603,22 @@ fun VelmoraSearchScreen() {
         )
       }
     }
+    if (nothing) {
+      item(key = "nothing", span = { GridItemSpan(maxLineSpan) }) {
+        EmptyState(Icons.Rounded.SearchOff, "No matches", "Nothing for “$searched”. Try the original title, or fewer words.")
+      }
+    }
     items(results, key = ::titleKey) { t ->
-      Box(Modifier.padding(horizontal = 2.dp)) { PosterCard(t, modifier = Modifier.fillMaxWidth()) }
+      Box(Modifier.padding(horizontal = 2.dp).animateItem()) {
+        PosterCard(
+          t,
+          onClick = {
+            recent = RecentSearches.add(context, searched.ifEmpty { query.trim() })
+            navController.openTitle(t)
+          },
+          modifier = Modifier.fillMaxWidth(),
+        )
+      }
     }
   }
 }
@@ -479,31 +635,15 @@ fun SwitchSuggestion(to: AppMode, onClick: () -> Unit) {
   ) {
     Row(
       modifier =
-        Modifier.background(
-            Brush.horizontalGradient(
-              if (music) listOf(Brand.Blue, Brand.Amber) else listOf(Brand.Amber, Brand.Blue),
-            ),
-          )
+        Modifier.background(Brush.horizontalGradient(if (music) listOf(Brand.Blue, Brand.Amber) else listOf(Brand.Amber, Brand.Blue)))
           .padding(horizontal = 16.dp, vertical = 14.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      Box(
-        Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f)),
-        contentAlignment = Alignment.Center,
-      ) {
-        Icon(
-          painterResource(if (music) R.drawable.music_note else R.drawable.movie),
-          contentDescription = null,
-          tint = Color.White,
-        )
+      Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
+        Icon(painterResource(if (music) R.drawable.music_note else R.drawable.movie), contentDescription = null, tint = Color.White)
       }
       Column(Modifier.weight(1f).padding(horizontal = 14.dp)) {
-        Text(
-          if (music) "Switch to Music" else "Switch to Velmora",
-          color = Color.White,
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Bold,
-        )
+        Text(if (music) "Switch to Music" else "Switch to Velmora", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(
           if (music) "Songs, albums and your YouTube Music library" else "Movies, series, anime, live TV and Theatre",
           color = Color.White.copy(alpha = 0.85f),
@@ -521,19 +661,12 @@ fun SwitchSuggestion(to: AppMode, onClick: () -> Unit) {
 fun ComingScreen(@DrawableRes icon: Int, title: String, text: String, phase: Int) {
   val uriHandler = LocalUriHandler.current
   Column(
-    modifier =
-      Modifier.fillMaxSize()
-        .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues())
-        .padding(horizontal = 32.dp),
+    modifier = Modifier.fillMaxSize().padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()).padding(horizontal = 32.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.Center,
   ) {
     Box(
-      Modifier.size(96.dp)
-        .clip(RoundedCornerShape(32.dp))
-        .background(
-          Brush.linearGradient(listOf(Brand.Blue.copy(alpha = 0.35f), Brand.Cream.copy(alpha = 0.25f))),
-        ),
+      Modifier.size(96.dp).clip(RoundedCornerShape(32.dp)).background(Brush.linearGradient(listOf(Brand.Blue.copy(alpha = 0.35f), Brand.Cream.copy(alpha = 0.25f)))),
       contentAlignment = Alignment.Center,
     ) {
       Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(44.dp))
@@ -541,20 +674,10 @@ fun ComingScreen(@DrawableRes icon: Int, title: String, text: String, phase: Int
     Spacer(Modifier.height(20.dp))
     Text(title, fontFamily = Brand.Serif, fontSize = 40.sp, textAlign = TextAlign.Center)
     Spacer(Modifier.height(8.dp))
-    Text(
-      text,
-      style = MaterialTheme.typography.bodyLarge,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      textAlign = TextAlign.Center,
-    )
+    Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     Spacer(Modifier.height(18.dp))
     Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.secondaryContainer) {
-      Text(
-        "Arrives in phase $phase of 13",
-        style = MaterialTheme.typography.labelLarge,
-        fontStyle = FontStyle.Normal,
-        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-      )
+      Text("Arrives in phase $phase of 13", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp))
     }
     Spacer(Modifier.height(12.dp))
     OutlinedButton(onClick = { uriHandler.openUri(Brand.PROGRESS_URL) }) { Text("See the build progress") }

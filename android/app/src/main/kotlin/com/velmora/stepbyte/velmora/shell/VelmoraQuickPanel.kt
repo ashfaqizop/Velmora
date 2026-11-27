@@ -1,5 +1,8 @@
 package com.velmora.stepbyte.velmora.shell
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bookmarks
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -96,6 +99,17 @@ fun VelmoraQuickPanel(
                 ),
               )
             }
+            add(
+              Material3SettingsItem(
+                title = { Text("My List") },
+                description = { Text("Everything you saved, on every device") },
+                icon = rememberVectorPainter(Icons.Rounded.Bookmarks),
+                onClick = {
+                  onDismissRequest()
+                  onNavigate(com.velmora.stepbyte.velmora.screens.VRoutes.MY_LIST)
+                },
+              ),
+            )
             add(
               Material3SettingsItem(
                 title = { Text("Velmora Social") },

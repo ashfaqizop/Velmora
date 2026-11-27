@@ -61,10 +61,43 @@ data class TitleDetailInfo(
   val directors: List<String> = emptyList(),
   @SerialName("runtime_minutes") val runtimeMinutes: Int? = null,
   val trailer: String? = null,
+  val screenshots: List<String> = emptyList(),
   val seasons: List<Season> = emptyList(),
+  val extra: TitleExtra = TitleExtra(),
 )
 
-class TitleDetail(val title: Title, val info: TitleDetailInfo)
+/** A person in the cast or crew. [role] is the character, or the job for crew. */
+@Serializable data class Person(val name: String, val role: String? = null, val photo: String? = null)
+
+/** What else the metadata source knows, for the title page. Every field is optional. */
+@Serializable
+data class TitleExtra(
+  val tagline: String? = null,
+  @SerialName("release_date") val releaseDate: String? = null,
+  val status: String? = null,
+  val certification: String? = null,
+  @SerialName("original_language") val originalLanguage: String? = null,
+  val languages: List<String> = emptyList(),
+  val countries: List<String> = emptyList(),
+  val studios: List<String> = emptyList(),
+  @SerialName("vote_count") val voteCount: Int? = null,
+  @SerialName("rating_source") val ratingSource: String? = null,
+  @SerialName("season_count") val seasonCount: Int? = null,
+  @SerialName("episode_count") val episodeCount: Int? = null,
+  val format: String? = null,
+  @SerialName("season_label") val seasonLabel: String? = null,
+  val homepage: String? = null,
+  val cast: List<Person> = emptyList(),
+  val crew: List<Person> = emptyList(),
+  val keywords: List<String> = emptyList(),
+)
+
+class TitleDetail(
+  val title: Title,
+  val info: TitleDetailInfo,
+  /** "More like this", as titles that open their own pages. */
+  val recommendations: List<Title> = emptyList(),
+)
 
 /** A row on the home screen (Trending movies, Popular anime...). */
 class Rail(val id: String, val title: String, val items: List<Title>)
@@ -197,4 +230,72 @@ data class SelfTest(
 ) {
   val ok: Boolean
     get() = checks.all { it.ok }
+}
+
+// ── Live TV (universeapi/src/tv) ──
+
+@Serializable
+data class TvStream(
+  val url: String,
+  val quality: String? = null,
+  @SerialName("geo_blocked") val geoBlocked: Boolean = false,
+  @SerialName("not_24_7") val not247: Boolean = false,
+)
+
+@Serializable
+data class TvChannel(
+  val id: String,
+  val name: String,
+  val country: String? = null,
+  val network: String? = null,
+  val categories: List<String> = emptyList(),
+  val website: String? = null,
+  val logo: String? = null,
+  val streams: List<TvStream> = emptyList(),
+)
+
+@Serializable data class TvPage(val total: Int = 0, val items: List<TvChannel> = emptyList())
+
+/** A filter value with how many channels it has (a country, a category). */
+@Serializable data class Facet(val id: String, val name: String, val count: Int = 0)
+
+/** What to list: any mix of country, category and text, a page at a time. */
+@Serializable
+data class TvQuery(
+  val country: String? = null,
+  val category: String? = null,
+  val text: String? = null,
+  val offset: Int = 0,
+  val limit: Int = 60,
+)
+
+// ── Sports (universeapi/src/sports) ──
+
+@Serializable
+data class League(val id: String, val name: String, val badge: String? = null, val country: String? = null)
+
+@Serializable data class Team(val name: String, val badge: String? = null)
+
+@Serializable
+data class Match(
+  /** `tsdb:<id>` or `fd:<id>`. */
+  val id: String,
+  val sport: String,
+  val league: League,
+  val title: String,
+  val home: Team? = null,
+  val away: Team? = null,
+  /** upcoming, live, finished, postponed or cancelled. */
+  val status: String,
+  /** Kickoff, unix seconds (UTC). */
+  val kickoff: Long? = null,
+  @SerialName("home_score") val homeScore: Int? = null,
+  @SerialName("away_score") val awayScore: Int? = null,
+  /** "1H", "HT", "Q3" while live, when the source says. */
+  val phase: String? = null,
+  val venue: String? = null,
+  val round: String? = null,
+) {
+  val live: Boolean
+    get() = status == "live"
 }

@@ -75,6 +75,8 @@ import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import com.velmora.stepbyte.R
 import com.velmora.stepbyte.engine.Universe
+import com.velmora.stepbyte.utils.dataStore
+import com.velmora.stepbyte.utils.get
 import com.velmora.stepbyte.utils.rememberPreference
 import com.velmora.stepbyte.velmora.shell.Brand
 import com.velmora.stepbyte.velmora.shell.LookPicker
@@ -98,13 +100,19 @@ private enum class Step { Welcome, SignIn, Look, Languages, Done }
 @Composable
 fun OnboardingGate() {
   val account by VelmoraAccount.state.collectAsState()
-  val (done, setDone) = rememberPreference(OnboardingDoneKey, defaultValue = false)
+  val context = LocalContext.current
+  // Read before the first frame. DataStore's flow starts at the default, and
+  // a gate built from that default showed "Get started" to people who had
+  // finished long ago (for good when offline, since the step stuck).
+  val savedDone = remember { runCatching { context.dataStore[OnboardingDoneKey] == true }.getOrDefault(false) }
+  val (doneLive, setDone) = rememberPreference(OnboardingDoneKey, defaultValue = savedDone)
+  val done = doneLive || savedDone
   val signedIn = account is AccountState.SignedIn
   // Waiting on the saved sign-in: the app opens straight away (offline is fine).
   if (account == AccountState.Loading) return
   if (done && signedIn) return
 
-  var step by rememberSaveable { mutableStateOf(if (done) Step.SignIn else Step.Welcome) }
+  var step by rememberSaveable(done) { mutableStateOf(if (done) Step.SignIn else Step.Welcome) }
   // Signing in moves on by itself.
   LaunchedEffect(signedIn) {
     if (signedIn && step == Step.SignIn) step = if (done) Step.Done else Step.Look

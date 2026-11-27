@@ -418,6 +418,7 @@ class MainActivity : ComponentActivity() {
     installSplashScreen()
     super.onCreate(savedInstanceState)
     VelmoraAccount.init(this)
+    com.velmora.stepbyte.velmora.library.VelmoraLibrary.init(this)
 
     try {
       startService(Intent(this, com.velmora.stepbyte.playback.MusicService::class.java))
@@ -898,7 +899,9 @@ class MainActivity : ComponentActivity() {
               currentRoute!!.startsWith("cache_playlist/") ||
               currentRoute!!.startsWith("top_playlist/") ||
               currentRoute!!.startsWith("bottom_playlist/") ||
-              currentRoute!!.startsWith("artist/")
+              currentRoute!!.startsWith("artist/") ||
+              // Velmora title pages, rows and My List keep the bar, like Echo's album pages.
+              currentRoute!!.startsWith("v/")
           }
 
         // Unified floating pill navigation toolbar across both portrait and landscape views

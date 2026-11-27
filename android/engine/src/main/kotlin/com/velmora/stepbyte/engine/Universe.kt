@@ -90,8 +90,58 @@ class Universe private constructor(private val ffi: VelmoraEngine) {
   /** Title page data, including seasons and episodes for series. */
   suspend fun detail(title: Title): TitleDetail = call {
     val o = parse(ffi.detail(title.json["origin"].toString())).jsonObject
-    TitleDetail(title = toTitle(o["summary"]!!.jsonObject), info = json.decodeFromJsonElement(TitleDetailInfo.serializer(), o))
+    val recs = (o["extra"] as? JsonObject)?.get("recommendations") as? JsonArray
+    TitleDetail(
+      title = toTitle(o["summary"]!!.jsonObject),
+      info = json.decodeFromJsonElement(TitleDetailInfo.serializer(), o),
+      recommendations = recs?.let { titles(it) } ?: emptyList(),
+    )
   }
+
+  // ── Browse ──
+
+  /**
+   * Titles from a TMDB list endpoint: `/discover/movie`, `/trending/tv/week`,
+   * `/movie/603/recommendations`. [kind] is `movie` or `tv` for lists whose
+   * items don't say which they are.
+   */
+  suspend fun tmdbList(path: String, query: Map<String, String> = emptyMap(), kind: String = "movie", field: String = "results"): List<Title> =
+    call {
+      val q = JsonObject(query.mapValues { kotlinx.serialization.json.JsonPrimitive(it.value) })
+      titles(parse(ffi.tmdbList(path, q.toString(), field, kind)).jsonArray)
+    }
+
+  /** A read-only TMDB call, as TMDB's own JSON (catalog paths only). */
+  suspend fun tmdbRaw(path: String, query: Map<String, String> = emptyMap()): JsonObject = call {
+    val q = JsonObject(query.mapValues { kotlinx.serialization.json.JsonPrimitive(it.value) })
+    parse(ffi.tmdbRaw(path, q.toString())).jsonObject
+  }
+
+  /** Summaries for TMDB ids like `movie/603` or `tv/1396`. */
+  suspend fun tmdbTitles(ids: List<String>): List<Title> = call {
+    titles(parse(ffi.tmdbTitles(JsonArray(ids.map { kotlinx.serialization.json.JsonPrimitive(it) }).toString())).jsonArray)
+  }
+
+  /** Anime from AniList filters: search, genres, sort, year, season, status, format. */
+  suspend fun anilistFind(filters: JsonObject): List<Title> = call { titles(parse(ffi.anilistFind(filters.toString())).jsonArray) }
+
+  // ── Live TV ──
+
+  suspend fun tvChannels(query: TvQuery): TvPage = call {
+    json.decodeFromString(TvPage.serializer(), ffi.tvChannels(withDefaults.encodeToString(TvQuery.serializer(), query)))
+  }
+
+  suspend fun tvCategories(): List<Facet> = call { facets(ffi.tvCategories()) }
+
+  suspend fun tvCountries(): List<Facet> = call { facets(ffi.tvCountries()) }
+
+  // ── Sports ──
+
+  suspend fun sportsLive(): List<Match> = call { matches(ffi.sportsLive()) }
+
+  suspend fun sportsUpcoming(days: Int = 3): List<Match> = call { matches(ffi.sportsUpcoming(days.toUInt())) }
+
+  suspend fun sportsResults(days: Int = 2): List<Match> = call { matches(ffi.sportsResults(days.toUInt())) }
 
   /** Ranked, probed sources for a movie or one episode. */
   suspend fun sources(title: Title, target: Target, dub: Boolean = false): SourcesReport = call {
@@ -173,6 +223,12 @@ class Universe private constructor(private val ffi: VelmoraEngine) {
       explicitNulls = false
     }
 
+    // TvQuery's limit must cross even at its default; the engine reads 0 as none.
+    private val withDefaults = Json {
+      encodeDefaults = true
+      explicitNulls = false
+    }
+
     private val lock = Mutex()
     @Volatile private var instance: Universe? = null
 
@@ -251,6 +307,13 @@ class Universe private constructor(private val ffi: VelmoraEngine) {
     private fun titles(array: JsonArray): List<Title> = array.mapNotNull { el ->
       runCatching { toTitle(el.jsonObject) }.getOrNull()
     }
+
+    private fun facets(text: String): List<Facet> =
+      parse(text).jsonArray.mapNotNull { runCatching { json.decodeFromJsonElement(Facet.serializer(), it) }.getOrNull() }
+
+    // One odd fixture must not hide the rest.
+    private fun matches(text: String): List<Match> =
+      parse(text).jsonArray.mapNotNull { runCatching { json.decodeFromJsonElement(Match.serializer(), it) }.getOrNull() }
 
     private fun sourceList(el: JsonElement?): List<Source> =
       (el as? JsonArray)?.mapNotNull { s ->

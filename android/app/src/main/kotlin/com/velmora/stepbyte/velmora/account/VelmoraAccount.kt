@@ -96,24 +96,76 @@ object VelmoraAccount {
 
   private fun prefs() = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-  /** Load the saved sign-in; call once at startup. */
+  /**
+   * Load the saved sign-in; call once at startup. Anyone who has signed in on
+   * this phone opens straight into the app, online or not: what's saved here
+   * decides the first screen, never the network. The server checks the
+   * session in the background and only a real rejection (revoked, expired)
+   * signs out. Being offline or slow never does.
+   */
   fun init(context: Context) {
     if (::app.isInitialized) return
     app = context.applicationContext
     vault = SecureStore(app, "account")
     val saved = vault.read()
-    val cached =
-      prefs().getString("profile", null)?.let { runCatching { json.decodeFromString(Profile.serializer(), it) }.getOrNull() }
-    if (saved == null) {
+    val known = prefs().getBoolean("signed_in", false) || prefs().contains("profile")
+    if (saved == null && !known) {
       _state.value = AccountState.SignedOut
       return
     }
-    if (cached != null) {
-      userId = cached.id
-      _state.value =
-        AccountState.SignedIn(cached, prefs().getString("email", null), offline = true, max = prefs().getBoolean("max", false))
+    userId = prefs().getString("uid", null)
+    _state.value = savedSignIn()
+    if (saved != null) {
+      scope.launch { lock.withLock { refresh(saved) } }
+    } else {
+      // The Keystore lost its key (it happens after some restores). Stay in
+      // until the server can be asked; then a fresh sign-in is needed.
+      Log.w(TAG, "saved session unreadable; keeping the cached profile until online")
     }
-    scope.launch { refresh(saved) }
+    watchNetwork()
+  }
+
+  /** The signed-in state built from what's saved, for offline use. */
+  private fun savedSignIn(): AccountState.SignedIn {
+    val cached =
+      prefs().getString("profile", null)?.let { runCatching { json.decodeFromString(Profile.serializer(), it) }.getOrNull() }
+    val profile =
+      cached
+        ?: Profile(
+          id = prefs().getString("uid", null) ?: "",
+          username = prefs().getString("username", null) ?: "",
+          displayName = prefs().getString("display_name", null) ?: "You",
+        )
+    if (cached != null) userId = cached.id
+    return AccountState.SignedIn(profile, prefs().getString("email", null), offline = true, max = prefs().getBoolean("max", false))
+  }
+
+  /** Check the session again whenever the phone comes back online. */
+  private fun watchNetwork() {
+    val cm = app.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return
+    runCatching {
+      cm.registerDefaultNetworkCallback(
+        object : android.net.ConnectivityManager.NetworkCallback() {
+          override fun onAvailable(network: android.net.Network) {
+            val now = _state.value
+            if (now is AccountState.SignedIn && now.offline) {
+              scope.launch {
+                lock.withLock {
+                  val saved = vault.read()
+                  if (saved != null) {
+                    refresh(saved)
+                  } else if ((_state.value as? AccountState.SignedIn)?.offline == true) {
+                    Log.i(TAG, "online, but no readable session: signing in again")
+                    clearLocal()
+                    _error.value = "Sign in again to keep your library in sync."
+                  }
+                }
+              }
+            }
+          }
+        },
+      )
+    }
   }
 
   // ── Signing in ──
@@ -201,6 +253,8 @@ object VelmoraAccount {
     accessUntil = (claims?.get("exp")?.jsonPrimitive?.longOrNull?.times(1000)) ?: (System.currentTimeMillis() + (expiresIn ?: 3600) * 1000)
     userId = claims?.str("sub")
     val email = claims?.str("email")
+    // Remembered right away, so an app closed mid-sign-in still opens offline.
+    prefs().edit().putBoolean("signed_in", true).putString("uid", userId).putString("email", email).apply()
     loadProfile(email)
   }
 
@@ -213,7 +267,7 @@ object VelmoraAccount {
           "${Supa.BASE}/auth/v1/token?grant_type=refresh_token",
           buildJsonObject { put("refresh_token", saved) }.toString(),
         )
-      if (reply.code in 400..499) {
+      if (rejected(reply)) {
         // Revoked or expired: signed out everywhere else, so here too.
         Log.i(TAG, "saved sign-in no longer valid (${reply.code})")
         clearLocal()
@@ -226,13 +280,21 @@ object VelmoraAccount {
     } catch (e: CancellationException) {
       throw e
     } catch (e: Exception) {
-      // No internet: keep the saved profile (offline) and try again later.
+      // No internet, a timeout, a captive portal, a server hiccup: keep the
+      // saved sign-in (offline) and check again when the network comes back.
       Log.i(TAG, "couldn't refresh the session: ${e.message}")
-      if (_state.value !is AccountState.SignedIn) {
-        _error.value = "Couldn't reach Velmora's server. Check your connection and try again."
-        _state.value = AccountState.SignedOut
-      }
+      if (_state.value !is AccountState.SignedIn) _state.value = savedSignIn()
     }
+  }
+
+  /**
+   * Did the server actually refuse the session? Only Supabase's own answer
+   * for a bad refresh token counts; a proxy's 403 or a rate limit doesn't.
+   */
+  private fun rejected(reply: Supa.Reply): Boolean {
+    if (reply.code != 400 && reply.code != 401) return false
+    val body = reply.body.lowercase()
+    return "refresh_token" in body || "refresh token" in body || "invalid_grant" in body || "session_not_found" in body
   }
 
   /** A valid access token for Supabase calls, refreshed when needed; null when signed out. */
@@ -256,13 +318,30 @@ object VelmoraAccount {
       runCatching { (json.parseToJsonElement(reply.body) as JsonArray).firstOrNull()?.let { json.decodeFromJsonElement(Profile.serializer(), it) } }
         .getOrNull()
     if (profile == null) {
-      _error.value =
-        if (reply.ok) "Your account has no profile yet. Finish setting it up on the sign-in page." else "Couldn't load your profile (${reply.code})."
-      if (_state.value !is AccountState.SignedIn) _state.value = AccountState.SignedOut
+      if (reply.ok) {
+        // Signed in, but the account was never finished on the auth site.
+        _error.value = "Your account has no profile yet. Finish setting it up on the sign-in page."
+        if (!prefs().contains("profile")) {
+          prefs().edit().remove("signed_in").apply()
+          _state.value = AccountState.SignedOut
+        }
+      } else if (_state.value !is AccountState.SignedIn) {
+        // The server is having a moment; the session itself is fine.
+        _state.value = savedSignIn()
+      }
       return
     }
     val max = isMax(id)
-    prefs().edit().putString("profile", json.encodeToString(Profile.serializer(), profile)).putString("email", email).putBoolean("max", max).apply()
+    prefs()
+      .edit()
+      .putString("profile", json.encodeToString(Profile.serializer(), profile))
+      .putString("uid", profile.id)
+      .putString("username", profile.username)
+      .putString("display_name", profile.displayName)
+      .putString("email", email)
+      .putBoolean("max", max)
+      .putBoolean("signed_in", true)
+      .apply()
     _error.value = null
     _state.value = AccountState.SignedIn(profile, email, offline = false, max = max)
     // Settings, the vault key backup and the rest of what follows a sign-in.
@@ -292,7 +371,16 @@ object VelmoraAccount {
     access = null
     accessUntil = 0
     userId = null
-    prefs().edit().remove("profile").remove("email").remove("max").apply()
+    prefs()
+      .edit()
+      .remove("profile")
+      .remove("email")
+      .remove("max")
+      .remove("uid")
+      .remove("username")
+      .remove("display_name")
+      .remove("signed_in")
+      .apply()
     _state.value = AccountState.SignedOut
   }
 
