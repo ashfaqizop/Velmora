@@ -129,8 +129,8 @@ the animal drawings; desktop vault key backup not built yet.
 ## Waiting on the user
 
 - Test the phase 3/4 builds (above).
-- Re-run in Supabase if not done: `activity.sql`, `admin.sql`, `theatre.sql`.
-  (`vault.sql` is done.)
+- Supabase is up to date: `activity.sql`, `admin.sql`, `theatre.sql` and
+  `vault.sql` were all run on 2026-11-27.
 - Max online: `node tools/license/velmora-license.mjs secret signing`, paste
   into Vercel as `LICENSE_SIGNING_KEY`, redeploy, import
   `%USERPROFILE%\.velmora-license\issued.json` on the admin Max page.
