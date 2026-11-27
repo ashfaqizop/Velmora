@@ -159,3 +159,53 @@
   place-items: center;
   padding: 80px 0;
 }
+
+/* Forms in dialogs and cards (phase 3). */
+.lab {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.area {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 96px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 18px;
+  outline: 0;
+  resize: vertical;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.area:focus {
+  background: var(--md-sys-color-surface-container-highest);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent);
+}
+.keybox {
+  display: block;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--md-sys-color-surface-container-highest);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  word-break: break-all;
+  user-select: all;
+}
+@media (max-width: 620px) {
+  .two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

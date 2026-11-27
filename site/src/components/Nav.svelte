@@ -1,5 +1,6 @@
 <script lang="ts">
   import Logo from "./Logo.svelte";
+  import NoticeBar from "./NoticeBar.svelte";
   import { latest } from "../lib/latest.svelte";
   import { REPO_URL, RELEASES_URL } from "../lib/release";
 
@@ -42,6 +43,8 @@
     </nav>
   {/if}
 </header>
+
+<NoticeBar />
 
 <style>
   header {

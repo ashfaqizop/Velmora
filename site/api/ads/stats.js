@@ -1,15 +1,33 @@
-// Anonymous ad view counts from the app: how many ads each slot showed, per
-// day. Nothing about who or which PC, just totals.
+// The app's ads, both ways.
 //
-//   POST /api/ads/stats { counts: { home: 3, sidebar: 5 } }
+//   GET  /ads.json (rewritten here)              the ad rules the app follows
+//   POST /api/ads/stats { counts: { home: 3 } }  anonymous view counts
 //
-// Stored in Redis as ads:views:<YYYY-MM-DD> (hash: slot -> count), kept 400 days.
+// Rules: Redis cfg:ads, saved from the admin site, else DEFAULT_RULES.
+// Counts: Redis ads:views:<YYYY-MM-DD> (hash: slot -> count), kept 400 days.
+// Nothing about who or which PC, just totals.
 
+import { DEFAULT_RULES, SLOTS } from "../_lib/ads-rules.js";
 import { rateLimited, redis } from "../_lib/license.js";
 
-const SLOTS = new Set(["home", "search", "grid", "title", "downloads", "sidebar", "sports", "live", "pause", "end", "music", "nowplaying"]);
+const COUNTED = new Set(SLOTS);
+
+async function rules(res) {
+  let body = DEFAULT_RULES;
+  try {
+    const saved = await redis("GET", "cfg:ads");
+    if (saved) body = JSON.parse(saved);
+  } catch {
+    // Storage hiccup: the defaults are a safe answer.
+  }
+  // Edge-cached for a minute, so a change reaches apps within about five.
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=60, stale-while-revalidate=600");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  return res.status(200).json(body);
+}
 
 export default async function handler(req, res) {
+  if (req.method === "GET") return rules(res);
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") return res.status(405).json({ ok: false });
   const counts = req.body?.counts;
@@ -20,7 +38,7 @@ export default async function handler(req, res) {
     const day = new Date().toISOString().slice(0, 10);
     const key = `ads:views:${day}`;
     for (const [slot, n] of Object.entries(counts)) {
-      if (!SLOTS.has(slot) || !Number.isInteger(n) || n < 1 || n > 500) continue;
+      if (!COUNTED.has(slot) || !Number.isInteger(n) || n < 1 || n > 500) continue;
       await redis("HINCRBY", key, slot, n);
     }
     await redis("EXPIRE", key, 400 * 86400);

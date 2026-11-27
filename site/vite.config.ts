@@ -17,6 +17,7 @@ const ICONS = [
   "groups", "mail", "error", "check", "open_in_new", "priority_high", "logout", "edit", "public", "person_add", "insights", "login", "account_circle", "shield", "favorite", "explore", "music_note", "tv", "local_fire_department", "emoji_events", "link_off", "star_rate", "more_vert", "arrow_back",
   "dashboard", "rate_review", "spellcheck", "block", "monitoring", "health_and_safety", "manage_accounts", "restart_alt", "lock_open", "delete_forever", "task_alt", "undo", "storage", "balance", "touch_app", "pause", "event_busy", "alternate_email", "bug_report", "cloud_sync", "description", "devices_fold", "diversity_3", "face", "fact_check", "gavel", "help", "hub", "language", "laptop_mac", "lightbulb", "memory", "menu_book", "phone_iphone", "privacy_tip", "search_off", "sports_soccer", "subtitles", "sync_alt", "terminal", "verified_user", "event", "event_available", "pause_circle", "play_circle", "campaign", "forum", "confirmation_number", "pin_drop", "push_pin", "chat_bubble", "mic_off", "person_remove", "sensors", "calendar_month", "preview", "auto_mode",
   "share", "flag", "content_copy", "group", "person_remove", "how_to_reg", "add_link", "playlist_add", "list", "delete", "delete_sweep", "desktop_windows", "send", "refresh", "theaters", "confirmation_number", "lock_clock", "auto_awesome", "local_activity", "forum",
+  "ads_click", "tune", "upload", "warning", "construction", "save",
 ];
 
 const icons = (): Plugin => ({

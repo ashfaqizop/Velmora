@@ -32,15 +32,6 @@
       ]
     },
     {
-      "source": "/ads.json",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300"
-        }
-      ]
-    },
-    {
       "source": "/api/license/(.*)",
       "headers": [
         {
@@ -212,6 +203,10 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/ads.json",
+      "destination": "/api/ads/stats"
+    },
     {
       "source": "/@:user",
       "has": [

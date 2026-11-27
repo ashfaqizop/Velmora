@@ -3,6 +3,7 @@
   import TopBar from "./TopBar.svelte";
   import Sidebar from "./Sidebar.svelte";
   import SidePanel from "./SidePanel.svelte";
+  import NoticeBanner from "./NoticeBanner.svelte";
   import About from "./About.svelte";
   import SignInDialog from "./SignInDialog.svelte";
   import Home from "../pages/Home.svelte";
@@ -94,6 +95,7 @@
   <div class="side"><Sidebar /></div>
 
   <main class="content" class:wide={nav.route.name !== "home"} class:music={mode === "music"} bind:this={scroller} onscroll={onScroll}>
+    <NoticeBanner />
     {#if !network.online}
       <m3e-callout variant="error" class="offline" transition:fade={{ duration: 200 }}>
         <m3e-icon slot="icon" name="wifi_off"></m3e-icon>

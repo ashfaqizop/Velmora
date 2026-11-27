@@ -209,3 +209,45 @@ revoke all on function public.admin_user(uuid) from public, anon, authenticated;
 grant execute on function public.admin_overview() to service_role;
 grant execute on function public.admin_users(text, integer, integer) to service_role;
 grant execute on function public.admin_user(uuid) to service_role;
+
+-- ═══ Phase 3a: announcements and the maintenance message ══════════════════
+-- Written only by the admin site (service key). Anyone, signed in or not, can
+-- read the ones that are switched on and inside their time window: the app,
+-- the website and Social show them.
+--
+--   kind      info (blue), warning (amber), maintenance (red, can't be dismissed)
+--   audience  everyone, public (no Max), max
+--   place     app, web, both
+
+create table if not exists public.announcements (
+  id          bigint generated always as identity primary key,
+  kind        text not null default 'info' check (kind in ('info', 'warning', 'maintenance')),
+  title       text not null check (char_length(title) between 1 and 80),
+  body        text not null default '' check (char_length(body) <= 400),
+  link_url    text not null default '' check (link_url = '' or link_url ~ '^https://[^\s]{3,300}$'),
+  link_label  text not null default '' check (char_length(link_label) <= 30),
+  audience    text not null default 'everyone' check (audience in ('everyone', 'public', 'max')),
+  place       text not null default 'both' check (place in ('app', 'web', 'both')),
+  active      boolean not null default true,
+  starts_at   timestamptz not null default now(),
+  ends_at     timestamptz,
+  created_by  uuid references auth.users (id) on delete set null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  check (ends_at is null or ends_at > starts_at)
+);
+
+create index if not exists announcements_live on public.announcements (active, starts_at);
+
+alter table public.announcements enable row level security;
+
+drop policy if exists "live announcements are public" on public.announcements;
+create policy "live announcements are public" on public.announcements
+  for select to anon, authenticated
+  using (active and starts_at <= now() and (ends_at is null or ends_at > now()));
+
+revoke insert, update, delete on public.announcements from anon, authenticated;
+-- Column grant: who wrote it stays private.
+revoke select on public.announcements from anon, authenticated;
+grant select (id, kind, title, body, link_url, link_label, audience, place, starts_at, ends_at, updated_at)
+  on public.announcements to anon, authenticated;

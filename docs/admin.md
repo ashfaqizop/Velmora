@@ -1,7 +1,7 @@
 # Admin site plan
 
 `admin.getvelmora.dpdns.org`. Only the owner is admin, no moderator role.
-Deferred on 2026-11-24, restarted the same day. Phases 1 and 2 are built (see Status below); phase 3 is not.
+Deferred on 2026-11-24, restarted the same day. Phases 1, 2 and 3a are built (see Status below); 3b is not.
 
 ## Access and safety
 - `admins` table in Supabase plus TOTP MFA. Own origin, no third-party scripts, no ads.
@@ -120,3 +120,18 @@ Deploy check: the admin host serves the same Vercel project as the other hosts, 
 - Live-now "came in" counts people who entered the lobby or show (it doesn't drop on leave). True concurrent presence isn't shown.
 - Removing someone takes effect when their Realtime connection re-checks, so it can lag by a minute.
 - Run `supabase/theatre.sql` BEFORE deploying: the app and site now select the new columns, and the cron filters on `special`.
+
+**Phase 3a: Max online, announcements, app ads, remote config. Built, not yet deployed.**
+- Server: `api/_lib/admin-control.js` (13 actions: maxList, maxIssue, maxShow, maxSet, maxImport, notices, noticeSave, noticeDelete, ads, adsSave, config, configAt, configSave). Still one admin function, 11 of 12 used.
+- Max: keys are made on the server with `LICENSE_SIGNING_KEY`, byte for byte the same as the local tool, and every new key is checked against the public key in the app before it's handed out. Redis `lic:<id>` gains `iat`, `issued`, `note`, `by`, so a key can be shown again. Keys made with the local tool can be shown once `issued.json` is imported (ids, names, dates; each record is checked). Per key: show, free from its PC, revoke and turn back on, put on an account or take it off, private note. Revoking also drops the account's Max badge.
+- Announcements: `public.announcements` (appended to `supabase/admin.sql`, re-run it). Kinds info, warning, maintenance (can't be dismissed); audience everyone, public, max; place app, web, both; start and end times. Public read through RLS of live rows only, with a column grant so `created_by` stays private. Web: floating card on the main site (through Nav) and Social. App: banner at the top of the page (ships with the next app release), checked every 10 minutes, Max/Public audience honoured.
+- App ads: `/ads.json` is now served by `api/ads/stats.js` (GET) from Redis `cfg:ads`, falling back to `api/_lib/ads-rules.js`; `public/ads.json` is gone. Edge cache 60 s, apps cache 5 min. The admin page edits the master switch, timings and every slot (unit, cap, on/off) and shows 14 days of anonymous view counts. The website's own ads are not covered.
+- Remote config: reads `registry.json` from the `config` branch through the GitHub API and writes it back with `CONFIG_GITHUB_TOKEN` (path and branch are fixed in code). Checks: valid JSON, version 1, provider names the engine knows, URL lists, no secret fields. Sources view (mirrors per provider, kill-switch), a whole-file editor, a plain-words summary of changes, and the last 15 commits with Load to restore one.
+
+Owner steps for 3a:
+1. Re-run `supabase/admin.sql`.
+2. `node tools/license/velmora-license.mjs secret signing`, paste into Vercel as `LICENSE_SIGNING_KEY`.
+3. GitHub > Settings > Developer settings > Fine-grained tokens: repository `ashfaqizop/Velmora` only, Contents read and write. Paste into Vercel as `CONFIG_GITHUB_TOKEN`. A fine-grained token can't be limited to one branch; the server code is what keeps it to `config`.
+4. Redeploy, then on the Max page import `%USERPROFILE%\.velmora-license\issued.json`.
+
+Phase 3b (next): platform analytics, social curation, Theatre algorithm knobs, source probe results and auto-skip, show failure rate (needs an app release), per-screening analytics.

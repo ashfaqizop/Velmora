@@ -13,6 +13,10 @@
   import ReviewsView from "./ReviewsView.svelte";
   import NamesView from "./NamesView.svelte";
   import AuditView from "./AuditView.svelte";
+  import MaxView from "./control/MaxView.svelte";
+  import NoticesView from "./control/NoticesView.svelte";
+  import AdsView from "./control/AdsView.svelte";
+  import ConfigView from "./control/ConfigView.svelte";
 
   const ADMIN_HOST = "admin.getvelmora.dpdns.org";
 
@@ -63,6 +67,14 @@
             <ReviewsView />
           {:else if route.page === "names"}
             <NamesView />
+          {:else if route.page === "max"}
+            <MaxView />
+          {:else if route.page === "notices"}
+            <NoticesView />
+          {:else if route.page === "ads"}
+            <AdsView />
+          {:else if route.page === "config"}
+            <ConfigView />
           {:else}
             <AuditView />
           {/if}

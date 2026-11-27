@@ -15,6 +15,7 @@ import { rateLimited, redis } from "../_lib/license.js";
 import { totals } from "../_lib/stats.js";
 import { audit, isAdminUser, must, num, PAGE, quote, Refusal, TITLE, UUID } from "../_lib/admin-kit.js";
 import { theatreActions } from "../_lib/admin-theatre.js";
+import { controlActions } from "../_lib/admin-control.js";
 import { authAdmin, db, verifyUser } from "../_lib/supabase.js";
 
 const NAME = /^[a-z0-9_]{2,20}$/;
@@ -299,7 +300,7 @@ async function auditList(b) {
   return { rows: rows.map((r) => ({ ...r, admin_name: who[r.admin_id] ?? null, target_name: who[r.target] ?? null })), page, size: PAGE };
 }
 
-const ACTIONS = { ...theatreActions, overview, users, user, userSet, reports, reportSet, reviews, reviewSet, names, namesSet, audit: auditList };
+const ACTIONS = { ...theatreActions, ...controlActions, overview, users, user, userSet, reports, reportSet, reviews, reviewSet, names, namesSet, audit: auditList };
 
 // ── Request ───────────────────────────────────────────────────────────────
 

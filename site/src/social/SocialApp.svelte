@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import { fade, fly } from "svelte/transition";
   import mark from "../assets/velmora-mark.webp";
+  import NoticeBar from "../components/NoticeBar.svelte";
   import Avatar from "../auth/Avatar.svelte";
   import { MAIN_SITE } from "../auth/config";
   import { beginSignIn, signOut } from "../lib/session";
@@ -200,6 +201,8 @@
     <a href="{MAIN_SITE}/terms/">Terms</a>
   </footer>
 </div>
+
+<NoticeBar />
 
 <style>
   .page {
