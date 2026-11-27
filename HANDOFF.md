@@ -1,4 +1,4 @@
-# Handoff: where Velmora stands (2026-11-27)
+# Handoff: where Velmora stands (2026-11-27, evening)
 
 For the next session, so work carries on without re-reading history. Short
 versions of the decisions live in the memory folder
@@ -17,109 +17,146 @@ versions of the decisions live in the memory folder
 - Never write a secret into a file, commit or memory. Secrets live in Vercel,
   Supabase or GitHub Actions secrets. Public values (Supabase URL and
   publishable key, Turnstile site key, Discord app ID) are fine in the repo.
-- UI uses `@m3e/web` (site on 2.13.7, desktop app on 2.10.3). Admin pages use
-  the full width with 12px gaps.
+- UI: site and desktop use `@m3e/web`; Android keeps Echo's Material 3
+  Expressive look (the user asked to keep Echo's design language).
 - The user eyeballs UI themselves; screenshot only to debug.
-- Slow laptop: don't leave background processes running.
+- Slow laptop and slow internet: don't leave background processes running,
+  don't download big artifacts unless asked (the user often installs APKs
+  themselves).
+
+## Editing without a compiler (learned the hard way)
+
+- Multi-line edits with backticks, `$`, `${}` or quotes: write a `.cjs` script
+  in the scratchpad and run it. Inline `node -e` in bash eats backticks
+  (happened twice to docs/comments this session).
+- Every edit script uses exact-match replacements that throw on a miss.
+- **Before writing a "new" file, check it doesn't exist.** The rebrand renamed
+  Echo's strings to `res/values/velmora_strings.xml`; overwriting it wiped 1,100
+  strings (caught and restored in c7c8fc5). New shell strings live in
+  `velmora_shell_strings.xml`.
+- After cutting Kotlin blocks, check brace balance (scratchpad `kt.cjs`,
+  `matchBrace`) and scan for empty wrappers. Check every `R.drawable`/`R.string`
+  referenced exists: AAPT fails on missing resources.
+- Kotlin traps hit this session: `return` inside an expression-bodied function,
+  calling `pointerInput` without a receiver, a local val shadowed inside
+  `apply {}`, `remember` lambdas capturing stale state.
+- Pushing anything under `android/` cancels the running Android CI build
+  (concurrency group). Batch Android pushes.
 
 ## Stack
 
-- `app/`: Tauri 2 + Svelte 5 desktop app (Windows). Latest release **0.6.6** (`app-v0.6.6`).
-- `universeapi/`: Rust engine (sources, resolving, metadata, torrents, `.vlm` vault). GPL-3.0.
-- `site/`: Svelte + Vite multi-page site on Vercel, functions in `site/api/`
-  (Hobby plan: **11 of 12 functions used**), Upstash Redis, Supabase.
-  Hosts: `getvelmora.dpdns.org`, `auth.`, `social.`, `admin.` (rules in `site/vercel.json`).
-- `supabase/*.sql`: all database code; the user runs files in the SQL editor
-  (all safe to re-run).
-- `android/`: Velmora for Android, built on Echo Music (see below).
-
-## Recently done (all pushed)
-
-- **Admin site, all 3 phases** (`docs/admin.md`): overview, people, reports,
-  reviews, names, audit; Theatre ops; Max licences online, announcements,
-  app ads (`/ads.json` now served from Redis `cfg:ads`), remote config
-  (`registry.json` on the `config` branch via `CONFIG_GITHUB_TOKEN`),
-  analytics, curation (featured people, staff picks, leaderboard hiding),
-  Theatre Tuning (`cfg:lineup` knobs read by `api/_lib/lineup.js`) and Insights.
-- **Site**: 8 content pages + 6 comparison pages (prerendered), SEO basics,
-  SmartScreen animation on `/docs/install/`, Android copy now says "in
-  production development, drops soon".
-- **Android phase 1** (below).
+- `app/`: Tauri 2 + Svelte 5 desktop app (Windows). Latest release **0.6.6**.
+- `universeapi/`: Rust engine. GPL-3.0.
+- `site/`: Svelte + Vite site on Vercel (Hobby plan: 11 of 12 functions used),
+  Upstash Redis, Supabase. Hosts: `getvelmora.dpdns.org`, `auth.`, `social.`, `admin.`.
+- `supabase/*.sql`: all database code, run by the user in the SQL editor (safe to re-run).
+- `android/`: Velmora for Android, built on Echo Music.
 
 ## Android (active work)
 
-Read `docs/android.md` (40 decisions) and `docs/android_build_plan.md` (13 phases) first.
+Read `docs/android.md` (40 decisions) and `docs/android_build_plan.md`
+(**13 phases**: 1-9 build the app, 10-12 UI/UX only, 13 updates and release;
+each phase has "How it is built" notes).
 
-- Echo Music (Kotlin/Compose, GPL-3.0) imported into `android/`, renamed to
-  `com.velmora.stepbyte` everywhere (packages, JNI, C++ namespaces). Version
-  0.6.6 / code 6006 (code = major*1e6 + minor*1e3 + patch, matches desktop).
-- Removed: Firebase, Echo's translations, Echo's services (canvas server,
-  320 kbps extension, share domain), donation/social links, 14 alternate icons
-  and the picker, Android TV entry, Listen Together's UI and networking.
-  **Listen Together's internals (~4,000 lines) are still in the code, unused:
-  delete them in phase 3** when the player and menus are reworked.
-- Echo's updater is off (`UPDATES_ENABLED = false` in
-  `velmora/updater/velmoraupdater.kt`) until phase 13.
-- Icons: fox launcher PNGs from `app/src-tauri/icons/android`, plus a flat fox
-  glyph (`drawable/ic_velmora_glyph.xml`, also notification, QS tile,
-  `ic_launcher_nobg`).
-- About screen credits Echo Music; `android/README.md` too. Keep the credit.
-- CI: `.github/workflows/android.yml` builds `:app:assembleUniversalGmsDebug`
-  on pushes touching `android/`, signed with the release key, artifact
-  `velmora-android-debug` (about 135 MB debug).
-- Secrets in GitHub: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEY_ALIAS`,
-  `ANDROID_KEY_PASSWORD`, `ANDROID_STORE_PASSWORD` (backup copy only in
-  `%USERPROFILE%\.velmora-android\`), `LASTFM_API_KEY`, `LASTFM_SECRET`.
-  Discord app ID `1533360080928378930` is in `app/build.gradle.kts`
-  (redirect and Public Client set by the user).
-- **Status:** phase 1 built green (run 45983475036). Waiting for the user to
-  test on Android 9, Android 14 and an Android 16 tablet. Next is **phase 2**:
-  UniverseAPI through UniFFI + cargo-ndk in CI, a Kotlin `:engine` module and a
-  hidden test screen.
-- Editing Kotlin without a compiler: scripts in the session scratchpad cut
-  whole blocks by brace matching. After any cut, scan for empty wrappers like
-  `add(\n)` (one slipped through once). Check resources references too:
-  AAPT fails on a missing `@mipmap`/`@drawable`.
+| Phase | State |
+|---|---|
+| 1 Import and rebrand | done |
+| 2 Rust engine | **done, tested on the phone** (search, sources, direct + torrent playback) |
+| 3 Shell and navigation | built green (run 45999722889), **not yet tested on the phone** |
+| 4 Accounts and onboarding | pushed 705adb1, **CI run 46002246898 was in progress** |
+
+What exists:
+
+- **Engine bridge** (`android/engine/`): `rust/ffi` is a UniFFI crate wrapping
+  UniverseAPI (own Cargo workspace, path dependency on the engine), JSON across
+  the bridge in desktop's shapes, plus the desktop stream server ported
+  (`stream.rs`, ExoPlayer plays `http://127.0.0.1:{port}/p|t|v|f/...`). Kotlin
+  `Universe` gives typed coroutine calls and saved engine preferences
+  (`updatePreferences`). CI builds arm64 + armv7 with cargo-ndk, generates the
+  Kotlin bindings, then Gradle. Engine logs: `adb logcat -s VelmoraEngine`.
+  Engine change for Android: librqbit's DHT state goes in `torrents/.dht.json`.
+- **Engine lab** (hidden): About, tap the logo 7 times.
+- **Shell** (`velmora/shell/`): two modes as nested nav graphs (`velmora`,
+  `music`) with saved back stacks (`AppMode.kt`), Velmora tabs on Echo's
+  floating toolbar, wordmark top bar (long-press switches), avatar/Downloads/
+  switch pill (`ShellTopBar.kt`), the drag-to-switch panel with circular
+  reveal (`ModeSwitch.kt`), Velmora quick panel, Look picker (Appearance),
+  Velmora blue + Plus Jakarta Sans defaults, Instrument Serif, night splash,
+  side rail on tablets. Velmora Home shows engine rows (`HomeFeed`), Search
+  uses the engine; Browse/Theatre/Downloads are placeholders.
+- **Accounts** (`velmora/account/`): PKCE sign-in via the auth site, which now
+  accepts `?android=velmora|velmora-debug` and returns to
+  `<scheme>://auth/callback` (or the short code). Refresh token encrypted with
+  an Android Keystore key. After sign-in: account settings into the engine,
+  vault key backup/restore (`supabase/vault.sql`, **already run by the user**),
+  Max via `/api/social/max`. Onboarding gate (welcome, sign in, look,
+  languages, done) and a YouTube Music gate for Music mode.
+- CI artifacts per run: `velmora-android-debug` (universal, ~147 MB) and
+  `velmora-android-debug-arm64` (~123 MB, the one the user installs).
+- Site: `/android/` progress page; data in `site/src/lib/android.ts` (change a
+  phase's `status`/`date` when it moves; phases 3 and 4 currently "building").
+  The home pill says "Developing · Velmora for Android · Check progress".
+
+Next steps:
+
+1. Check CI run 46002246898 (phase 4). Fix any compile errors.
+2. The user installs the arm64 APK; test phases 3 and 4 on the phone over adb:
+   onboarding and sign-in (the browser returns via `velmora-debug://`), the
+   tabs, the switch panel and reveal, the Look picker, the YouTube Music gate,
+   sign out. Then mark 3 and 4 done in `docs/android_build_plan.md` and
+   `site/src/lib/android.ts`.
+3. Phase 5 (Home, Browse, title pages, search, My List and its sync).
+
+Leftovers to clean up later: Listen Together internals (~4,000 lines, unused,
+delete in a later phase); `SearchableSettings.kt` still lists Echo's
+Instagram/X/coffee/Patreon/UPI/Discord entries; deep links into Music routes
+while in Velmora mode don't switch mode; avatars show colour + initial, not
+the animal drawings; desktop vault key backup not built yet.
+
+## Testing on the phone
+
+- The user's test phone: **Huawei STK-L21, Android 10, 64-bit** (the docs say
+  "Android 9"; it's actually 10). The Android 14 phone and Android 16 tablet
+  only for phases 3, 10 and 11.
+- adb: `E:\Android\platform-tools\adb.exe` (USB debugging authorized). In Git
+  Bash use `MSYS_NO_PATHCONV=1` for device paths. Screenshots:
+  `adb exec-out screencap -p > file.png` (1080x2340; displayed images are
+  scaled by about 1.17). Drive with `adb shell input tap/swipe/text/keyevent`.
+  One back press closes the keyboard; a second leaves the screen.
+- Debug package: `com.velmora.stepbyte.debug`; app files under
+  `/sdcard/Android/data/com.velmora.stepbyte.debug/files/`.
 
 ## Waiting on the user
 
-- Re-run in Supabase, in order: `supabase/activity.sql`, `supabase/admin.sql`,
-  `supabase/theatre.sql` (admin phase 3a/3b tables: announcements, featured,
-  leaderboard_hidden, admin_growth, theatre_tickets.via, admin_theatre_stats).
-- Max online: `node tools/license/velmora-license.mjs secret signing` (tool is
-  local, gitignored), paste into Vercel as `LICENSE_SIGNING_KEY`, redeploy,
-  then import `%USERPROFILE%\.velmora-license\issued.json` on the admin Max page.
-- `CONFIG_GITHUB_TOKEN` is set (user did it on 2026-11-27).
-- Search Console: resubmit `sitemap.xml`. Mailtrap domain for email codes.
-  Theatre two-account test.
-- Android phase 1 device testing (see above).
+- Test the phase 3/4 builds (above).
+- Re-run in Supabase if not done: `activity.sql`, `admin.sql`, `theatre.sql`.
+  (`vault.sql` is done.)
+- Max online: `node tools/license/velmora-license.mjs secret signing`, paste
+  into Vercel as `LICENSE_SIGNING_KEY`, redeploy, import
+  `%USERPROFILE%\.velmora-license\issued.json` on the admin Max page.
+- Search Console: resubmit `sitemap.xml` (now includes `/android/`).
+- Mailtrap domain for email codes. Theatre two-account test.
+- Optional: a `SPORTSDB_KEY` GitHub secret (sports on Android, phase 8).
 
 ## Not yet released
 
-The desktop app changes since 0.6.6 (announcement banner, Theatre start-event
-report, CSP allowing the site) ship with the next desktop release. The admin
-failure-rate and app-vs-Social numbers fill in after that.
+Desktop changes since 0.6.6 (announcement banner, Theatre start-event report,
+CSP allowing the site) ship with the next desktop release.
 
 ## Known problems
 
-- Engine rustfmt job fails (~200 diffs since 0.5.0); a `workflow_dispatch`
-  job that runs `cargo fmt` and commits was proposed, not built.
+- Engine rustfmt job fails (~200 diffs); informational.
 - "Android check (impersonate)" engine job always fails (BoringSSL); informational.
+- Maven Central sometimes rate-limits CI (HTTP 429): just re-run the job.
 
 ## Useful facts
 
-- Supabase publishable key and URL: `app/src/lib/account.svelte.ts`,
-  `site/src/auth/config.ts`, `site/api/_lib/config.js`.
-- Site Material Symbols are a subset: add new names to `ICONS` in
-  `site/vite.config.ts` (check with the Google Fonts css2 URL). New pages go
-  into `PAGES` there and into `src/pages/registry.ts`; run
-  `node scripts/make-pages.mjs` after editing the registry.
-- Content pages are prerendered (`npm run build` = vite build + `scripts/prerender.mjs`).
-- Instagram posters: HTML at `<scratchpad>/posters/` (1080x1350, rendered with
-  headless Chrome: `chrome.exe --headless=new --screenshot --window-size=1080,1350
-  "file:///.../android.html?s=N"`). Final Android set exported to
-  `C:\Users\Azam\Pictures\velmora-android\1..5-velmora-android.png`. The
-  scratchpad can be cleared; the exports are the durable copies.
-- User's Instagram: @ashfaqizop and @stepbyte.studios.
-- Git Bash rewrites `/CN=...`-style arguments into paths; use `MSYS_NO_PATHCONV=1`.
-- Many repo files are CRLF; normalize (`\r\n` → `\n`) before exact-match edits.
+- Supabase URL and publishable key: `app/src/lib/account.svelte.ts`,
+  `site/src/auth/config.ts`, `android/.../velmora/account/Supa.kt`.
+- Site icons are a subset: add names to `ICONS` in `site/vite.config.ts`.
+  New content pages go in `PAGES` there and in `src/pages/registry.ts`, then
+  `node scripts/make-pages.mjs`; add them to `public/sitemap.xml`.
+- Instagram posters: the final set is in `C:\Users\Azam\Pictures\velmora-android\`.
+- The user's Instagram: @ashfaqizop and @stepbyte.studios.
+- Git Bash rewrites `/CN=...`-style arguments; use `MSYS_NO_PATHCONV=1`.
+- Many repo files are CRLF; normalize before exact-match edits.
