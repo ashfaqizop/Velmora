@@ -1,0 +1,445 @@
+package com.velmora.stepbyte.ui.screens
+
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import com.velmora.stepbyte.innertube.utils.parseCookieString
+import com.velmora.stepbyte.BuildConfig
+import com.velmora.stepbyte.R
+import com.velmora.stepbyte.constants.AccountEmailKey
+import com.velmora.stepbyte.constants.AudioQuality
+import com.velmora.stepbyte.constants.AudioQualityKey
+import com.velmora.stepbyte.constants.DismissDesktopReleaseBannerKey
+import com.velmora.stepbyte.constants.InnerTubeCookieKey
+import com.velmora.stepbyte.constants.UseLoginForBrowse
+import com.velmora.stepbyte.constants.YtmSyncKey
+import com.velmora.stepbyte.ui.component.Material3SettingsGroup
+import com.velmora.stepbyte.ui.component.Material3SettingsItem
+import com.velmora.stepbyte.utils.rememberEnumPreference
+import com.velmora.stepbyte.utils.rememberPreference
+import com.velmora.stepbyte.viewmodels.HomeViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingDialoge(
+  onDismissRequest: () -> Unit,
+  onNavigate: (String) -> Unit,
+  homeViewModel: HomeViewModel,
+) {
+  val uriHandler = LocalUriHandler.current
+  val (audioQuality) = rememberEnumPreference(AudioQualityKey, defaultValue = AudioQuality.OPUS)
+  val (innerTubeCookie, _) = rememberPreference(InnerTubeCookieKey, "")
+  val isLoggedIn =
+    remember(innerTubeCookie) {
+      innerTubeCookie.isNotEmpty() && "SAPISID" in parseCookieString(innerTubeCookie)
+    }
+
+  val (accountEmail, _) = rememberPreference(AccountEmailKey, "")
+  val accountName by homeViewModel.accountName.collectAsState()
+  val accountImageUrl by homeViewModel.accountImageUrl.collectAsState()
+
+  val (useLoginForBrowse, onUseLoginForBrowseChange) = rememberPreference(UseLoginForBrowse, true)
+  val (ytmSync, onYtmSyncChange) = rememberPreference(YtmSyncKey, true)
+  val (dismissDesktopBanner, onDismissDesktopBannerChange) =
+    rememberPreference(DismissDesktopReleaseBannerKey, false)
+
+  val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+  ModalBottomSheet(
+    onDismissRequest = onDismissRequest,
+    sheetState = sheetState,
+    dragHandle = { BottomSheetDefaults.DragHandle() },
+    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+  ) {
+    val primaryColor = MaterialTheme.colorScheme.onSurface
+    val onSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Column(
+      modifier =
+        Modifier.fillMaxWidth()
+          .verticalScroll(rememberScrollState())
+          .padding(bottom = 32.dp, start = 16.dp, end = 16.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      // New Release Section
+      if (!dismissDesktopBanner) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+          Text(
+            text = "NEW RELEASE",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 12.dp, bottom = 6.dp),
+          )
+          DesktopReleaseBannerCard(
+            onClick = {
+              uriHandler.openUri("https://getvelmora.dpdns.org/download/")
+              onDismissRequest()
+            },
+            onDismiss = { onDismissDesktopBannerChange(true) },
+          )
+        }
+      }
+
+      // Account Group
+      Material3SettingsGroup(
+        title = "Account",
+        compact = true,
+        items =
+          buildList {
+            add(
+              Material3SettingsItem(
+                title = { Text(if (isLoggedIn) accountName else "Anonymous") },
+                description = {
+                  Text(if (isLoggedIn) accountEmail.ifEmpty { "Logged In" } else "Not Logged In")
+                },
+                icon = painterResource(R.drawable.account),
+                trailingContent =
+                  if (isLoggedIn && !accountImageUrl.isNullOrBlank()) {
+                    {
+                      AsyncImage(
+                        model = accountImageUrl,
+                        contentDescription = "Profile Photo",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(40.dp).clip(CircleShape),
+                      )
+                    }
+                  } else null,
+                onClick = {
+                  onDismissRequest()
+                  if (isLoggedIn) onNavigate("settings/account") else onNavigate("login")
+                },
+              ),
+            )
+            add(
+              Material3SettingsItem(
+                title = {
+                  Text(androidx.compose.ui.res.stringResource(R.string.ai_lyrics_translation))
+                },
+                description = {
+                  Text(androidx.compose.ui.res.stringResource(R.string.setting_desc_ai))
+                },
+                customIcon = {
+                  Text(
+                    text = "Ai",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                  )
+                },
+                onClick = {
+                  onDismissRequest()
+                  onNavigate("settings/ai")
+                },
+              ),
+            )
+            add(
+              Material3SettingsItem(
+                title = { Text("Extensions") },
+                description = { Text("Manage third-party content plugins") },
+                icon =
+                  androidx.compose.ui.res.painterResource(com.velmora.stepbyte.R.drawable.extension),
+                onClick = {
+                  onDismissRequest()
+                  onNavigate("settings/extensions")
+                },
+              ),
+            )
+            add(
+              Material3SettingsItem(
+                title = {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Velmora Wrapped")
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                      color = MaterialTheme.colorScheme.primaryContainer,
+                      shape = RoundedCornerShape(6.dp),
+                    ) {
+                      Text(
+                        text = "2026",
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style =
+                          MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                          ),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                      )
+                    }
+                  }
+                },
+                description = { Text("Your year in sound & personal music recap") },
+                icon = painterResource(R.drawable.ic_velmora_wrapped),
+                onClick = {
+                  onDismissRequest()
+                  onNavigate("wrapped")
+                },
+              ),
+            )
+          },
+      )
+
+      if (isLoggedIn) {
+        Material3SettingsGroup(
+          title = "Preferences",
+          compact = true,
+          items =
+            listOf(
+              Material3SettingsItem(
+                title = { Text("Use Account for Browsing") },
+                icon = painterResource(R.drawable.add_circle),
+                trailingContent = {
+                  Switch(
+                    checked = useLoginForBrowse,
+                    onCheckedChange = {
+                      com.velmora.stepbyte.innertube.YouTube.useLoginForBrowse = it
+                      onUseLoginForBrowseChange(it)
+                    },
+                    modifier = Modifier.scale(0.8f),
+                    colors =
+                      SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.surface,
+                        checkedTrackColor = MaterialTheme.colorScheme.onSurface,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                      ),
+                  )
+                },
+                onClick = {
+                  val newVal = !useLoginForBrowse
+                  com.velmora.stepbyte.innertube.YouTube.useLoginForBrowse = newVal
+                  onUseLoginForBrowseChange(newVal)
+                },
+              ),
+              Material3SettingsItem(
+                title = { Text("YouTube Music Sync") },
+                icon = painterResource(R.drawable.cached),
+                trailingContent = {
+                  Switch(
+                    checked = ytmSync,
+                    onCheckedChange = onYtmSyncChange,
+                    modifier = Modifier.scale(0.8f),
+                    colors =
+                      SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.surface,
+                        checkedTrackColor = MaterialTheme.colorScheme.onSurface,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                      ),
+                  )
+                },
+                onClick = { onYtmSyncChange(!ytmSync) },
+              ),
+            ),
+        )
+      }
+
+      Material3SettingsGroup(
+        title = "App",
+        compact = true,
+        items =
+          listOf(
+            Material3SettingsItem(
+              title = { Text(androidx.compose.ui.res.stringResource(R.string.settings)) },
+              description = {
+                Text(androidx.compose.ui.res.stringResource(R.string.setting_desc_settings_main))
+              },
+              icon = painterResource(R.drawable.settings),
+              onClick = {
+                onDismissRequest()
+                onNavigate("settings")
+              },
+            ),
+            Material3SettingsItem(
+              title = { Text("About") },
+              icon = painterResource(R.drawable.info),
+              trailingContent = {
+                Text(
+                  BuildConfig.VERSION_NAME,
+                  style = MaterialTheme.typography.bodyMedium,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              },
+              onClick = {
+                onDismissRequest()
+                onNavigate("settings/about")
+              },
+            ),
+          ),
+      )
+
+      // Footer Links
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+      ) {
+        Text(
+          text = "Just vibe to the music — the dev's got the rest handled.",
+          style = MaterialTheme.typography.bodySmall,
+          color = onSecondaryColor,
+          modifier = Modifier.padding(4.dp),
+          textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+      }
+    }
+  }
+}
+
+@Composable
+private fun DesktopReleaseBannerCard(
+  onClick: () -> Unit,
+  onDismiss: () -> Unit,
+) {
+  val infiniteTransition = rememberInfiniteTransition(label = "DesktopReleaseShine")
+  val shineProgress by
+    infiniteTransition.animateFloat(
+      initialValue = -0.6f,
+      targetValue = 1.6f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = 2600, easing = LinearEasing),
+          repeatMode = RepeatMode.Restart,
+        ),
+      label = "shineProgress",
+    )
+  val borderAlpha by
+    infiniteTransition.animateFloat(
+      initialValue = 0.25f,
+      targetValue = 0.65f,
+      animationSpec =
+        infiniteRepeatable(
+          animation = tween(durationMillis = 1600, easing = LinearEasing),
+          repeatMode = RepeatMode.Reverse,
+        ),
+      label = "borderAlpha",
+    )
+
+  val primary = MaterialTheme.colorScheme.primary
+  val containerBg = MaterialTheme.colorScheme.surfaceContainerHigh
+
+  Surface(
+    shape = RoundedCornerShape(20.dp),
+    color = containerBg,
+    border = BorderStroke(1.dp, primary.copy(alpha = borderAlpha)),
+    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).clickable(onClick = onClick),
+  ) {
+    Box(
+      modifier =
+        Modifier.fillMaxWidth().drawWithContent {
+          drawContent()
+          val w = size.width
+          val h = size.height
+          val startX = w * shineProgress
+          drawRect(
+            brush =
+              Brush.linearGradient(
+                colors =
+                  listOf(
+                    Color.Transparent,
+                    primary.copy(alpha = 0.14f),
+                    Color.White.copy(alpha = 0.14f),
+                    primary.copy(alpha = 0.14f),
+                    Color.Transparent,
+                  ),
+                start = Offset(startX - w * 0.35f, 0f),
+                end = Offset(startX + w * 0.35f, h),
+              ),
+          )
+        },
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Box(
+          modifier =
+            Modifier.size(40.dp)
+              .clip(CircleShape)
+              .background(MaterialTheme.colorScheme.primaryContainer),
+          contentAlignment = Alignment.Center,
+        ) {
+          Icon(
+            painter = painterResource(R.drawable.new_release),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.size(22.dp),
+          )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+              text = "Desktop Client is Out",
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.SemiBold,
+              color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.width(8.dp))
+            Surface(
+              color = MaterialTheme.colorScheme.primary,
+              shape = RoundedCornerShape(6.dp),
+            ) {
+              Text(
+                text = "NEW",
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                style =
+                  MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp,
+                  ),
+                color = MaterialTheme.colorScheme.onPrimary,
+              )
+            }
+          }
+          Spacer(Modifier.height(2.dp))
+          Text(
+            text = "Velmora for your desktop",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        Spacer(Modifier.width(4.dp))
+        IconButton(
+          onClick = onDismiss,
+          modifier = Modifier.size(32.dp),
+        ) {
+          Icon(
+            painter = painterResource(R.drawable.close),
+            contentDescription = "Dismiss",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp),
+          )
+        }
+      }
+    }
+  }
+}

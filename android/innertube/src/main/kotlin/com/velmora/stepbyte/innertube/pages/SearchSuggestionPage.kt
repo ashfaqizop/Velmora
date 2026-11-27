@@ -1,0 +1,165 @@
+package com.velmora.stepbyte.innertube.pages
+
+import com.velmora.stepbyte.metadata.cleaner.ApiText
+import com.velmora.stepbyte.innertube.models.Album
+import com.velmora.stepbyte.innertube.models.AlbumItem
+import com.velmora.stepbyte.innertube.models.Artist
+import com.velmora.stepbyte.innertube.models.ArtistItem
+import com.velmora.stepbyte.innertube.models.MusicResponsiveListItemRenderer
+import com.velmora.stepbyte.innertube.models.SongItem
+import com.velmora.stepbyte.innertube.models.YTItem
+import com.velmora.stepbyte.innertube.models.clean
+import com.velmora.stepbyte.innertube.models.oddElements
+import com.velmora.stepbyte.innertube.models.splitBySeparator
+
+object SearchSuggestionPage {
+  fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): YTItem? {
+    return when {
+      renderer.isSong -> {
+        val secondaryLine =
+          renderer.flexColumns
+            .getOrNull(1)
+            ?.musicResponsiveListItemFlexColumnRenderer
+            ?.text
+            ?.runs
+            ?.splitBySeparator()
+            ?.clean()
+        SongItem(
+          id =
+            renderer.playlistItemData?.videoId
+              ?: renderer.navigationEndpoint?.watchEndpoint?.videoId
+              ?: renderer.overlay
+                ?.musicItemThumbnailOverlayRenderer
+                ?.content
+                ?.musicPlayButtonRenderer
+                ?.playNavigationEndpoint
+                ?.watchEndpoint
+                ?.videoId
+              ?: renderer.flexColumns
+                .firstOrNull()
+                ?.musicResponsiveListItemFlexColumnRenderer
+                ?.text
+                ?.runs
+                ?.firstOrNull()
+                ?.navigationEndpoint
+                ?.watchEndpoint
+                ?.videoId
+              ?: return null,
+          title =
+            renderer.flexColumns
+              .firstOrNull()
+              ?.musicResponsiveListItemFlexColumnRenderer
+              ?.text
+              ?.runs
+              ?.firstOrNull()
+              ?.text
+              ?.let(ApiText::clean) ?: return null,
+          artists =
+            secondaryLine?.firstOrNull()?.oddElements()?.map {
+              Artist(
+                name = ApiText.clean(it.text),
+                id = it.navigationEndpoint?.browseEndpoint?.browseId,
+              )
+            } ?: return null,
+          album =
+            renderer.flexColumns
+              .getOrNull(
+                2,
+              )
+              ?.musicResponsiveListItemFlexColumnRenderer
+              ?.text
+              ?.runs
+              ?.firstOrNull()
+              ?.let {
+                Album(
+                  name = ApiText.clean(it.text),
+                  id = it.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
+                )
+              },
+          duration = null,
+          musicVideoType = renderer.musicVideoType,
+          thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+          explicit =
+            renderer.badges?.find {
+              it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+            } != null,
+        )
+      }
+      renderer.isArtist -> {
+        ArtistItem(
+          id = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
+          title =
+            renderer.flexColumns
+              .firstOrNull()
+              ?.musicResponsiveListItemFlexColumnRenderer
+              ?.text
+              ?.runs
+              ?.firstOrNull()
+              ?.text
+              ?.let(ApiText::clean) ?: return null,
+          thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+          shuffleEndpoint =
+            renderer.menu
+              ?.menuRenderer
+              ?.items
+              ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE" }
+              ?.menuNavigationItemRenderer
+              ?.navigationEndpoint
+              ?.watchPlaylistEndpoint,
+          radioEndpoint =
+            renderer.menu
+              ?.menuRenderer
+              ?.items
+              ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MIX" }
+              ?.menuNavigationItemRenderer
+              ?.navigationEndpoint
+              ?.watchPlaylistEndpoint,
+        )
+      }
+      renderer.isAlbum -> {
+        val secondaryLine =
+          renderer.flexColumns
+            .getOrNull(1)
+            ?.musicResponsiveListItemFlexColumnRenderer
+            ?.text
+            ?.runs
+            ?.splitBySeparator() ?: return null
+        AlbumItem(
+          browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId ?: return null,
+          playlistId =
+            renderer.menu
+              ?.menuRenderer
+              ?.items
+              ?.find { it.menuNavigationItemRenderer?.icon?.iconType == "MUSIC_SHUFFLE" }
+              ?.menuNavigationItemRenderer
+              ?.navigationEndpoint
+              ?.watchPlaylistEndpoint
+              ?.playlistId ?: return null,
+          title =
+            renderer.flexColumns
+              .firstOrNull()
+              ?.musicResponsiveListItemFlexColumnRenderer
+              ?.text
+              ?.runs
+              ?.firstOrNull()
+              ?.text
+              ?.let(ApiText::clean) ?: return null,
+          artists =
+            secondaryLine.getOrNull(1)?.oddElements()?.map {
+              Artist(
+                name = ApiText.clean(it.text),
+                id = it.navigationEndpoint?.browseEndpoint?.browseId,
+              )
+            } ?: return null,
+          year = secondaryLine.lastOrNull()?.firstOrNull()?.text?.toIntOrNull(),
+          thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+          explicit =
+            renderer.badges?.find {
+              it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+            } != null,
+        )
+      }
+      else -> null
+    }
+  }
+}
