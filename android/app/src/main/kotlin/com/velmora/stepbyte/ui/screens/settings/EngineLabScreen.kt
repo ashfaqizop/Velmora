@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -353,6 +354,15 @@ fun EngineLabScreen(navController: NavController) {
     }
   }
 
+  // The lab is one long list: jump to the sources card when a title is
+  // picked, and to the player when a source starts opening.
+  val listState = rememberLazyListState()
+  val results = batches.flatMap { it.items }.distinctBy { it.value.origin }.take(40)
+  val sourcesIndex = 2 + results.size
+  val playerIndex = if (selected != null) sourcesIndex + 1 + (report?.sources?.size ?: 0) else sourcesIndex
+  LaunchedEffect(selected) { if (selected != null) listState.animateScrollToItem(sourcesIndex) }
+  LaunchedEffect(opening) { if (opening != null) listState.animateScrollToItem(playerIndex) }
+
   Scaffold(
     topBar = {
       TopAppBar(
@@ -366,6 +376,7 @@ fun EngineLabScreen(navController: NavController) {
     },
   ) { inner ->
     LazyColumn(
+      state = listState,
       modifier = Modifier.fillMaxSize(),
       contentPadding =
         PaddingValues(
@@ -448,7 +459,6 @@ fun EngineLabScreen(navController: NavController) {
           }
         }
 
-        val results = batches.flatMap { it.items }.distinctBy { it.value.origin }.take(40)
         items(results, key = { "${it.value.origin.provider}:${it.value.origin.id}" }) { t ->
           TitleRow(t, chosen = selected === t, onClick = { select(t) })
         }

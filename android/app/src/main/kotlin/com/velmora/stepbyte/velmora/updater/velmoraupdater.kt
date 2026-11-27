@@ -658,7 +658,7 @@ fun isNewerVersion(latestVersion: String, currentVersion: String): Boolean {
 }
 
 /**
- * Off until Velmora's own updater lands (phase 10): Echo's compared tags like
+ * Off until Velmora's own updater lands (phase 13): Echo's compared tags like
  * "v1.4.8", and Velmora's releases ("app-v0.6.6") also hold the Windows installer.
  */
 private const val UPDATES_ENABLED = false
