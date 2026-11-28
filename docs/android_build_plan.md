@@ -152,6 +152,40 @@ ExoPlayer on engine sources, source picker, subtitles, audio tracks, quality,
 picture-in-picture, background audio, mobile data rules, continue watching,
 torrent streaming.
 
+How it is built (2026-11-28), in `velmora/player/`:
+
+- `VideoSession` owns the one ExoPlayer for the process and everything about
+  a playback: what to play (`targetFor`: the saved episode, else the first),
+  the lookup, picking a source, falling over, the saved spot and the next
+  episode. `VideoPlayerActivity` only draws it, so rotating, PiP and the
+  background service never restart the video.
+- `SourceFinder` is desktop's finder: one shared lookup per title, target and
+  sub/dub, started by the title page as soon as the detail has the ids
+  (`lookupTitle` merges them in), reused for 10 minutes. The player joins
+  the running lookup. While it runs, each site shows as a chip; "Play the
+  best so far" skips the slow ones.
+- Picking: best ranked first, skipping tried ones. On mobile data, torrents
+  ask first (or are skipped, or allowed: `PlayerPrefs.MobileData`) and
+  "Save data" puts 720p sources first. A source that never plays is
+  forgotten (`forget_sources`) and the next starts; one that drops mid-film
+  is reopened once at the same spot.
+- The player: Media3 1.8 with Jellyfin's FFmpeg audio decoder (AC3, E-AC3,
+  DTS, TrueHD on phones without them), HLS and DASH, long HTTP timeouts and a
+  bigger buffer for torrents, audio focus (music pauses), the account's audio
+  and subtitle languages as the first choice. External subtitles from the
+  source are added as side-loaded tracks.
+- Controls in Compose over a bare `PlayerView`: double-tap skip that adds up,
+  drag to seek with a preview, brightness left and volume right, two-finger
+  pinch to zoom, lock, fit/zoom/stretch, rotate. Sheets for quality,
+  subtitles and their size, audio, speed, sources, episodes and sub/dub.
+- PiP: auto-enter on Android 12+, on leaving before that, with back,
+  play/pause and forward actions. `VideoService` (a `MediaSessionService`)
+  gives lock-screen controls and, with "Keep playing in the background" on,
+  sound with the screen off.
+- Progress: saved every 15 s, on pause and on close into `VelmoraLibrary`,
+  which syncs it with desktop. The next episode shows for the last 40 s and
+  plays after an 8 s countdown when the episode ends.
+
 ## 7. Downloads
 `.vlm` downloads in `Movies/Velmora` through a decrypting data source, a
 download service with the Wi-Fi rule, the movie and music downloads pages.
