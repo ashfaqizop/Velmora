@@ -69,6 +69,11 @@ object TheatreAlerts {
     runCatching { NotificationManagerCompat.from(context).notify(key.hashCode(), n) }
   }
 
+  /** Lobby-open and starting-soon reminders for booked screenings (Settings > Velmora > Theatre). */
+  fun reminders(c: Context) = prefs(c).getBoolean("reminders", true)
+
+  fun setReminders(c: Context, on: Boolean) = prefs(c).edit().putBoolean("reminders", on).apply()
+
   fun cancel(context: Context, screeningId: String) {
     runCatching { WorkManager.getInstance(context).cancelAllWorkByTag("theatre:$screeningId") }
   }
@@ -80,6 +85,7 @@ class TheatreReminder(context: Context, params: WorkerParameters) : CoroutineWor
     val title = inputData.getString("title") ?: return Result.success()
     val body = inputData.getString("body") ?: return Result.success()
     val key = inputData.getString("key") ?: return Result.success()
+    if (!TheatreAlerts.reminders(applicationContext)) return Result.success()
     TheatreAlerts.notify(applicationContext, title, body, key, inputData.getString("sid"))
     return Result.success()
   }

@@ -1,0 +1,26 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.velmora.stepbyte",
+      "sha256_cert_fingerprints": [
+        "D7:55:CF:03:86:08:B0:5A:D2:4C:20:2E:8D:6B:6A:A6:D8:58:2B:E4:21:E7:58:92:06:0D:CD:EB:A2:AB:A6:E2"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.velmora.stepbyte.debug",
+      "sha256_cert_fingerprints": [
+        "D7:55:CF:03:86:08:B0:5A:D2:4C:20:2E:8D:6B:6A:A6:D8:58:2B:E4:21:E7:58:92:06:0D:CD:EB:A2:AB:A6:E2"
+      ]
+    }
+  }
+]

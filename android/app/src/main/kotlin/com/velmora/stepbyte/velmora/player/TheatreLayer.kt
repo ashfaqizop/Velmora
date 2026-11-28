@@ -36,6 +36,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -155,10 +157,19 @@ fun TheatreLobby(ui: PlaybackUi, show: TheatreShow, clock: Clock, onClose: () ->
     )
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.5f), 0.5f to Color.Black.copy(alpha = 0.25f), 1f to Color.Black.copy(alpha = 0.95f))))
 
+    // Short screens (a phone on its side) get a tighter type scale so the
+    // whole lobby fits under the Leave button without scrolling.
+    val short = maxHeight < 460.dp
     Row(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout)) {
-      Box(Modifier.weight(1f).fillMaxHeight()) {
-        IconButton(onClick = onClose, modifier = Modifier.padding(8.dp)) { Icon(Icons.Rounded.Close, contentDescription = "Leave", tint = Color.White) }
-        Column(Modifier.align(if (wide) Alignment.CenterStart else Alignment.Center).padding(horizontal = 32.dp), horizontalAlignment = if (wide) Alignment.Start else Alignment.CenterHorizontally) {
+      // The Leave button has its own row, so nothing below can slide under it.
+      Column(Modifier.weight(1f).fillMaxHeight().padding(bottom = if (wide) 0.dp else 260.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+          Surface(onClick = onClose, shape = CircleShape, color = Color.Black.copy(alpha = 0.35f), modifier = Modifier.size(40.dp)) {
+            Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Close, contentDescription = "Leave the lobby", tint = Color.White) }
+          }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = if (wide) Alignment.CenterStart else Alignment.Center) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 32.dp, end = 32.dp, bottom = 12.dp), horizontalAlignment = if (wide) Alignment.Start else Alignment.CenterHorizontally) {
           Surface(shape = RoundedCornerShape(50), color = if (show.started) Color(0xFFE53935) else Brand.Blue) {
             Text(
               if (show.started) "JOINING LIVE" else "LOBBY OPEN",
@@ -168,21 +179,22 @@ fun TheatreLobby(ui: PlaybackUi, show: TheatreShow, clock: Clock, onClose: () ->
               modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             )
           }
-          Spacer(Modifier.height(12.dp))
-          Text(show.name, color = Color.White, fontFamily = Brand.Serif, fontSize = if (wide) 48.sp else 40.sp, lineHeight = if (wide) 50.sp else 42.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = if (wide) TextAlign.Start else TextAlign.Center)
+          Spacer(Modifier.height(if (short) 8.dp else 12.dp))
+          Text(show.name, color = Color.White, fontFamily = Brand.Serif, fontSize = if (short) 38.sp else if (wide) 48.sp else 40.sp, lineHeight = if (short) 40.sp else if (wide) 50.sp else 42.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = if (wide) TextAlign.Start else TextAlign.Center)
           Text(
             "Starts at ${localTime(show.startsAt)}" + if (show.runtimeMin > 0) " · ${span(show.runtimeMin * 60_000L)}" else "",
             color = Color.White.copy(alpha = 0.75f),
             style = MaterialTheme.typography.bodyLarge,
           )
-          Spacer(Modifier.height(22.dp))
+          Spacer(Modifier.height(if (short) 10.dp else 22.dp))
           if (!show.started) {
-            Text(countdown(left), color = Color.White, fontSize = if (wide) 84.sp else 72.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
+            Text(countdown(left), color = Color.White, fontSize = if (short) 64.sp else if (wide) 84.sp else 72.sp, lineHeight = if (short) 68.sp else 88.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
           }
-          Spacer(Modifier.height(10.dp))
+          Spacer(Modifier.height(if (short) 8.dp else 10.dp))
           Readiness(ui, clock, onSources)
-          Spacer(Modifier.height(18.dp))
+          Spacer(Modifier.height(if (short) 12.dp else 18.dp))
           WatchersRow(watchers)
+        }
         }
       }
       if (wide) {

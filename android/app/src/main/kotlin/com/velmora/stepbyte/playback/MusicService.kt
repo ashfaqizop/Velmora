@@ -5062,6 +5062,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
       playbackStats.totalPlayTimeMs >= historyDurationMs &&
         !dataStore.get(PauseListenHistoryKey, false)
     ) {
+      com.velmora.stepbyte.velmora.privacy.UsageStats.listened(mediaItem.mediaId)
       database.query {
         incrementTotalPlayTime(mediaItem.mediaId, playbackStats.totalPlayTimeMs)
         try {

@@ -43,6 +43,13 @@
         </intent>
     </queries>
 
+    <!-- Transfer from Echo Music offers to open Echo to make the backup. -->
+    <queries>
+        <package android:name="iad1tya.echo.music" />
+        <package android:name="com.music.echo" />
+        <package android:name="com.echo.music" />
+    </queries>
+
     <queries>
         <intent>
             <action android:name="android.intent.action.OPEN_DOCUMENT_TREE" />
@@ -118,12 +125,39 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="${velmoraScheme}" android:host="auth" />
             </intent-filter>
-            <!-- Velmora Social's "Open in Velmora": velmora://theatre/<screening id> -->
+            <!-- "Open in Velmora": velmora://theatre/<id>, title/movie/603, music/<videoId>, profile/<name> -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="${velmoraScheme}" android:host="theatre" />
+                <data android:scheme="${velmoraScheme}" />
+                <data android:host="theatre" />
+                <data android:host="title" />
+                <data android:host="music" />
+                <data android:host="profile" />
+            </intent-filter>
+            <!-- App Links, verified by site/public/.well-known/assetlinks.json:
+                 the website's Open in Velmora page, and Velmora Social's pages. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="getvelmora.dpdns.org" />
+                <data android:pathPrefix="/open" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="social.getvelmora.dpdns.org" />
+                <data android:pathPattern="/@.*" />
+                <data android:pathPrefix="/title/" />
+                <data android:pathPrefix="/list/" />
+                <data android:path="/theatre" />
+                <data android:pathPrefix="/trending" />
+                <data android:path="/leaderboards" />
             </intent-filter>
 
             <intent-filter>

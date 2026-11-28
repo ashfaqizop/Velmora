@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -131,6 +132,32 @@ fun SettingsScreen(
         ),
       modifier = Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 16.dp),
     )
+
+    // Velmora's own pages, plus Transfer from Echo Music.
+    val velmoraItems = buildList {
+      com.velmora.stepbyte.velmora.settings.VELMORA_SECTIONS.forEach { s ->
+        if (s.title.lowercase().contains(searchLower) || s.description.lowercase().contains(searchLower) || "velmora".contains(searchLower)) {
+          add(
+            Material3SettingsItem(
+              icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(s.icon),
+              title = { Text(s.title) },
+              description = { Text(s.description) },
+              onClick = { navController.navigate(com.velmora.stepbyte.velmora.settings.VelmoraSettingsRoutes.section(s.id)) },
+            ),
+          )
+        }
+      }
+      if ("transfer from echo music".contains(searchLower) || "echo".contains(searchLower) || "import".contains(searchLower)) {
+        add(
+          Material3SettingsItem(
+            icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Rounded.SwapHoriz),
+            title = { Text("Transfer from Echo Music") },
+            description = { Text("Bring your library, playlists and settings over") },
+            onClick = { navController.navigate(com.velmora.stepbyte.velmora.settings.VelmoraSettingsRoutes.TRANSFER) },
+          ),
+        )
+      }
+    }
 
     val itemsList = buildList {
       if (
@@ -422,9 +449,9 @@ fun SettingsScreen(
               )
             }
 
-        itemsList + matchedSubSettings
+        velmoraItems + itemsList + matchedSubSettings
       } else {
-        itemsList
+        velmoraItems + itemsList
       }
 
     if (searchQuery.isNotEmpty() && finalItemsList.isEmpty()) {
@@ -442,31 +469,23 @@ fun SettingsScreen(
     } else {
       Spacer(modifier = Modifier.height(16.dp))
 
-      // Let's just create groups manually using itemsList which preserves order
-      val accountGroup = itemsList.take(2) // Account, AI
-      val listeningSummaryGroup = itemsList.drop(2).take(1) // Listening Summary
-      val playerGroup = itemsList.drop(3).take(4) // Appearance, Player, Music Flow, Listen Together
-      val dataGroup = itemsList.drop(7).take(4) // Content, Privacy, Storage, Backup
-      val systemGroup = itemsList.drop(11) // Update, Links, About
+      // With no search every item is there, in the order built above:
+      // 0 Account (YouTube Music and friends), 1 Velmora Connect, 2 AI lyrics,
+      // 3 Listening summary, 4 Wrapped, 5 Appearance, 6 Player, 7 Music Flow,
+      // 8 Content, 9 Privacy, 10 Storage, 11 Backup, 12 Update, then Links
+      // (Android 12+) and About.
+      val musicIdx = setOf(0, 1, 2, 3, 4, 6, 7, 8, 9)
+      val musicGroup = itemsList.filterIndexed { i, _ -> i in musicIdx }
+      val appGroup = itemsList.filterIndexed { i, _ -> i !in musicIdx }
 
-      if (accountGroup.isNotEmpty()) {
-        Material3SettingsGroup(scrollState = scrollState, items = accountGroup)
+      Material3SettingsGroup(title = "Velmora", scrollState = scrollState, items = velmoraItems)
+      Spacer(modifier = Modifier.height(16.dp))
+      if (musicGroup.isNotEmpty()) {
+        Material3SettingsGroup(title = "Music", scrollState = scrollState, items = musicGroup)
         Spacer(modifier = Modifier.height(16.dp))
       }
-      if (listeningSummaryGroup.isNotEmpty()) {
-        Material3SettingsGroup(scrollState = scrollState, items = listeningSummaryGroup)
-        Spacer(modifier = Modifier.height(16.dp))
-      }
-      if (playerGroup.isNotEmpty()) {
-        Material3SettingsGroup(scrollState = scrollState, items = playerGroup)
-        Spacer(modifier = Modifier.height(16.dp))
-      }
-      if (dataGroup.isNotEmpty()) {
-        Material3SettingsGroup(scrollState = scrollState, items = dataGroup)
-        Spacer(modifier = Modifier.height(16.dp))
-      }
-      if (systemGroup.isNotEmpty()) {
-        Material3SettingsGroup(scrollState = scrollState, items = systemGroup)
+      if (appGroup.isNotEmpty()) {
+        Material3SettingsGroup(title = "App", scrollState = scrollState, items = appGroup)
       }
     }
 

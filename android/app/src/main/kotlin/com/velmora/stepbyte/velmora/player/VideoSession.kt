@@ -656,6 +656,12 @@ object VideoSession {
             opened?.let { o -> runCatching { Universe.get(app).torrentStatus(o) }.getOrNull()?.let { t -> _ui.update { it.copy(torrent = t) } } }
           }
           s.theatre?.let { theatreTick(p, it) }
+          if (p.isPlaying && !s.live && s.phase == Phase.Playing) {
+            s.title?.let { t ->
+              val src = s.current?.value
+              com.velmora.stepbyte.velmora.privacy.WatchReports.tick(t, s.target, src?.provider, src?.tags?.resolution, p.currentPosition, p.duration)
+            }
+          }
           if (p.isPlaying && n % 15 == 0) saveSpot()
           if (s.live || s.theatre != null) continue
           // Offer the next episode in the last 40 seconds.

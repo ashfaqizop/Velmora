@@ -147,6 +147,12 @@ fun NavGraphBuilder.velmoraGraph(navController: NavController) {
     CollectionScreen(entry.arguments?.getString("id") ?: "", navController)
   }
   composable(VRoutes.MY_LIST) { MyListScreen(navController) }
+  composable(
+    com.velmora.stepbyte.velmora.social.SocialLinks.ROUTE,
+    arguments = listOf(navArgument("to") { type = NavType.StringType; defaultValue = "/" }),
+  ) { entry ->
+    com.velmora.stepbyte.velmora.social.SocialScreen(entry.arguments?.getString("to") ?: "/", navController)
+  }
   composable(VRoutes.MATCH, arguments = listOf(navArgument("m") { type = NavType.StringType })) { entry ->
     val m = remember(entry) { entry.arguments?.getString("m")?.let { runCatching { Universe.json.decodeFromString(Match.serializer(), it) }.getOrNull() } }
     if (m != null) MatchScreen(m, navController) else LaunchedEffect(Unit) { navController.navigateUp() }
@@ -208,6 +214,9 @@ fun VelmoraHomeScreen(navController: NavController) {
   val spotlight = remember(rails) { HomeFeed.spotlight() }
 
   LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()) {
+    item(key = "notices") {
+      com.velmora.stepbyte.velmora.notices.HomeNotices(onPrivacy = { navController.navigate(com.velmora.stepbyte.velmora.settings.VelmoraSettingsRoutes.section("privacy")) })
+    }
     if (stale) {
       item(key = "offline") {
         OfflineBanner("You're offline. These are the rows from last time.", onRetry = { scope.launch { HomeFeed.load(context, force = true) } })

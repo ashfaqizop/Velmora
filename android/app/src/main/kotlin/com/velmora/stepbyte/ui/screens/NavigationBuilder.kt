@@ -325,6 +325,17 @@ fun NavGraphBuilder.navigationBuilder(
   }
 
   composable(
+    route = com.velmora.stepbyte.velmora.settings.VelmoraSettingsRoutes.ROUTE,
+    arguments = listOf(androidx.navigation.navArgument("section") { type = androidx.navigation.NavType.StringType }),
+  ) { entry ->
+    com.velmora.stepbyte.velmora.settings.VelmoraSettingsScreen(entry.arguments?.getString("section") ?: "account", navController)
+  }
+
+  composable(route = com.velmora.stepbyte.velmora.settings.VelmoraSettingsRoutes.TRANSFER) {
+    com.velmora.stepbyte.velmora.settings.EchoTransferScreen(navController)
+  }
+
+  composable(
     route = "settings/velmora_connect",
   ) {
     VelmoraConnectSettingsScreen(navController, scrollBehavior)

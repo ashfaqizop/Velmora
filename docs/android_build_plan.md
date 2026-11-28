@@ -15,8 +15,8 @@ developer PC.
 | 5 | Home, Browse, title pages, search | done, tested on device (offline start fixed) |
 | 6 | Video player | built, waiting for device testing |
 | 7 | Downloads | built green, waiting for device testing |
-| 8 | Live TV, Sports, Theatre | building |
-| 9 | Social and the rest | |
+| 8 | Live TV, Sports, Theatre | built green, waiting for device testing |
+| 9 | Social and the rest | building |
 | 10 | UI/UX I: look and motion | |
 | 11 | UI/UX II: every screen size | |
 | 12 | UI/UX III: polish with testers | |
@@ -279,6 +279,47 @@ How it is built (2026-11-28):
 Social in a WebView, App Links (verification file on the site), deep links,
 announcements, anonymous stats and privacy settings, Velmora Find / Connect /
 Wrapped renames, Transfer from Echo Music (old and new backups), settings pass.
+
+How it is built (2026-11-28):
+
+- Velmora Social (`velmora/social/SocialScreen.kt`): the website in a WebView
+  with a native dark bar (back through the page's history, reload, share, open
+  in browser), a loading screen instead of a white flash, an offline screen,
+  and file picking for profile pictures. Signing in: the app never shares its
+  refresh token (Supabase rotates them, two holders sign each other out).
+  `SocialSession` asks `/api/auth/handoff` with `mint: true` for a second
+  session of the same account (made on the server from a one-time sign-in
+  link that's never emailed), and the page redeems the code with the PKCE
+  secret from the address fragment (`site/src/lib/session.ts`). The page then
+  keeps its own session; if it ever asks to sign in again the app hands over
+  again. Signing out of the app clears the WebView's storage.
+- Links (`VelmoraLinks`): `velmora://title|music|profile|theatre/...`,
+  `getvelmora.dpdns.org/open/?to=...` and Social pages (`/@name`, `/title/`,
+  `/list/`, `/theatre`, `/trending`, `/leaderboards`). The https ones are
+  verified App Links (`site/public/.well-known/assetlinks.json`, release and
+  debug packages, one signing key). Titles open the title page, songs play in
+  Music mode, profiles and Social pages open the Social screen, screenings
+  open Theatre. The website's sign-in now always returns to `/social/`, so a
+  return address never looks like a profile link to Android.
+- Announcements (`velmora/notices/`): the same Supabase rows as desktop,
+  every 10 minutes, kept for offline, maintenance first and not dismissable,
+  shown as a card at the top of Home.
+- Privacy (`velmora/privacy/`): `UsageStats` counts like desktop (titles,
+  sites, player `exo`, quality, songs, hours) and sends finished days to
+  `/api/stats/report`; a one-time card on Home says so. `ActivityPoster`
+  posts watching / finished / added to My List to Social (`post_activity`),
+  queued offline, never 18+, only with the account's sharing on.
+  `WatchReports` turns the player's tick into "a minute in" and "95%".
+- Settings: a Velmora group at the top of Settings (Account and Social,
+  Watching, Downloads, Theatre, Privacy, Transfer from Echo Music), then Music
+  and App. Velmora's pages are in `velmora/settings/`.
+- Transfer from Echo Music (`EchoTransfer`): reads Echo's backup zip (or a
+  bare `song.db`), shows what's in it (songs, liked, playlists, albums,
+  artists, plays), refuses a newer database, then copies the database and
+  merges the settings file entry by entry (Echo's music settings in,
+  Velmora's own keys kept, Echo package paths moved), and restarts.
+- Renames: song recognition is Velmora Find. The Theatre lobby's Leave button
+  has its own row (it sat on the "Lobby open" badge in landscape).
 
 ## 10. UI/UX I: look and motion
 Phases 3 to 9 make every screen work; these three make them feel like

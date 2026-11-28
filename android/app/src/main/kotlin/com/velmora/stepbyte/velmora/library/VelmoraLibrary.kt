@@ -139,6 +139,7 @@ object VelmoraLibrary {
         listMeta = store.listMeta + (k to Meta(at = now, del = !adding, dirty = true)),
       )
     commit()
+    if (adding) com.velmora.stepbyte.velmora.social.ActivityPoster.listed(t)
     return adding
   }
 

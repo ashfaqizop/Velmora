@@ -367,6 +367,9 @@ object VelmoraAccount {
   }
 
   private fun clearLocal() {
+    // Social on this phone signs out with the app, and unsent posts are dropped.
+    com.velmora.stepbyte.velmora.social.SocialSession.forget(app)
+    com.velmora.stepbyte.velmora.social.ActivityPoster.clear()
     vault.clear()
     access = null
     accessUntil = 0

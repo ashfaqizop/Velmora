@@ -421,6 +421,9 @@ class MainActivity : ComponentActivity() {
     com.velmora.stepbyte.velmora.library.VelmoraLibrary.init(this)
     com.velmora.stepbyte.velmora.downloads.VelmoraDownloads.init(this)
     com.velmora.stepbyte.velmora.theatre.Theatre.start(this)
+    com.velmora.stepbyte.velmora.notices.Notices.init(this)
+    com.velmora.stepbyte.velmora.privacy.UsageStats.init(this)
+    com.velmora.stepbyte.velmora.social.ActivityPoster.init(this)
 
     try {
       startService(Intent(this, com.velmora.stepbyte.playback.MusicService::class.java))
@@ -903,7 +906,8 @@ class MainActivity : ComponentActivity() {
               currentRoute!!.startsWith("bottom_playlist/") ||
               currentRoute!!.startsWith("artist/") ||
               // Velmora title pages, rows and My List keep the bar, like Echo's album pages.
-              currentRoute!!.startsWith("v/")
+              // Social is a full page of its own.
+              (currentRoute!!.startsWith("v/") && !currentRoute!!.startsWith("v/social"))
           }
 
         // Unified floating pill navigation toolbar across both portrait and landscape views
@@ -1148,6 +1152,38 @@ class MainActivity : ComponentActivity() {
             kotlinx.coroutines.delay(250)
             navController.navigate(Screens.VelmoraTheatre.route) { launchSingleTop = true }
             req.substringAfter("theatre:", "").takeIf { it.isNotEmpty() }?.let { com.velmora.stepbyte.velmora.theatre.TheatreFocus.requested.value = it }
+          }
+        }
+        // Links into the app: velmora://, the website's Open in Velmora, Social addresses.
+        val linkRequest by com.velmora.stepbyte.velmora.social.VelmoraLinks.requests.collectAsState()
+        LaunchedEffect(linkRequest) {
+          val req = linkRequest ?: return@LaunchedEffect
+          com.velmora.stepbyte.velmora.social.VelmoraLinks.requests.value = null
+          when (req) {
+            is com.velmora.stepbyte.velmora.social.VelmoraLinks.Target.Song -> {
+              switchModeNow(AppMode.MUSIC)
+              kotlinx.coroutines.delay(250)
+              handleDeepLinkIntent(Intent(Intent.ACTION_VIEW, "https://music.youtube.com/watch?v=${req.videoId}".toUri()), navController)
+            }
+            is com.velmora.stepbyte.velmora.social.VelmoraLinks.Target.Screening ->
+              com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.value = "theatre:" + req.id
+            is com.velmora.stepbyte.velmora.social.VelmoraLinks.Target.Social -> {
+              switchModeNow(AppMode.VELMORA)
+              kotlinx.coroutines.delay(250)
+              navController.navigate(com.velmora.stepbyte.velmora.social.SocialLinks.route(req.path))
+            }
+            is com.velmora.stepbyte.velmora.social.VelmoraLinks.Target.Title -> {
+              switchModeNow(AppMode.VELMORA)
+              val title =
+                withContext(Dispatchers.IO) {
+                  runCatching { com.velmora.stepbyte.engine.Universe.get(this@MainActivity).tmdbTitles(listOf(req.key)).firstOrNull() }.getOrNull()
+                }
+              if (title != null) {
+                navController.navigate(com.velmora.stepbyte.velmora.screens.VRoutes.title(title))
+              } else {
+                android.widget.Toast.makeText(this@MainActivity, "Couldn't open that title. Check your connection.", android.widget.Toast.LENGTH_SHORT).show()
+              }
+            }
           }
         }
         val switchWithReveal: (AppMode, androidx.compose.ui.geometry.Offset) -> Unit = { to, center ->
@@ -2003,6 +2039,11 @@ class MainActivity : ComponentActivity() {
 
   private fun handleDeepLinkIntent(intent: Intent, navController: NavHostController) {
     if (VelmoraAccount.handleLink(intent.data)) return
+    com.velmora.stepbyte.velmora.social.VelmoraLinks.parse(intent.data)?.let {
+      intent.data = null
+      com.velmora.stepbyte.velmora.social.VelmoraLinks.requests.value = it
+      return
+    }
     intent.data?.takeIf { it.scheme == com.velmora.stepbyte.BuildConfig.VELMORA_SCHEME && it.host == "theatre" }?.let { link ->
       com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.value = "theatre:" + (link.pathSegments.firstOrNull() ?: "")
       return

@@ -82,7 +82,7 @@ fun VelmoraQuickPanel(
                   customIcon = { AccountAvatar(p, size = 36.dp) },
                   onClick = {
                     onDismissRequest()
-                    uriHandler.openUri("https://social.getvelmora.dpdns.org/@" + p.username)
+                    onNavigate(com.velmora.stepbyte.velmora.settings.VelmoraSettingsRoutes.section("account"))
                   },
                 ),
               )
@@ -117,7 +117,7 @@ fun VelmoraQuickPanel(
                 icon = painterResource(R.drawable.person),
                 onClick = {
                   onDismissRequest()
-                  uriHandler.openUri("https://social.getvelmora.dpdns.org")
+                  onNavigate(com.velmora.stepbyte.velmora.social.SocialLinks.route(signedIn?.let { "/@" + it.profile.username } ?: "/"))
                 },
               ),
             )
@@ -152,7 +152,7 @@ fun VelmoraQuickPanel(
             ),
             Material3SettingsItem(
               title = { Text("Settings") },
-              description = { Text("Appearance, player, storage and more") },
+              description = { Text("Watching, downloads, privacy, Music and more") },
               icon = painterResource(R.drawable.settings),
               onClick = {
                 onDismissRequest()

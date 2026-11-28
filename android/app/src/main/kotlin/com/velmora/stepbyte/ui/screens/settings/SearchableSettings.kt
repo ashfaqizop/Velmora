@@ -1940,14 +1940,10 @@ fun getAllSearchableSettings(): List<SearchableSetting> {
     SearchableSetting(stringResource(R.string.not_logged_in), null, "LastFM", "settings/lastfm"),
 
 
-    // About Screen - Social & Support Links
+    // About: Velmora's own links and the credit to Echo Music.
     SearchableSetting("Website", "Visit the Velmora website", "About", "settings/about"),
-    SearchableSetting("Instagram", "Follow Velmora on Instagram", "About", "settings/about"),
-    SearchableSetting("X (Twitter)", "Follow Velmora on X", "About", "settings/about"),
-    SearchableSetting("Buy Me a Coffee", "Support the developer", "About", "settings/about"),
-    SearchableSetting("Patreon", "Support the developer on Patreon", "About", "settings/about"),
-    SearchableSetting("UPI", "Support the developer via UPI", "About", "settings/about"),
-    SearchableSetting("Discord", "Join the Velmora community", "About", "settings/about"),
+    SearchableSetting("Source code", "Velmora on GitHub", "About", "settings/about"),
+    SearchableSetting("Echo Music", "The music app Velmora's Music is built on", "About", "settings/about"),
   ) +
     listOf(
         SearchableSetting(

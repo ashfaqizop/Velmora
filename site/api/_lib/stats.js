@@ -5,7 +5,7 @@
 // Redis keys, all sorted sets that expire after 40 days:
 //   an:<day>:title   member "movie/603" or "tv/1396" (TMDB) -> people who watched it
 //   an:<day>:src     member provider id                      -> plays
-//   an:<day>:eng     member "mpv" | "builtin"                -> plays
+//   an:<day>:eng     member "mpv" | "builtin" | "exo" (Android) -> plays
 //   an:<day>:q       member resolution                       -> plays
 //   an:<day>:ver     member app version                      -> people
 //   an:<day>:inst    member "all"                            -> people (reporting that day)
@@ -26,7 +26,7 @@ export const GROUPS = ["title", "src", "eng", "q", "ver", "inst", "mus", "hr"];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const TITLE = /^(movie|tv)\/\d{1,9}$/;
 const WORD = /^[a-z0-9_]{2,24}$/;
-const ENGINES = new Set(["mpv", "builtin"]);
+const ENGINES = new Set(["mpv", "builtin", "exo"]);
 const QUALITY = new Set(["480", "720", "1080", "1440", "2160", "other"]);
 const VERSION = /^\d{1,2}\.\d{1,3}\.\d{1,3}$/;
 const VIDEO = /^[A-Za-z0-9_-]{11}$/;
@@ -60,7 +60,7 @@ export function cleanReport(body) {
   if (typeof body.app !== "string" || !VERSION.test(body.app)) return null;
   const titles = pairs(body.titles, (k) => TITLE.test(k), 60).map(([k]) => [k, 1]);
   const src = pairs(body.sources, (k) => WORD.test(k));
-  const eng = pairs(body.engines, (k) => ENGINES.has(k), 2);
+  const eng = pairs(body.engines, (k) => ENGINES.has(k), 3);
   const q = pairs(body.quality, (k) => QUALITY.has(k), 6);
   const music = pairs(body.music, (k) => VIDEO.test(k), 80).map(([k]) => [k, 1]);
   const hours = pairs(body.hours, (k) => HOUR.test(k), 24);

@@ -118,7 +118,7 @@ export const PHASES: Phase[] = [
     n: 8,
     title: "Live TV, Sports, Theatre",
     icon: "theaters",
-    status: "building",
+    status: "testing",
     summary:
       "Live channels with favourites and a stream that switches by itself when one drops, match pages with where to watch in your country, and Theatre: the lineup, booking and reminders, the lobby with its countdown, the synced show, live chat that's never saved, and reactions.",
     result: "Watching together.",
@@ -128,11 +128,11 @@ export const PHASES: Phase[] = [
     n: 9,
     title: "Social and the rest",
     icon: "forum",
-    status: "planned",
+    status: "building",
     summary:
-      "Velmora Social, links that open in the app, announcements, privacy settings, and Transfer from Echo Music for people moving over.",
+      "Velmora Social inside the app, already signed in. Links to titles, songs, profiles and screenings open straight in the app. Announcements from the team, anonymous usage counts you can see and switch off, what you watch shared on your profile only if you want, Transfer from Echo Music, and Velmora's own settings in one place.",
     result: "Everything desktop has.",
-    pieces: ["Velmora Social", "App links", "Transfer from Echo Music"],
+    pieces: ["Velmora Social", "App links", "Announcements", "Privacy", "Transfer from Echo Music", "Settings"],
   },
   {
     n: 10,
