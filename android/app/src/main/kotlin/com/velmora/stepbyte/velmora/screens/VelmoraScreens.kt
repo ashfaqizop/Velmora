@@ -245,7 +245,7 @@ fun VelmoraHomeScreen(navController: NavController) {
       item(key = "continue") {
         SectionHeader("Continue watching", icon = Icons.Rounded.History)
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-          items(continuing, key = { titleKey(it.title) }) { p -> ContinueCard(p, onClick = { navController.openTitle(p.title) }) }
+          items(continuing, key = { titleKey(it.title) }) { p -> ContinueCard(p, onClick = { com.velmora.stepbyte.velmora.player.VideoSession.play(context, p.title) }) }
         }
       }
     }
@@ -355,7 +355,7 @@ private fun HeroCarousel(items: List<Title>, onOpen: (Title) -> Unit) {
           }
         }
         FilledIconButton(
-          onClick = { playerSoon(context) },
+          onClick = { com.velmora.stepbyte.velmora.player.VideoSession.play(context, t) },
           colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.White, contentColor = Color.Black),
           modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp).size(52.dp),
         ) {

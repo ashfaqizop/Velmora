@@ -12,6 +12,17 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
+    <!-- The video player: black, no title, edge to edge. -->
+    <style name="Theme.velmora.Player" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#000000</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:ignore="NewApi">shortEdges</item>
+    </style>
+
     <!-- Launch splash: the fox on Velmora's night background, the same from
          Android 8 (AndroidX SplashScreen backport) to 16, then the app theme. -->
     <style name="Theme.velmora.Starting" parent="Theme.SplashScreen">

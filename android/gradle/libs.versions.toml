@@ -9,7 +9,7 @@ lifecycle = "2.10.0"
 material3 = "1.5.0-alpha18"
 adaptive = "1.4.0-alpha03"
 appcompat = "1.8.0"
-media3 = "1.7.1"
+media3 = "1.8.0"
 mediarouter = "1.8.1"
 castFramework = "22.3.1"
 room = "2.8.5"
@@ -99,6 +99,9 @@ media3-okhttp = { module = "androidx.media3:media3-datasource-okhttp", version.r
 media3-cronet = { module = "androidx.media3:media3-datasource-cronet", version.ref = "media3" }
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 media3-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
+media3-dash = { module = "androidx.media3:media3-exoplayer-dash", version.ref = "media3" }
+# FFmpeg audio decoders (AC3, E-AC3, DTS, TrueHD) for phones without them; matches media3.
+media3-ffmpeg = { module = "org.jellyfin.media3:media3-ffmpeg-decoder", version = "1.8.0+1" }
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 
 mediarouter = { module = "androidx.mediarouter:mediarouter", version.ref = "mediarouter" }

@@ -106,6 +106,14 @@ class Rail(val id: String, val title: String, val items: List<Title>)
 data class ReleaseTags(
   /** Vertical resolution: 360, 480, 720, 1080, 2160. */
   val resolution: Int? = null,
+  /** h264, h265, av1 or vp9. */
+  val codec: String? = null,
+  @SerialName("bit_depth") val bitDepth: Int? = null,
+  /** sdr, hdr10, hdr_plus or dolby_vision. */
+  val hdr: String? = null,
+  /** cam, web, bluray... */
+  val source: String? = null,
+  @SerialName("size_bytes") val sizeBytes: Long? = null,
   val audio: List<String> = emptyList(),
   val languages: List<String> = emptyList(),
   @SerialName("multi_audio") val multiAudio: Boolean = false,

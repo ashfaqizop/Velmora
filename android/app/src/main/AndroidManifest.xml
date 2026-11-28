@@ -91,6 +91,19 @@
             android:excludeFromRecents="true"
             android:process=":crash" />
 
+        <!-- Velmora's video player: its own task, so picture-in-picture
+             floats just the video while the app stays usable. -->
+        <activity
+            android:name=".velmora.player.VideoPlayerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.velmora.Player"
+            android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.video"
+            android:autoRemoveFromRecents="true"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -269,6 +282,16 @@
             android:name="com.yalantis.ucrop.UCropActivity"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+
+        <!-- The video's media session: lock screen controls and background play. -->
+        <service
+            android:name=".velmora.player.VideoService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".playback.MusicService"

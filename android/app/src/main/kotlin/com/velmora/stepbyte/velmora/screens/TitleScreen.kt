@@ -108,6 +108,10 @@ import com.velmora.stepbyte.engine.Universe
 import com.velmora.stepbyte.ui.component.shimmer.ShimmerHost
 import com.velmora.stepbyte.ui.component.shimmer.TextPlaceholder
 import com.velmora.stepbyte.velmora.library.VelmoraLibrary
+import com.velmora.stepbyte.velmora.player.FoundSite
+import com.velmora.stepbyte.velmora.player.PlayerPrefs
+import com.velmora.stepbyte.velmora.player.SourceFinder
+import com.velmora.stepbyte.velmora.player.VideoSession
 import com.velmora.stepbyte.velmora.shell.Brand
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -115,7 +119,7 @@ import kotlinx.coroutines.launch
 private const val HERO_HEIGHT = 440
 
 /** Title pages already opened this run, so going back and forth is instant. */
-private object DetailCache {
+object DetailCache {
   private val map = object : LinkedHashMap<String, TitleDetail>(32, 0.75f, true) {
     override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TitleDetail>?) = size > 40
   }
@@ -175,6 +179,7 @@ fun TitleScreen(title: Title, navController: NavController) {
         )
       }
       item(key = "actions") { Actions(shown, detail, onTrailer = info?.trailer) }
+      item(key = "sources") { SourcesAhead(title, detail) }
 
       info?.extra?.tagline?.takeIf { it.isNotBlank() }?.let { tagline ->
         item(key = "tagline") {
@@ -401,7 +406,7 @@ private fun Actions(title: Title, detail: TitleDetail?, onTrailer: String?) {
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Button(
-      onClick = { playerSoon(context) },
+      onClick = { VideoSession.play(context, title) },
       modifier = Modifier.weight(1f).height(56.dp),
       shape = RoundedCornerShape(18.dp),
       colors = ButtonDefaults.buttonColors(containerColor = Brand.Blue, contentColor = Color.White),
@@ -443,6 +448,62 @@ private fun Actions(title: Title, detail: TitleDetail?, onTrailer: String?) {
       OutlinedIconButton(onClick = { uriHandler.openUri(onTrailer) }, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(18.dp)) {
         Icon(Icons.Rounded.SmartDisplay, contentDescription = "Trailer")
       }
+    }
+  }
+}
+
+// ── Sources, found ahead ───────────────────────────────────────────────
+
+/**
+ * Sources for what Play would play are looked up as soon as the page has the
+ * title's ids, like desktop, so Play starts at once. One line says how it's
+ * going; tapping it plays.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SourcesAhead(title: Title, detail: TitleDetail?) {
+  val context = LocalContext.current
+  if (detail == null) return
+  val target = remember(detail) { VideoSession.targetFor(title, detail.info.seasons) }
+  val dub = title.value.kind == "anime" && PlayerPrefs.dub(context)
+  val finding = remember(target, detail) { SourceFinder.find(context, SourceFinder.lookupTitle(title, detail), target, dub) }
+  val sites by finding.sites.collectAsState()
+  val sources by finding.sources.collectAsState()
+  val report by finding.report.collectAsState()
+  val best = sources.mapNotNull { it.value.tags.resolution }.maxOrNull()
+  val what = (target as? com.velmora.stepbyte.engine.Target.Episode)?.let { "S${it.season} E${it.episode}" }
+  Surface(
+    onClick = { VideoSession.play(context, title) },
+    shape = RoundedCornerShape(16.dp),
+    color = MaterialTheme.colorScheme.surfaceContainer,
+    modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 6.dp).fillMaxWidth(),
+  ) {
+    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+      Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+        if (report == null) {
+          LoadingIndicator(modifier = Modifier.size(24.dp))
+        } else {
+          Icon(
+            if (sources.isEmpty()) Icons.Rounded.WifiOff else Icons.Rounded.PlayArrow,
+            contentDescription = null,
+            tint = if (sources.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+          )
+        }
+      }
+      Spacer(Modifier.width(12.dp))
+      val answered = sites.count { it.state != FoundSite.State.Looking }
+      Text(
+        when {
+          report == null && sites.isEmpty() -> "Finding sources…"
+          report == null -> "Finding sources · $answered of ${sites.size} sites · ${sources.size} found"
+          sources.isEmpty() -> "No source has ${what ?: "this"} yet"
+          else -> listOfNotNull("${sources.size} sources ready", best?.let { if (it >= 2160) "up to 4K" else "up to ${it}p" }, what).joinToString(" · ")
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+      )
     }
   }
 }
@@ -518,7 +579,7 @@ private fun Episodes(title: Title, seasons: List<com.velmora.stepbyte.engine.Sea
         }
         s.episodes.forEach { ep ->
           val watching = last?.takeIf { it.season == ep.season && it.episode == ep.number }
-          EpisodeRow(ep, title.value.backdrop, watching?.fraction, onClick = { playerSoon(context) })
+          EpisodeRow(ep, title.value.backdrop, watching?.fraction, onClick = { VideoSession.play(context, title, com.velmora.stepbyte.engine.Target.Episode(ep.season, ep.number)) })
         }
       }
     }
