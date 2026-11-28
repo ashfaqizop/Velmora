@@ -2,6 +2,7 @@
   import { screen } from "../lib/media.svelte";
   import { latest } from "../lib/latest.svelte";
   import { megabytes, RELEASES_URL } from "../lib/release";
+  import WindowsIcon from "./WindowsIcon.svelte";
 
   // The main call to action. Points straight at the newest installer; if
   // GitHub can't be reached it falls back to the releases page.
@@ -13,7 +14,7 @@
 
 <div class="dl">
   <m3e-button variant="filled" size={screen.phone ? "medium" : size} shape="rounded" {href} class="cta">
-    <m3e-icon slot="icon" name="download" filled></m3e-icon>
+    <span slot="icon" class="wi"><WindowsIcon size={18} /></span>
     Download for Windows
   </m3e-button>
   {#if details}
@@ -58,6 +59,9 @@
   }
   .cta:hover {
     transform: translateY(-2px);
+  }
+  .wi {
+    display: inline-flex;
   }
   .meta {
     max-width: 100%;

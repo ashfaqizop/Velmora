@@ -1,5 +1,6 @@
 <script lang="ts">
   import Logo from "./Logo.svelte";
+  import WindowsIcon from "./WindowsIcon.svelte";
   import { REPO_URL, RELEASES_URL } from "../lib/release";
 
   // Four short columns instead of one long list.
@@ -66,7 +67,7 @@
         <Logo size={30} />
         <p>Every source, one search. Free for Windows and Android, powered by the open-source <a href="/universeapi/">UniverseAPI engine</a>.</p>
         <div class="get">
-          <a href="/download/?for=windows"><m3e-icon name="desktop_windows"></m3e-icon>Windows</a>
+          <a href="/download/?for=windows" class="win"><WindowsIcon size={15} />Windows</a>
           <a href="/android/" class="droid"><m3e-icon name="android"></m3e-icon>Android</a>
         </div>
       </div>
@@ -143,6 +144,9 @@
   .get a:hover {
     border-color: rgb(50 113 254 / 60%);
     background: rgb(50 113 254 / 10%);
+  }
+  .get a.win :global(svg) {
+    color: #8fb4ff;
   }
   .get a.droid m3e-icon {
     color: #3ddc84;

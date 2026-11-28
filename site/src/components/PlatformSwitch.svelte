@@ -1,5 +1,6 @@
 <script lang="ts">
   import { PLATFORMS, rememberPlatform, type Platform } from "../lib/platform";
+  import WindowsIcon from "./WindowsIcon.svelte";
 
   // A pill switch between Windows and Android, the thumb springing across.
   // The side for the device you're on is marked.
@@ -17,7 +18,7 @@
   <span class="thumb {value}" aria-hidden="true"></span>
   {#each LIST as p (p)}
     <button role="tab" aria-selected={value === p} class:on={value === p} onclick={() => pick(p)}>
-      <m3e-icon name={PLATFORMS[p].icon}></m3e-icon>
+      {#if p === "windows"}<WindowsIcon size={18} />{:else}<m3e-icon name={PLATFORMS[p].icon}></m3e-icon>{/if}
       {PLATFORMS[p].name}
       {#if detected === p}<span class="you">Your device</span>{/if}
     </button>

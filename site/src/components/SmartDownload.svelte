@@ -1,6 +1,7 @@
 <script lang="ts">
   import AndroidDownloadButton from "./AndroidDownloadButton.svelte";
   import DownloadButton from "./DownloadButton.svelte";
+  import WindowsIcon from "./WindowsIcon.svelte";
 
   // One download, for the device you're on: Android phones get the APK,
   // everything else the Windows installer. The other one is a line below.
@@ -11,7 +12,7 @@
   {#if android}
     <AndroidDownloadButton />
     <p class="also">
-      <m3e-icon name="desktop_windows"></m3e-icon>
+      <span class="mark"><WindowsIcon size={17} /></span>
       <span>Also on Windows. Open <b>getvelmora.dpdns.org</b> on your PC to get it.</span>
     </p>
   {:else}
@@ -48,6 +49,11 @@
   .also m3e-icon {
     flex: none;
     color: #8ff0b8;
+  }
+  .mark {
+    display: inline-flex;
+    flex: none;
+    color: #8fb4ff;
   }
   .also b {
     color: var(--ink);
