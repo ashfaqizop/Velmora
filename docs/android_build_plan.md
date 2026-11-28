@@ -17,8 +17,8 @@ developer PC.
 | 7 | Downloads | built green, waiting for device testing |
 | 8 | Live TV, Sports, Theatre | built green, waiting for device testing |
 | 9 | Social and the rest | building |
-| 10 | UI/UX I: look and motion | |
-| 11 | UI/UX II: every screen size | |
+| 10 | UI/UX I: look and layout | |
+| 11 | UI/UX II: transitions and motion | |
 | 12 | UI/UX III: polish with testers | |
 | 13 | Updates and release | |
 
@@ -321,28 +321,39 @@ How it is built (2026-11-28):
 - Renames: song recognition is Velmora Find. The Theatre lobby's Leave button
   has its own row (it sat on the "Lobby open" badge in landscape).
 
-## 10. UI/UX I: look and motion
-Phases 3 to 9 make every screen work; these three make them feel like
-Velmora. This one is the design language: Material 3 Expressive shapes and
-motion throughout, shared-element transitions (poster to title page, mini
-player to full player), the Velmora/Music switch animation finished, Liquid
-Glass tuned so both looks are equally good, Velmora's fonts and type scale,
-per-title color taken from the poster, haptics, and loading, empty and error
-states with skeletons instead of spinners.
+Remapped on 2026-11-28: phones and tablets only for now (no foldable work),
+and the old "every screen size" phase became a whole phase for transitions
+and animation.
 
-## 11. UI/UX II: every screen size
-Phone, tablet and foldable layouts designed on purpose rather than
-stretched: list-detail panes, a two-column title page, a landscape player
-with its own controls, the side rail on tablets. Edge to edge with gesture
-navigation, Android 8 to 11 looking as finished as 16, keyboard and mouse on
-tablets, and accessibility: TalkBack labels, large font scales, contrast and
-touch targets.
+## 10. UI/UX I: look and layout
+Phases 3 to 9 make every screen work; these three make them feel like
+Velmora. This one is the design language: Material 3 Expressive shapes
+throughout, Liquid Glass tuned so both looks are equally good, Velmora's
+fonts and type scale, per-title color taken from the poster, haptics, and
+loading, empty and error states with skeletons instead of spinners. Plus
+phone and tablet layouts made on purpose rather than stretched: the side
+rail and list-detail panes on tablets, a two-column title page, a landscape
+player with its own controls, edge to edge with gesture navigation, and
+Android 8 to 11 looking as finished as 16.
+
+## 11. UI/UX II: transitions and motion
+Seamless from screen to screen, nothing that jumps or pops:
+shared-element transitions (poster to title page, Continue watching card
+to the player, mini player to full player, avatar to its panel), predictive
+back that previews where it goes, the Velmora/Music switch animation
+finished (posters into album covers, the film strip into a sound wave, the
+circular reveal), sheets and dialogs growing from what opened them, lists
+and rows arriving in a staggered ripple, scroll-linked hero and parallax,
+skeletons morphing into content, spring motion on every press, toggle and
+drag, player controls and the Theatre lobby lifting into the film. Reduced
+motion gets crossfades; every animation checked for dropped frames.
 
 ## 12. UI/UX III: polish with testers
-Every screen walked through on the three test devices and fixed:
+Every screen walked through on the test devices and fixed:
 micro-interactions, the details nobody lists, jank and startup time
-(baseline profiles), a copy pass in plain language, the onboarding refined
-from what testers stumble on, and the screenshots for the website.
+(baseline profiles), accessibility (TalkBack labels, large font scales,
+contrast, touch targets), a copy pass in plain language, the onboarding
+refined from what testers stumble on, and the screenshots for the website.
 
 ## 13. Updates and release
 In-app updater (background download, install prompt), one `app-v` tag builds

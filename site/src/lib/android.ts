@@ -136,23 +136,23 @@ export const PHASES: Phase[] = [
   },
   {
     n: 10,
-    title: "UI/UX I: look and motion",
+    title: "UI/UX I: look and layout",
     icon: "palette",
     status: "planned",
     summary:
-      "The design language. Expressive shapes and motion everywhere, a poster that grows into its title page, the mode switch finished, colors taken from each poster, haptics, and skeletons where there used to be spinners.",
+      "The design language: Expressive shapes, Velmora's fonts, both looks equally good, colors taken from each poster, haptics, and skeletons where there used to be spinners. Phone and tablet layouts made on purpose, with a side rail and a two-column title page on tablets and a landscape player with its own controls.",
     result: "It feels like Velmora, not a port.",
-    pieces: ["Expressive motion", "Shared transitions", "Poster colors", "Skeleton loading"],
+    pieces: ["Expressive shapes", "Poster colors", "Skeleton loading", "Tablet layouts", "Landscape player"],
   },
   {
     n: 11,
-    title: "UI/UX II: every screen size",
-    icon: "devices_fold",
+    title: "UI/UX II: transitions and motion",
+    icon: "animation",
     status: "planned",
     summary:
-      "Phone, tablet and foldable layouts designed on purpose rather than stretched, a landscape player with its own controls, Android 8 to 11 looking as finished as 16, and accessibility: TalkBack, large text, contrast.",
-    result: "Right at every size.",
-    pieces: ["Tablet layouts", "Foldables", "Landscape player", "Accessibility"],
+      "Nothing jumps. A poster grows into its title page, a card opens into the player, the mini player into the full one, back gestures preview where they go, the mode switch morphs one world into the other, lists arrive in a ripple, and every press and sheet moves on springs. Reduced motion respected.",
+    result: "One continuous app.",
+    pieces: ["Shared elements", "Predictive back", "Mode switch", "Springs everywhere", "Player motion"],
   },
   {
     n: 12,
@@ -160,7 +160,7 @@ export const PHASES: Phase[] = [
     icon: "auto_awesome",
     status: "planned",
     summary:
-      "Every screen walked through on the test devices and fixed: the small interactions, startup time and smooth scrolling, the wording, and the first run, refined from where testers get stuck.",
+      "Every screen walked through on the test devices and fixed: the small interactions, startup time and smooth scrolling, accessibility, the wording, and the first run, refined from where testers get stuck.",
     result: "The details done.",
     pieces: ["Device walkthroughs", "Startup and smoothness", "Wording pass"],
   },
