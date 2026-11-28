@@ -98,7 +98,7 @@ export const PHASES: Phase[] = [
     n: 6,
     title: "Video player",
     icon: "play_circle",
-    status: "building",
+    status: "testing",
     summary:
       "ExoPlayer on the engine's sources, with a source picker, subtitles, audio tracks, quality, picture-in-picture, continue watching and torrent streaming. Cinema audio (AC3, E-AC3, DTS) plays on every phone through a built-in decoder, and your spot syncs with desktop.",
     result: "Pressing play.",
@@ -108,11 +108,11 @@ export const PHASES: Phase[] = [
     n: 7,
     title: "Downloads",
     icon: "download",
-    status: "planned",
+    status: "building",
     summary:
-      "Downloads saved encrypted, so only Velmora plays them, with a Wi-Fi only rule and pages for downloaded movies and downloaded music.",
+      "Downloads saved encrypted, so only Velmora plays them, with a Wi-Fi only rule and pages for downloaded movies and downloaded music. They keep going in the background with a progress notification, pause and resume, and play offline from the title page and Continue watching.",
     result: "Watching offline.",
-    pieces: ["Encrypted .vlm files", "Background downloads", "Wi-Fi rule"],
+    pieces: ["Encrypted .vlm files", "Background downloads", "Wi-Fi rule", "Whole seasons", "Offline play"],
   },
   {
     n: 8,

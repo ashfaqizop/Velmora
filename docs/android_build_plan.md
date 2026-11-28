@@ -13,8 +13,8 @@ developer PC.
 | 3 | Shell and navigation | done, tested on device |
 | 4 | Accounts and onboarding | done, tested on device (offline start moved to phase 5) |
 | 5 | Home, Browse, title pages, search | done, tested on device (offline start fixed) |
-| 6 | Video player | building |
-| 7 | Downloads | |
+| 6 | Video player | built, waiting for device testing |
+| 7 | Downloads | building |
 | 8 | Live TV, Sports, Theatre | |
 | 9 | Social and the rest | |
 | 10 | UI/UX I: look and motion | |
