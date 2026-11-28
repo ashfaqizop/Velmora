@@ -119,8 +119,8 @@ Next steps:
 
 Leftovers to clean up later: Listen Together internals (~4,000 lines,
 unused); `SearchableSettings.kt` still lists Echo's social links; deep links
-into Music routes while in Velmora mode don't switch mode; avatars show colour
-+ initial, not the animal drawings; desktop vault key backup not built.
+into Music routes while in Velmora mode don't switch mode; avatars show a
+colour and an initial, not the animal drawings; desktop vault key backup not built.
 
 ## Testing on the phone
 
