@@ -78,6 +78,10 @@ object VRoutes {
   const val TITLE = "v/title?t={t}"
   const val COLLECTION = "v/collection/{id}"
   const val MY_LIST = "v/mylist"
+  const val MATCH = "v/match?m={m}"
+
+  fun match(m: com.velmora.stepbyte.engine.Match) =
+    "v/match?m=" + Uri.encode(com.velmora.stepbyte.engine.Universe.json.encodeToString(com.velmora.stepbyte.engine.Match.serializer(), m))
 
   fun title(t: Title) = "v/title?t=" + Uri.encode(t.json.toString())
 

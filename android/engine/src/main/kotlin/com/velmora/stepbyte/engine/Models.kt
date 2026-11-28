@@ -288,6 +288,8 @@ data class League(val id: String, val name: String, val badge: String? = null, v
 data class Match(
   /** `tsdb:<id>` or `fd:<id>`. */
   val id: String,
+  /** thesportsdb or football_data; the engine needs it back for "where to watch". */
+  val source: String = "the_sports_db",
   val sport: String,
   val league: League,
   val title: String,
@@ -344,4 +346,28 @@ data class LocalFile(
   val size: Long,
   /** Unix seconds. */
   val modified: Long,
+)
+
+/** A row in "Where to watch": a broadcaster, free or paid, maybe a channel Velmora can play. */
+@Serializable
+data class WatchOption(
+  val name: String,
+  val country: String,
+  /** free, subscription or unknown. */
+  val kind: String = "unknown",
+  val url: String? = null,
+  val source: String = "",
+  /** A free channel in the TV library that plays this match. */
+  @SerialName("play_channel") val playChannel: String? = null,
+  val logo: String? = null,
+)
+
+/** One day of matches, merged across sources. */
+@Serializable
+data class SportsDay(
+  val date: String,
+  val matches: List<Match> = emptyList(),
+  val errors: List<String> = emptyList(),
+  /** Free tiers run a few minutes behind. */
+  val delayed: Boolean = false,
 )

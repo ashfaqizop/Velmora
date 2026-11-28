@@ -75,7 +75,40 @@ data class PlaybackUi(
   val next: Episode? = null,
   /** Playing a downloaded file, not a stream. */
   val local: Boolean = false,
-)
+  /** A live TV channel: no seek bar, no saved spot; its streams are the sources. */
+  val channel: com.velmora.stepbyte.engine.TvChannel? = null,
+  /** A Theatre screening: one shared clock for everyone in it. */
+  val theatre: TheatreShow? = null,
+  /** Theatre: the movie is loaded and waiting for the start. */
+  val held: Boolean = false,
+  /** Theatre: paused or fallen behind the live point, in ms. */
+  val behindMs: Long = 0,
+) {
+  val live: Boolean
+    get() = channel != null
+}
+
+/** A Theatre screening as the player needs it. Times are by the server's clock. */
+data class TheatreShow(
+  val id: String,
+  val name: String,
+  val startsAt: Long,
+  val endsAt: Long,
+  val capacity: Int,
+  val runtimeMin: Int,
+  val backdrop: String?,
+  val poster: String?,
+  /** Server time minus this phone's time. */
+  val offset: Long,
+) {
+  fun serverNow() = System.currentTimeMillis() + offset
+
+  /** Where the movie is for everyone right now, in ms. */
+  fun livePosition() = (serverNow() - startsAt).coerceAtLeast(0)
+
+  val started: Boolean
+    get() = serverNow() >= startsAt
+}
 
 /**
  * The video being watched, one at a time, for the whole process. The player
@@ -104,6 +137,122 @@ object VideoSession {
   private var retriedSame = false
   /** The title as sources are looked up for it (ids and sites from its details). */
   private var lookupTitle: Title? = null
+  /** Theatre: following the live point (false after a pause, until Back to live). */
+  private var following = true
+
+  // ── Live TV ──
+
+  /** A channel as a title, so the screens can show its name and logo. */
+  fun channelTitle(ch: com.velmora.stepbyte.engine.TvChannel): Title {
+    val o =
+      kotlinx.serialization.json.buildJsonObject {
+        put("origin", kotlinx.serialization.json.buildJsonObject {
+          put("provider", kotlinx.serialization.json.JsonPrimitive("iptv_org"))
+          put("id", kotlinx.serialization.json.JsonPrimitive(ch.id))
+        })
+        put("name", kotlinx.serialization.json.JsonPrimitive(ch.name))
+        put("kind", kotlinx.serialization.json.JsonPrimitive("movie"))
+        ch.logo?.let { put("poster", kotlinx.serialization.json.JsonPrimitive(it)) }
+        put("badges", kotlinx.serialization.json.JsonArray(listOf(kotlinx.serialization.json.JsonPrimitive("Live"))))
+      }
+    return com.velmora.stepbyte.engine.Wire(Universe.json.decodeFromJsonElement(com.velmora.stepbyte.engine.TitleSummary.serializer(), o), o)
+  }
+
+  /** Tune in: the channel's streams in order, the next one when one fails. */
+  fun playChannel(context: Context, ch: com.velmora.stepbyte.engine.TvChannel) {
+    app = context.applicationContext
+    job?.cancel()
+    ticker?.cancel()
+    closeStream()
+    ensurePlayer()
+    player?.stop()
+    player?.clearMediaItems()
+    reachedReady = false
+    retriedSame = false
+    startAtMs = 0
+    lookupTitle = null
+    LiveTv.played(app, ch)
+    _ui.value = PlaybackUi(title = channelTitle(ch), phase = Phase.Finding, channel = ch)
+    job =
+      scope.launch {
+        val sources =
+          try {
+            Universe.get(app).tvSources(ch.id)
+          } catch (e: CancellationException) {
+            throw e
+          } catch (e: Throwable) {
+            fail("Couldn't tune in: ${e.message ?: e.javaClass.simpleName}")
+            return@launch
+          }
+        _ui.update { it.copy(sources = sources) }
+        pickAndPlay()
+      }
+    context.startActivity(Intent(context, VideoPlayerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+  }
+
+  /** A live channel that drifted back: jump to the live edge. */
+  fun goLive() {
+    player?.seekToDefaultPosition()
+    player?.play()
+  }
+
+  // ── Theatre ──
+
+  /**
+   * Enter a screening. Before the start the movie loads and waits (the
+   * lobby); after it, playback starts at the live point and follows it.
+   */
+  fun playTheatre(context: Context, title: Title, show: TheatreShow) {
+    app = context.applicationContext
+    following = true
+    startAtMs = if (show.started) show.livePosition() else 0L
+    begin(title, Target.Movie, DetailCache.get(VelmoraLibrary.key(title)), emptyList(), theatre = show)
+    context.startActivity(Intent(context, VideoPlayerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+  }
+
+  /** Theatre: catch up with everyone. */
+  fun backToLive() {
+    val show = _ui.value.theatre ?: return
+    following = true
+    player?.seekTo(show.livePosition())
+    player?.play()
+    _ui.update { it.copy(behindMs = 0) }
+  }
+
+  /** Seek, except past the live point of a screening. */
+  fun seekTo(ms: Long) {
+    val p = player ?: return
+    val show = _ui.value.theatre
+    if (show != null) {
+      val live = show.livePosition()
+      p.seekTo(ms.coerceIn(0, live))
+      following = live - ms < 3_000
+      return
+    }
+    p.seekTo(ms.coerceAtLeast(0))
+  }
+
+  /** Theatre: holding is ended by the clock; a screening can't be paused into the lobby. */
+  private fun theatreTick(p: ExoPlayer, show: TheatreShow) {
+    val live = show.livePosition()
+    when {
+      _ui.value.held && show.started -> {
+        // The countdown reached zero: everyone starts together.
+        _ui.update { it.copy(held = false) }
+        following = true
+        p.seekTo(live)
+        p.play()
+      }
+      _ui.value.held -> {}
+      following && p.isPlaying && kotlin.math.abs(p.currentPosition - live) > 6_000 && p.duration > live -> p.seekTo(live)
+    }
+    val behind = if (_ui.value.held) 0 else (live - p.currentPosition).coerceAtLeast(0)
+    val shown = if (behind > 5_000) behind else 0
+    if (kotlin.math.abs(shown - _ui.value.behindMs) > 900 || (shown == 0L) != (_ui.value.behindMs == 0L)) _ui.update { it.copy(behindMs = shown) }
+    if (show.serverNow() > show.endsAt && p.playbackState != Player.STATE_ENDED && _ui.value.phase == Phase.Playing && p.currentPosition >= p.duration - 1_000) {
+      _ui.update { it.copy(phase = Phase.Ended) }
+    }
+  }
 
   // ── Starting ──
 
@@ -141,7 +290,7 @@ object VideoSession {
     return Target.Episode(s.number, e.number)
   }
 
-  private fun begin(title: Title, target: Target, detail: TitleDetail?, seasons: List<Season>) {
+  private fun begin(title: Title, target: Target, detail: TitleDetail?, seasons: List<Season>, theatre: TheatreShow? = null) {
     job?.cancel()
     closeStream()
     ensurePlayer()
@@ -152,7 +301,7 @@ object VideoSession {
     val dub = title.value.kind == "anime" && PlayerPrefs.dub(app)
     val lookup = SourceFinder.lookupTitle(title, detail)
     lookupTitle = lookup
-    _ui.value = PlaybackUi(title = title, target = target, phase = Phase.Finding, seasons = seasons, dub = dub)
+    _ui.value = PlaybackUi(title = title, target = target, phase = Phase.Finding, seasons = seasons, dub = dub, theatre = theatre, held = theatre != null && !theatre.started)
     // Episodes for Next and the picker, if the title page hadn't loaded them.
     // Not tied to the source lookup, which a quick start cancels.
     if (title.value.episodic && seasons.isEmpty()) {
@@ -164,7 +313,7 @@ object VideoSession {
       }
     }
     // Downloaded: play the file, no lookup, no network.
-    com.velmora.stepbyte.velmora.downloads.VelmoraDownloads.localFile(title, target)?.let { path ->
+    if (theatre == null) com.velmora.stepbyte.velmora.downloads.VelmoraDownloads.localFile(title, target)?.let { path ->
       playLocal(path)
       return
     }
@@ -336,10 +485,18 @@ object VideoSession {
               }
               .build()
           val p = ensurePlayer()
-          p.setMediaItem(item, atMs.coerceAtLeast(0))
+          val show = _ui.value.theatre
+          when {
+            // Live TV starts at the live edge.
+            _ui.value.live -> p.setMediaItem(item)
+            // Theatre: wherever everyone is now (0:00 in the lobby).
+            show != null -> p.setMediaItem(item, if (show.started) show.livePosition() else 0L)
+            else -> p.setMediaItem(item, atMs.coerceAtLeast(0))
+          }
           p.prepare()
-          p.playWhenReady = true
-          _ui.update { it.copy(phase = Phase.Playing) }
+          // In the lobby it loads and waits for the countdown.
+          p.playWhenReady = show == null || show.started
+          _ui.update { it.copy(phase = Phase.Playing, held = show != null && !show.started) }
           VideoService.start(app)
           startTicker()
         } catch (e: CancellationException) {
@@ -373,6 +530,17 @@ object VideoSession {
 
   private fun fail(message: String) {
     _ui.update { it.copy(phase = Phase.Failed, message = message) }
+    // In a screening you stay with the chat while it keeps looking, once a minute.
+    val show = _ui.value.theatre ?: return
+    val title = _ui.value.title ?: return
+    scope.launch {
+      delay(60_000)
+      val now = _ui.value
+      if (now.theatre?.id != show.id || now.phase != Phase.Failed || show.serverNow() > show.endsAt) return@launch
+      lookupTitle?.let { SourceFinder.forget(app, it, Target.Movie, false) }
+      startAtMs = show.livePosition()
+      begin(title, Target.Movie, DetailCache.get(VelmoraLibrary.key(title)), emptyList(), theatre = show)
+    }
   }
 
   // ── The player ──
@@ -442,6 +610,11 @@ object VideoSession {
         if (!isPlaying) saveSpot()
       }
 
+      override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        // A pause by hand in a screening falls behind; Back to live catches up.
+        if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST && _ui.value.theatre != null) following = false
+      }
+
       override fun onPlayerError(error: PlaybackException) {
         if (_ui.value.local) {
           fail("Your download didn't play (${error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')}). Delete it and download again, or stream it.")
@@ -461,8 +634,8 @@ object VideoSession {
           // A cached source that won't play: look afresh next time.
           lookupTitle?.let { t -> SourceFinder.forget(app, t, _ui.value.target, _ui.value.dub) }
         }
-        startAtMs = at.takeIf { it > 0 } ?: startAtMs
-        _ui.update { it.copy(tried = it.tried + cur.key, message = "That source stopped (${error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')}). Trying the next one…") }
+        startAtMs = _ui.value.theatre?.livePosition() ?: at.takeIf { it > 0 } ?: startAtMs
+        _ui.update { it.copy(tried = it.tried + cur.key, message = if (_ui.value.live) "That stream stopped. Trying the next one…" else "That source stopped (${error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')}). Trying the next one…") }
         pickAndPlay()
       }
     }
@@ -482,7 +655,9 @@ object VideoSession {
           if (opened?.torrent == true) {
             opened?.let { o -> runCatching { Universe.get(app).torrentStatus(o) }.getOrNull()?.let { t -> _ui.update { it.copy(torrent = t) } } }
           }
+          s.theatre?.let { theatreTick(p, it) }
           if (p.isPlaying && n % 15 == 0) saveSpot()
+          if (s.live || s.theatre != null) continue
           // Offer the next episode in the last 40 seconds.
           val left = p.duration - p.currentPosition
           if (p.duration > 0 && left in 1..40_000 && s.next == null) {
@@ -496,7 +671,7 @@ object VideoSession {
     val p = player ?: return
     val s = _ui.value
     val title = s.title ?: return
-    if (s.phase != Phase.Playing || !reachedReady) return
+    if (s.phase != Phase.Playing || !reachedReady || s.live || s.theatre != null) return
     val dur = p.duration
     if (dur <= 0 || dur == C.TIME_UNSET) return
     val ep = s.target as? Target.Episode
@@ -515,6 +690,15 @@ object VideoSession {
   }
 
   private fun ended() {
+    if (_ui.value.live) {
+      // A live stream that ends has dropped: the next stream.
+      tryNext()
+      return
+    }
+    if (_ui.value.theatre != null) {
+      _ui.update { it.copy(phase = Phase.Ended) }
+      return
+    }
     saveSpot()
     val next = nextEpisode()
     if (next != null && PlayerPrefs.autoNext(app)) {
@@ -572,6 +756,7 @@ object VideoSession {
     player?.release()
     player = null
     if (::app.isInitialized) VideoService.stop(app)
+    if (_ui.value.theatre != null) com.velmora.stepbyte.velmora.theatre.TheatreRoom.leave()
     _ui.value = PlaybackUi()
   }
 }

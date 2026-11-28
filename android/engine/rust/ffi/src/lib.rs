@@ -489,6 +489,24 @@ impl VelmoraEngine {
         on_runtime(async move { to_json(&engine.tv().channels(&query).await.map_err(failed)?) }).await
     }
 
+    /// One channel by id, as `TvChannel` (or `null` when it's gone).
+    pub async fn tv_channel(&self, id: String) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.tv().channel(&id).await.map_err(failed)?) }).await
+    }
+
+    /// A channel's streams as sources, best first, so the player can fall
+    /// over to the next stream like it does between sites. As `Source[]`.
+    pub async fn tv_sources(&self, id: String) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move {
+            let channel = engine.tv().channel(&id).await.map_err(failed)?.ok_or_else(|| failed(format!("channel {id} isn't available")))?;
+            let sources: Vec<Source> = (0..channel.streams.len()).filter_map(|i| channel.source(i)).collect();
+            to_json(&sources)
+        })
+        .await
+    }
+
     /// Channel categories with counts, as `Facet[]`.
     pub async fn tv_categories(&self) -> Result<String, EngineError> {
         let engine = self.engine.clone();
@@ -519,6 +537,29 @@ impl VelmoraEngine {
     pub async fn sports_results(&self, days: u32) -> Result<String, EngineError> {
         let engine = self.engine.clone();
         on_runtime(async move { to_json(&engine.sports().results(days.clamp(1, 7)).await.map_err(failed)?) }).await
+    }
+
+    /// One UTC day of matches (`YYYY-MM-DD`, or today when empty), as `SportsDay`.
+    pub async fn sports_day(&self, date: String) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move {
+            let day = if date.trim().is_empty() { engine.sports().today().await } else { engine.sports().day(date.trim()).await };
+            to_json(&day.map_err(failed)?)
+        })
+        .await
+    }
+
+    /// One match, fresh (score, status), as `Match`.
+    pub async fn sports_lookup(&self, id: String) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.sports().lookup(&id).await.map_err(failed)?) }).await
+    }
+
+    /// Where to watch a match in a country (ISO code), as `WatchOption[]`.
+    pub async fn sports_watch(&self, match_json: String, country: String) -> Result<String, EngineError> {
+        let item: universeapi::sports::Match = from_json("match", &match_json)?;
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.sports_watch(&item, &country).await) }).await
     }
 
     /// Ranked, probed sources for a movie or one episode, as `SourcesReport`.

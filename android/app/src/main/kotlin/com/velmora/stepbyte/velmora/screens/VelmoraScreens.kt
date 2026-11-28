@@ -128,20 +128,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonObject
 
 /** Velmora mode's destinations, inside the "velmora" graph. */
 fun NavGraphBuilder.velmoraGraph(navController: NavController) {
   composable(Screens.VelmoraHome.route) { VelmoraHomeScreen(navController) }
   composable(Screens.VelmoraBrowse.route) { BrowseScreen(navController) }
-  composable(Screens.VelmoraTheatre.route) {
-    ComingScreen(
-      icon = R.drawable.theaters_filled,
-      title = "Theatre",
-      text = "Scheduled screenings you watch together: the lineup, booking a seat, the lobby and live chat.",
-      phase = 8,
-    )
-  }
+  composable(Screens.VelmoraTheatre.route) { com.velmora.stepbyte.velmora.theatre.TheatreScreen(navController) }
   composable(Screens.VelmoraSearch.route) { VelmoraSearchScreen(navController) }
   composable(VelmoraRoutes.DOWNLOADS) { com.velmora.stepbyte.velmora.downloads.DownloadsScreen(navController) }
   composable(VRoutes.TITLE, arguments = listOf(navArgument("t") { type = NavType.StringType })) { entry ->
@@ -152,6 +147,10 @@ fun NavGraphBuilder.velmoraGraph(navController: NavController) {
     CollectionScreen(entry.arguments?.getString("id") ?: "", navController)
   }
   composable(VRoutes.MY_LIST) { MyListScreen(navController) }
+  composable(VRoutes.MATCH, arguments = listOf(navArgument("m") { type = NavType.StringType })) { entry ->
+    val m = remember(entry) { entry.arguments?.getString("m")?.let { runCatching { Universe.json.decodeFromString(Match.serializer(), it) }.getOrNull() } }
+    if (m != null) MatchScreen(m, navController) else LaunchedEffect(Unit) { navController.navigateUp() }
+  }
 }
 
 private fun decodeTitle(text: String): Title? =
@@ -191,6 +190,12 @@ fun VelmoraHomeScreen(navController: NavController) {
   val progress by VelmoraLibrary.progress.collectAsState()
   val continuing = remember(progress) { progress.filter { it.resumable }.take(12) }
   var live by remember { mutableStateOf<List<Match>>(emptyList()) }
+  LaunchedEffect(Unit) { com.velmora.stepbyte.velmora.theatre.Theatre.start(context) }
+  val lineup by com.velmora.stepbyte.velmora.theatre.Theatre.lineup.collectAsState()
+  // What's on in Theatre in the next twelve hours. The clock is followed by the minute, so Home doesn't redraw every second.
+  val minute by remember { com.velmora.stepbyte.velmora.theatre.Theatre.now.map { it / 60_000 }.distinctUntilChanged() }.collectAsState(initial = System.currentTimeMillis() / 60_000)
+  val theatreNow = minute * 60_000
+  val tonight = remember(lineup, minute) { com.velmora.stepbyte.velmora.theatre.Theatre.current(lineup).filter { it.startMs - theatreNow < 12 * 3_600_000L }.take(8) }
 
   LaunchedEffect(Unit) { HomeFeed.load(context) }
   // Scores while Home is open, once a minute; a failure just hides the row.
@@ -242,6 +247,16 @@ fun VelmoraHomeScreen(navController: NavController) {
         }
       }
     }
+    if (tonight.isNotEmpty()) {
+      item(key = "theatre") {
+        SectionHeader("Tonight in Theatre", icon = Icons.Rounded.Theaters, onSeeAll = { navController.navigate(Screens.VelmoraTheatre.route) { launchSingleTop = true } })
+        LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+          items(tonight, key = { it.id }) { s ->
+            com.velmora.stepbyte.velmora.theatre.TheatreRowCard(s, theatreNow, onClick = { navController.navigate(Screens.VelmoraTheatre.route) { launchSingleTop = true } })
+          }
+        }
+      }
+    }
     if (myList.isNotEmpty()) {
       item(key = "mylist") {
         SectionHeader("My List", icon = Icons.Rounded.Bookmarks, onSeeAll = { navController.navigate(VRoutes.MY_LIST) })
@@ -255,7 +270,7 @@ fun VelmoraHomeScreen(navController: NavController) {
           navController.navigate(Screens.VelmoraBrowse.route) { launchSingleTop = true }
         })
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-          items(live.take(12), key = { it.id }) { m -> MatchCard(m, Modifier.width(280.dp)) }
+          items(live.take(12), key = { it.id }) { m -> MatchCard(m, Modifier.width(280.dp), onClick = { navController.navigate(VRoutes.match(m)) }) }
         }
       }
     }

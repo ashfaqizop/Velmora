@@ -14,8 +14,8 @@ developer PC.
 | 4 | Accounts and onboarding | done, tested on device (offline start moved to phase 5) |
 | 5 | Home, Browse, title pages, search | done, tested on device (offline start fixed) |
 | 6 | Video player | built, waiting for device testing |
-| 7 | Downloads | building |
-| 8 | Live TV, Sports, Theatre | |
+| 7 | Downloads | built green, waiting for device testing |
+| 8 | Live TV, Sports, Theatre | building |
 | 9 | Social and the rest | |
 | 10 | UI/UX I: look and motion | |
 | 11 | UI/UX II: every screen size | |
@@ -228,6 +228,52 @@ How it is built (2026-11-28):
 ## 8. Live TV, Sports, Theatre
 Channels player, matches and where to watch, Theatre lineup, booking, lobby,
 chat, synced show, Max perks, start-event report.
+
+How it is built (2026-11-28):
+
+- Live TV plays in the same player: `VideoSession.playChannel` makes the
+  channel's streams (bridge `tv_sources`) the sources, starts at the live
+  edge, and moves to the next stream when one drops or ends. The controls
+  show LIVE (and Go live when the stream has drifted back) instead of a seek
+  bar, plus a favourite heart. `player/LiveTv.kt` keeps favourites, the
+  channels watched lately and the country, all on the phone. Browse's Live
+  TV tab gained a country picker, Favourites and Watched lately rows, and a
+  heart on every card.
+- Sports: every match card opens `MatchScreen`: teams, the score refreshed
+  while it's on (`sports_lookup`), kickoff, venue, and Where to watch for
+  the chosen country (`sports_watch`); a free channel Velmora has plays at
+  once, the rest open the broadcaster.
+- Theatre (`velmora/theatre/`), the same tables and functions as desktop
+  and the web (`supabase/theatre.sql`):
+  - `Theatre` keeps the lineup, your tickets, people you follow going, the
+    server clock (`theatre_now`, best of three), book / cancel / enter with
+    the server's refusals in plain words, notifications when a held
+    screening is cancelled or moved or a waitlist seat frees up, and
+    WorkManager reminders when the lobby opens and 5 minutes before.
+  - The anonymous source checks of the spec (`Probes`): a few drafted
+    titles, on Wi-Fi, while nothing plays, each once.
+  - `Realtime` is a small Supabase Realtime client on OkHttp's WebSocket
+    (Phoenix protocol: join with the access token for private channels,
+    heartbeats, rejoin with backoff, broadcast, presence). `TheatreRoom`
+    joins `theatre:<id>` (presence, reactions) and `theatre-chat:<id>`
+    (listen only; `theatre_say` sends), keeps 200 messages in memory,
+    mentions, mute, chat mode changes, and quiet mode beyond the room's size.
+  - The player: `playTheatre` loads the film in the lobby and holds it at
+    0:00 (ExoPlayer buffers ahead), then everyone starts together at the
+    server's start time; late joiners start at the live point. It follows
+    live (more than 6 s off snaps back); a pause falls behind, shown as
+    "2:14 behind · Back to live"; seeks can't pass live; a failed source
+    resumes at live, and with none it keeps looking once a minute while you
+    stay in the lobby with the chat.
+  - Screens: the Theatre tab (featured live or next screening, lineup by
+    day, My tickets, seats / open / sold out, Tonight's pick, people you
+    follow going, the one right button), Home's Tonight in Theatre row, a
+    chip on title pages, the lobby (drifting backdrop, countdown, Ready with
+    minutes loaded ahead, who's here, chat), the last five seconds on
+    changing shapes, chat over the film / beside it / hidden, floating
+    reactions, and the end card ("You were there", chat until it closes).
+  - Links: `velmora://theatre/<id>` (Velmora Social's Open in Velmora) and
+    the reminders open the screening.
 
 ## 9. Social and the rest
 Social in a WebView, App Links (verification file on the site), deep links,

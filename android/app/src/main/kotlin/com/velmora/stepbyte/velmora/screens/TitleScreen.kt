@@ -51,6 +51,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Theaters
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Button
@@ -180,6 +181,7 @@ fun TitleScreen(title: Title, navController: NavController) {
       }
       item(key = "actions") { Actions(shown, detail, onTrailer = info?.trailer, onOpenDownloads = { navController.navigate(com.velmora.stepbyte.velmora.shell.VelmoraRoutes.DOWNLOADS) }) }
       item(key = "sources") { SourcesAhead(title, detail) }
+      item(key = "theatre") { TheatreChip(shown, onOpen = { navController.navigate(com.velmora.stepbyte.ui.screens.Screens.VelmoraTheatre.route) { launchSingleTop = true } }) }
 
       info?.extra?.tagline?.takeIf { it.isNotBlank() }?.let { tagline ->
         item(key = "tagline") {
@@ -508,6 +510,28 @@ private fun SourcesAhead(title: Title, detail: TitleDetail?) {
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
       )
+    }
+  }
+}
+
+/** "In Theatre tonight at 9:30 PM", when this film is screening. */
+@Composable
+private fun TheatreChip(title: Title, onOpen: () -> Unit) {
+  val lineup by com.velmora.stepbyte.velmora.theatre.Theatre.lineup.collectAsState()
+  val k = title.value.origin.id.takeIf { title.value.origin.provider == "tmdb" && it.startsWith("movie/") } ?: return
+  val s = remember(lineup, k) { com.velmora.stepbyte.velmora.theatre.Theatre.forTitle(k) } ?: return
+  val phase = com.velmora.stepbyte.velmora.theatre.Theatre.phase(s)
+  val text =
+    when (phase) {
+      com.velmora.stepbyte.velmora.theatre.ShowPhase.Live -> "Screening in Theatre now · join live"
+      com.velmora.stepbyte.velmora.theatre.ShowPhase.Lobby -> "In Theatre at ${com.velmora.stepbyte.velmora.theatre.localTime(s.startMs)} · the lobby is open"
+      else -> "In Theatre at ${com.velmora.stepbyte.velmora.theatre.localTime(s.startMs)}" + if (s.fixed) " · book a seat" else ""
+    }
+  Surface(onClick = onOpen, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 6.dp).fillMaxWidth()) {
+    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+      Icon(androidx.compose.material.icons.Icons.Rounded.Theaters, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+      Spacer(Modifier.width(12.dp))
+      Text(text, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onTertiaryContainer)
     }
   }
 }

@@ -420,6 +420,7 @@ class MainActivity : ComponentActivity() {
     VelmoraAccount.init(this)
     com.velmora.stepbyte.velmora.library.VelmoraLibrary.init(this)
     com.velmora.stepbyte.velmora.downloads.VelmoraDownloads.init(this)
+    com.velmora.stepbyte.velmora.theatre.Theatre.start(this)
 
     try {
       startService(Intent(this, com.velmora.stepbyte.playback.MusicService::class.java))
@@ -1134,11 +1135,19 @@ class MainActivity : ComponentActivity() {
         // The download notification opens Downloads, in Velmora mode.
         val openRequest by com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.collectAsState()
         LaunchedEffect(openRequest) {
-          if (openRequest == "downloads") {
+          val req = openRequest
+          if (req == "downloads") {
             com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.value = null
             switchModeNow(AppMode.VELMORA)
             kotlinx.coroutines.delay(250)
             navController.navigate(com.velmora.stepbyte.velmora.shell.VelmoraRoutes.DOWNLOADS) { launchSingleTop = true }
+          } else if (req != null && req.startsWith("theatre")) {
+            // A Theatre reminder: the tab, and the screening if it's on.
+            com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.value = null
+            switchModeNow(AppMode.VELMORA)
+            kotlinx.coroutines.delay(250)
+            navController.navigate(Screens.VelmoraTheatre.route) { launchSingleTop = true }
+            req.substringAfter("theatre:", "").takeIf { it.isNotEmpty() }?.let { com.velmora.stepbyte.velmora.theatre.TheatreFocus.requested.value = it }
           }
         }
         val switchWithReveal: (AppMode, androidx.compose.ui.geometry.Offset) -> Unit = { to, center ->
@@ -1994,6 +2003,10 @@ class MainActivity : ComponentActivity() {
 
   private fun handleDeepLinkIntent(intent: Intent, navController: NavHostController) {
     if (VelmoraAccount.handleLink(intent.data)) return
+    intent.data?.takeIf { it.scheme == com.velmora.stepbyte.BuildConfig.VELMORA_SCHEME && it.host == "theatre" }?.let { link ->
+      com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.value = "theatre:" + (link.pathSegments.firstOrNull() ?: "")
+      return
+    }
     intent.getStringExtra("velmora_open")?.let {
       com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.value = it
       intent.removeExtra("velmora_open")

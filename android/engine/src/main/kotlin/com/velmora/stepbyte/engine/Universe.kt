@@ -177,6 +177,28 @@ class Universe private constructor(private val ffi: VelmoraEngine) {
 
   // ── Sports ──
 
+  /** One channel by id, or null when the library doesn't have it any more. */
+  suspend fun tvChannel(id: String): TvChannel? = call {
+    val el = parse(ffi.tvChannel(id))
+    if (el is JsonObject) json.decodeFromJsonElement(TvChannel.serializer(), el) else null
+  }
+
+  /** A channel's streams as sources, best first. */
+  suspend fun tvSources(id: String): List<Source> = call { sourceList(parse(ffi.tvSources(id))) }
+
+  /** One day of matches (`YYYY-MM-DD`; empty for today). */
+  suspend fun sportsDay(date: String = ""): SportsDay = call { json.decodeFromString(SportsDay.serializer(), ffi.sportsDay(date)) }
+
+  /** One match, fresh. */
+  suspend fun sportsLookup(id: String): Match = call { json.decodeFromString(Match.serializer(), ffi.sportsLookup(id)) }
+
+  /** Where to watch [match] in [country] (ISO code). */
+  suspend fun sportsWatch(match: Match, country: String): List<WatchOption> = call {
+    parse(ffi.sportsWatch(withDefaults.encodeToString(Match.serializer(), match), country)).jsonArray.mapNotNull {
+      runCatching { json.decodeFromJsonElement(WatchOption.serializer(), it) }.getOrNull()
+    }
+  }
+
   suspend fun sportsLive(): List<Match> = call { matches(ffi.sportsLive()) }
 
   suspend fun sportsUpcoming(days: Int = 3): List<Match> = call { matches(ffi.sportsUpcoming(days.toUInt())) }

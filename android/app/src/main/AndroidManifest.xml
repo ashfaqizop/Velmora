@@ -118,6 +118,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="${velmoraScheme}" android:host="auth" />
             </intent-filter>
+            <!-- Velmora Social's "Open in Velmora": velmora://theatre/<screening id> -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="${velmoraScheme}" android:host="theatre" />
+            </intent-filter>
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

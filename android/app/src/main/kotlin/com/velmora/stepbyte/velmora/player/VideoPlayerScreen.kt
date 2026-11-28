@@ -55,6 +55,9 @@ import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Forward10
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Pause
@@ -162,7 +165,13 @@ fun VideoPlayerScreen(activity: VideoPlayerActivity, onClose: () -> Unit) {
   var resize by remember { mutableIntStateOf(0) }
   var flash by remember { mutableStateOf<String?>(null) }
   var zoom by remember { mutableFloatStateOf(1f) }
+  var chatLayout by remember { mutableStateOf(ChatLayout.Overlay) }
   val player = VideoSession.player
+  val show = ui.theatre
+  val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+  // The chat beside the film (or under it, upright) takes room from the video.
+  val sidebar = show != null && chatLayout == ChatLayout.Sidebar && !inPip && !ui.held && ui.phase != Phase.Ended
+  val videoPad = if (!sidebar) Modifier else if (landscape) Modifier.padding(end = 340.dp) else Modifier.padding(bottom = 300.dp)
 
   // Live numbers and the events that matter to the screen.
   DisposableEffect(player) {
@@ -247,7 +256,7 @@ fun VideoPlayerScreen(activity: VideoPlayerActivity, onClose: () -> Unit) {
         v.resizeMode = RESIZE[resize].first
         v.subtitleView?.setFractionalTextSize(0.0533f * PlayerPrefs.subtitleScale(v.context))
       },
-      modifier = Modifier.fillMaxSize().graphicsLayer {
+      modifier = Modifier.fillMaxSize().then(videoPad).graphicsLayer {
         scaleX = zoom
         scaleY = zoom
       },
@@ -255,7 +264,7 @@ fun VideoPlayerScreen(activity: VideoPlayerActivity, onClose: () -> Unit) {
 
     val watching = ui.phase == Phase.Playing && clock.firstFrame
 
-    if (!inPip && watching) {
+    if (!inPip && watching && !(show != null && ui.held)) {
       Gestures(
         clock = clock,
         activity = activity,
@@ -274,12 +283,12 @@ fun VideoPlayerScreen(activity: VideoPlayerActivity, onClose: () -> Unit) {
       BufferingBadge(ui, Modifier.align(Alignment.Center))
     }
 
-    if (!watching && !inPip) {
+    if (!watching && !inPip && show == null) {
       StatusScreen(ui, onClose = onClose, onSheet = { sheet = it })
     }
 
-    if (!inPip && watching) {
-      AnimatedVisibility(visible = showControls && !locked, enter = fadeIn(tween(180)), exit = fadeOut(tween(260))) {
+    if (!inPip && watching && !(show != null && (ui.held || ui.phase == Phase.Ended))) {
+      AnimatedVisibility(visible = showControls && !locked, enter = fadeIn(tween(180)), exit = fadeOut(tween(260)), modifier = videoPad) {
         Controls(
           ui = ui,
           clock = clock,
@@ -298,6 +307,15 @@ fun VideoPlayerScreen(activity: VideoPlayerActivity, onClose: () -> Unit) {
           onRotate = { activity.toggleRotation() },
           onPip = { activity.enterPip() },
           onInteract = { showControls = true },
+          onChat =
+            if (show == null) null
+            else {
+              {
+                chatLayout = ChatLayout.entries[(chatLayout.ordinal + 1) % ChatLayout.entries.size]
+                flash = chatLayout.label
+              }
+            },
+          chatLabel = if (chatLayout == ChatLayout.Hidden) "Show chat" else "Chat",
         )
       }
       AnimatedVisibility(visible = locked && showControls, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.CenterStart)) {
@@ -319,6 +337,36 @@ fun VideoPlayerScreen(activity: VideoPlayerActivity, onClose: () -> Unit) {
       }
     }
 
+    // Theatre: reactions, the behind pill and the chat over the film; the
+    // lobby before it (lifting away at the start), the end card after.
+    if (show != null && !inPip) {
+      if (watching && !ui.held && ui.phase != Phase.Ended) {
+        FloatingReactions(videoPad)
+        BehindPill(ui, Modifier.align(Alignment.TopCenter).padding(top = 72.dp))
+        if (chatLayout == ChatLayout.Overlay) {
+          ChatPanel(show, clock, inLobby = false, overlay = true, modifier = Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp).width(340.dp).height(200.dp))
+        }
+        if (sidebar) {
+          ChatPanel(
+            show,
+            clock,
+            inLobby = false,
+            modifier =
+              (if (landscape) Modifier.align(Alignment.CenterEnd).width(340.dp).fillMaxHeight() else Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(300.dp))
+                .background(Color(0xF2101318)),
+          )
+        }
+      }
+      AnimatedVisibility(
+        visible = ui.held || (!watching && ui.phase != Phase.Ended),
+        enter = fadeIn(tween(300)),
+        exit = slideOutVertically(tween(650)) { -it } + fadeOut(tween(650)),
+      ) {
+        TheatreLobby(ui, show, clock, onClose = onClose, onSources = { sheet = Sheet.Sources })
+      }
+      if (ui.phase == Phase.Ended) TheatreEnd(show, clock, onClose = onClose)
+    }
+
     // A short label in the middle: "Zoom", "1.5x", "Locked".
     AnimatedVisibility(visible = flash != null, enter = fadeIn() + scaleIn(initialScale = 0.9f), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter).padding(top = 48.dp)) {
       Surface(shape = RoundedCornerShape(50), color = Color.Black.copy(alpha = 0.6f)) {
@@ -328,7 +376,7 @@ fun VideoPlayerScreen(activity: VideoPlayerActivity, onClose: () -> Unit) {
 
     // Next episode, near the end.
     val next = ui.next
-    if (!inPip && next != null && ui.phase == Phase.Playing) {
+    if (!inPip && next != null && ui.phase == Phase.Playing && show == null && !ui.live) {
       NextEpisodeCard(
         label = "S${next.season} · E${next.number}" + (next.title?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
         thumbnail = next.thumbnail ?: ui.title?.value?.backdrop,
@@ -380,7 +428,7 @@ private fun Gestures(clock: Clock, activity: VideoPlayerActivity, locked: Boolea
               if (side != skipSide) skip = 0
               skipSide = side
               skip += 10
-              p.seekTo((p.currentPosition + side * 10_000L).coerceIn(0L, p.duration.coerceAtLeast(0L)))
+              VideoSession.seekTo((p.currentPosition + side * 10_000L).coerceIn(0L, p.duration.coerceAtLeast(0L)))
               haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
               skipJob?.cancel()
               skipJob =
@@ -409,7 +457,7 @@ private fun Gestures(clock: Clock, activity: VideoPlayerActivity, locked: Boolea
               startPos = VideoSession.player?.currentPosition ?: 0L
             },
             onDragEnd = {
-              seekPreview?.let { VideoSession.player?.seekTo(it) }
+              seekPreview?.let { VideoSession.seekTo(it) }
               seekPreview = null
               level = null
             },
@@ -529,6 +577,8 @@ private fun Controls(
   onRotate: () -> Unit,
   onPip: () -> Unit,
   onInteract: () -> Unit,
+  onChat: (() -> Unit)? = null,
+  chatLabel: String = "Chat",
 ) {
   val title = ui.title?.value
   Box(
@@ -551,41 +601,89 @@ private fun Controls(
 
     // Middle: back 10, play or pause, forward 10.
     Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(36.dp)) {
-      RoundTool(Icons.Rounded.Replay10, "Back 10 seconds", 52.dp) {
-        VideoSession.player?.seekBack()
-        onInteract()
+      if (!ui.live) {
+        RoundTool(Icons.Rounded.Replay10, "Back 10 seconds", 52.dp) {
+          VideoSession.seekTo((VideoSession.player?.currentPosition ?: 0L) - 10_000L)
+          onInteract()
+        }
       }
       PlayPause(clock.playing) {
         VideoSession.player?.let { if (it.isPlaying) it.pause() else it.play() }
         onInteract()
       }
-      RoundTool(Icons.Rounded.Forward10, "Forward 10 seconds", 52.dp) {
-        VideoSession.player?.seekForward()
-        onInteract()
+      if (!ui.live) {
+        RoundTool(Icons.Rounded.Forward10, "Forward 10 seconds", 52.dp) {
+          VideoSession.seekTo((VideoSession.player?.currentPosition ?: 0L) + 10_000L)
+          onInteract()
+        }
       }
     }
 
     // Bottom: the bar, then the tools.
     Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-      Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(time(clock.position), color = Color.White, style = MaterialTheme.typography.labelLarge)
-        SeekBar(clock, Modifier.weight(1f).padding(horizontal = 12.dp), onInteract)
-        Text(if (clock.duration > 0) "−" + time(clock.duration - clock.position) else "--:--", color = Color.White, style = MaterialTheme.typography.labelLarge)
+      if (ui.live) {
+        LiveRow()
+      } else {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(time(clock.position), color = Color.White, style = MaterialTheme.typography.labelLarge)
+          SeekBar(clock, Modifier.weight(1f).padding(horizontal = 12.dp), onInteract)
+          Text(if (clock.duration > 0) "−" + time(clock.duration - clock.position) else "--:--", color = Color.White, style = MaterialTheme.typography.labelLarge)
+        }
       }
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         BottomTool(Icons.Rounded.Lock, "Lock", onLock)
         BottomTool(Icons.Rounded.AspectRatio, "Fit", onResize)
         BottomTool(Icons.Rounded.ScreenRotation, "Rotate", onRotate)
         Spacer(Modifier.weight(1f))
-        BottomTool(Icons.Rounded.SignalCellularAlt, "Sources") { onSheet(Sheet.Sources) }
-        if (ui.title?.value?.episodic == true && ui.seasons.isNotEmpty()) {
+        if (onChat != null) BottomTool(Icons.Rounded.Forum, chatLabel, onChat)
+        ui.channel?.let { ch -> FavoriteTool(ch) }
+        BottomTool(Icons.Rounded.SignalCellularAlt, if (ui.live) "Streams" else "Sources") { onSheet(Sheet.Sources) }
+        if (ui.theatre == null && !ui.live && ui.title?.value?.episodic == true && ui.seasons.isNotEmpty()) {
           BottomTool(Icons.Rounded.VideoLibrary, "Episodes") { onSheet(Sheet.Episodes) }
         }
-        if (VideoSession.nextEpisode() != null) {
+        if (ui.theatre == null && !ui.live && VideoSession.nextEpisode() != null) {
           BottomTool(Icons.Rounded.SkipNext, "Next") { VideoSession.playNext() }
         }
       }
     }
+  }
+}
+
+/** Live TV: the LIVE mark, and Go live when the stream has drifted back. */
+@OptIn(UnstableApi::class)
+@Composable
+private fun LiveRow() {
+  var offset by remember { mutableLongStateOf(0L) }
+  LaunchedEffect(Unit) {
+    while (true) {
+      val p = VideoSession.player
+      offset = if (p != null && p.isCurrentMediaItemLive) p.currentLiveOffset.takeIf { it != C.TIME_UNSET } ?: 0L else 0L
+      delay(1_000)
+    }
+  }
+  val behind = offset > 25_000
+  Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Surface(shape = RoundedCornerShape(50), color = if (behind) Color.White.copy(alpha = 0.2f) else Color(0xFFE53935)) {
+      Text("LIVE", color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
+    }
+    if (behind) {
+      Spacer(Modifier.width(10.dp))
+      TextButton(onClick = { VideoSession.goLive() }, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) { Text("Go live · ${time(offset)} behind") }
+    }
+  }
+}
+
+/** Live TV: keep this channel in favourites. */
+@Composable
+private fun FavoriteTool(ch: com.velmora.stepbyte.engine.TvChannel) {
+  val context = LocalContext.current
+  val favorites by LiveTv.favorites.collectAsState()
+  LaunchedEffect(Unit) { LiveTv.load(context) }
+  val on = favorites.any { it.id == ch.id }
+  TextButton(onClick = { LiveTv.toggleFavorite(context, ch) }, colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
+    Icon(if (on) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, contentDescription = null, tint = if (on) Color(0xFFFF6B8B) else Color.White, modifier = Modifier.size(20.dp))
+    Spacer(Modifier.width(6.dp))
+    Text(if (on) "Favourite" else "Add favourite", style = MaterialTheme.typography.labelLarge)
   }
 }
 
@@ -641,7 +739,7 @@ private fun SeekBar(clock: Clock, modifier: Modifier, onInteract: () -> Unit) {
         .height(36.dp)
         .pointerInput(dur) {
           detectTapGestures { at ->
-            if (dur > 0) VideoSession.player?.seekTo((at.x / size.width * dur).toLong())
+            if (dur > 0) VideoSession.seekTo((at.x / size.width * dur).toLong())
             onInteract()
           }
         }
@@ -649,7 +747,7 @@ private fun SeekBar(clock: Clock, modifier: Modifier, onInteract: () -> Unit) {
           detectHorizontalDragGestures(
             onDragStart = { at -> dragging = (at.x / size.width).coerceIn(0f, 1f) },
             onDragEnd = {
-              dragging?.let { f -> if (dur > 0) VideoSession.player?.seekTo((f * dur).toLong()) }
+              dragging?.let { f -> if (dur > 0) VideoSession.seekTo((f * dur).toLong()) }
               dragging = null
             },
             onDragCancel = { dragging = null },
@@ -786,7 +884,7 @@ private fun StatusScreen(ui: PlaybackUi, onClose: () -> Unit, onSheet: (Sheet) -
               Text("That's the end", color = Color.White, style = MaterialTheme.typography.titleLarge)
               Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = {
-                  VideoSession.player?.seekTo(0)
+                  VideoSession.seekTo(0)
                   VideoSession.player?.play()
                 }) { Text("Watch again", color = Color.White) }
                 Button(onClick = onClose, colors = ButtonDefaults.buttonColors(containerColor = Brand.Blue)) { Text("Done") }

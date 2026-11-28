@@ -108,7 +108,7 @@ export const PHASES: Phase[] = [
     n: 7,
     title: "Downloads",
     icon: "download",
-    status: "building",
+    status: "testing",
     summary:
       "Downloads saved encrypted, so only Velmora plays them, with a Wi-Fi only rule and pages for downloaded movies and downloaded music. They keep going in the background with a progress notification, pause and resume, and play offline from the title page and Continue watching.",
     result: "Watching offline.",
@@ -118,10 +118,11 @@ export const PHASES: Phase[] = [
     n: 8,
     title: "Live TV, Sports, Theatre",
     icon: "theaters",
-    status: "planned",
-    summary: "Live channels, matches and where to watch them, and Theatre: the lineup, booking, the lobby, chat and the synced show.",
+    status: "building",
+    summary:
+      "Live channels with favourites and a stream that switches by itself when one drops, match pages with where to watch in your country, and Theatre: the lineup, booking and reminders, the lobby with its countdown, the synced show, live chat that's never saved, and reactions.",
     result: "Watching together.",
-    pieces: ["Live TV", "Sports", "Theatre with chat"],
+    pieces: ["Live TV", "Sports", "Where to watch", "Theatre lobby", "Synced show", "Live chat"],
   },
   {
     n: 9,

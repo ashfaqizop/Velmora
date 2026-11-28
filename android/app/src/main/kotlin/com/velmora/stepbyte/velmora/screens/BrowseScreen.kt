@@ -36,7 +36,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.foundation.clickable
+import com.velmora.stepbyte.velmora.player.LiveTv
+import com.velmora.stepbyte.velmora.player.SavedChannel
+import com.velmora.stepbyte.velmora.player.VideoSession
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Movie
@@ -58,6 +66,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -307,6 +316,13 @@ class TvCatalog {
   var text by mutableStateOf("")
     private set
 
+  var countries by mutableStateOf<List<Facet>>(emptyList())
+    private set
+
+  /** ISO code, or null for every country. */
+  var country by mutableStateOf<String?>(null)
+    private set
+
   val items = mutableStateListOf<TvChannel>()
   var total by mutableStateOf(0)
     private set
@@ -319,10 +335,11 @@ class TvCatalog {
 
   private val lock = Mutex()
 
-  fun choose(context: Context, scope: kotlinx.coroutines.CoroutineScope, category: String? = this.category, text: String = this.text) {
-    if (category == this.category && text == this.text && items.isNotEmpty()) return
+  fun choose(context: Context, scope: kotlinx.coroutines.CoroutineScope, category: String? = this.category, text: String = this.text, country: String? = this.country) {
+    if (category == this.category && text == this.text && country == this.country && items.isNotEmpty()) return
     this.category = category
     this.text = text
+    this.country = country
     items.clear()
     total = 0
     scope.launch { more(context) }
@@ -333,12 +350,13 @@ class TvCatalog {
       if (items.isNotEmpty() && items.size >= total) return
       loading = true
       error = null
-      val want = category to text
+      val want = Triple(category, text, country)
       try {
         val engine = Universe.get(context)
         if (categories.isEmpty()) categories = runCatching { engine.tvCategories().sortedByDescending { it.count }.take(16) }.getOrDefault(emptyList())
-        val page = engine.tvChannels(TvQuery(category = category, text = text.trim().ifEmpty { null }, offset = items.size, limit = 60))
-        if (want == (category to text)) {
+        if (countries.isEmpty()) countries = runCatching { engine.tvCountries().sortedByDescending { it.count } }.getOrDefault(emptyList())
+        val page = engine.tvChannels(TvQuery(country = country, category = category, text = text.trim().ifEmpty { null }, offset = items.size, limit = 60))
+        if (want == Triple(category, text, country)) {
           items += page.items.filter { c -> items.none { it.id == c.id } }
           total = page.total
         }
@@ -440,7 +458,7 @@ fun BrowseScreen(navController: NavController) {
         BrowseTab.Series -> TmdbPage(BrowseStore.series, navController)
         BrowseTab.Anime -> AnimePage(BrowseStore.anime, navController)
         BrowseTab.LiveTv -> TvPage(BrowseStore.tv)
-        BrowseTab.Sports -> SportsPage(BrowseStore.sports)
+        BrowseTab.Sports -> SportsPage(BrowseStore.sports, navController)
       }
     }
   }
@@ -590,6 +608,10 @@ private fun TvPage(catalog: TvCatalog) {
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
   val grid = rememberLazyGridState()
+  LaunchedEffect(Unit) { LiveTv.load(context) }
+  val favorites by LiveTv.favorites.collectAsState()
+  val recent by LiveTv.recent.collectAsState()
+  var pickCountry by remember { mutableStateOf(false) }
   var typed by remember { mutableStateOf(catalog.text) }
   // Also the first load: same text and no channels yet.
   LaunchedEffect(typed) {
@@ -621,6 +643,28 @@ private fun TvPage(catalog: TvCatalog) {
         modifier = Modifier.fillMaxWidth(),
       )
     }
+    if (favorites.isNotEmpty() && typed.isBlank()) {
+      item(span = { GridItemSpan(maxLineSpan) }, key = "favs") { SavedRow("Favourites", favorites) }
+    }
+    if (recent.isNotEmpty() && typed.isBlank()) {
+      item(span = { GridItemSpan(maxLineSpan) }, key = "recent") { SavedRow("Watched lately", recent.filterNot { r -> favorites.any { it.id == r.id } }) }
+    }
+    item(span = { GridItemSpan(maxLineSpan) }, key = "country") {
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.AssistChip(
+          onClick = { pickCountry = true },
+          label = { Text(catalog.country?.let { c -> flag(c) + " " + (catalog.countries.firstOrNull { it.id == c }?.name ?: c) } ?: "All countries") },
+          leadingIcon = { Icon(Icons.Rounded.Public, contentDescription = null, modifier = Modifier.size(18.dp)) },
+        )
+        if (catalog.country == null) {
+          val mine = LiveTv.region(context)
+          if (catalog.countries.any { it.id.equals(mine, ignoreCase = true) }) {
+            Spacer(Modifier.width(8.dp))
+            TextButton(onClick = { catalog.choose(context, scope, country = catalog.countries.first { it.id.equals(mine, ignoreCase = true) }.id) }) { Text("Channels in ${flag(mine)} ${mine}") }
+          }
+        }
+      }
+    }
     if (catalog.categories.isNotEmpty()) {
       item(span = { GridItemSpan(maxLineSpan) }, key = "categories") {
         ChipRow(catalog.categories.map { it.id }, catalog.category, { id -> catalog.categories.first { it.id == id }.name }, { catalog.choose(context, scope, category = it) })
@@ -648,7 +692,78 @@ private fun TvPage(catalog: TvCatalog) {
     }
     if (!catalog.loading && catalog.error == null && catalog.items.isEmpty()) {
       item(span = { GridItemSpan(maxLineSpan) }, key = "none") {
-        EmptyState(Icons.Rounded.LiveTv, "No channels match", "Try another name or category.")
+        EmptyState(Icons.Rounded.LiveTv, "No channels match", "Try another name, category or country.")
+      }
+    }
+  }
+  if (pickCountry) {
+    CountrySheet(catalog.countries, catalog.country, onDismiss = { pickCountry = false }) {
+      pickCountry = false
+      catalog.choose(context, scope, country = it)
+    }
+  }
+}
+
+/** Favourite or recent channels, as round logos. */
+@Composable
+private fun SavedRow(title: String, list: List<SavedChannel>) {
+  if (list.isEmpty()) return
+  val context = LocalContext.current
+  val scope = rememberCoroutineScope()
+  Column(Modifier.padding(vertical = 4.dp)) {
+    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+      items(list, key = { it.id }) { ch ->
+        Column(
+          Modifier.width(76.dp).clip(RoundedCornerShape(16.dp)).pressable {
+            scope.launch { if (!LiveTv.play(context, ch.id)) Toast.makeText(context, "That channel isn't available right now", Toast.LENGTH_SHORT).show() }
+          },
+          horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+          Box(Modifier.size(64.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+            Text(ch.name.take(2).uppercase(), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+            AsyncImage(model = ch.logo, contentDescription = ch.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(10.dp))
+          }
+          Text(ch.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+        }
+      }
+    }
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CountrySheet(countries: List<Facet>, current: String?, onDismiss: () -> Unit, onPick: (String?) -> Unit) {
+  var q by remember { mutableStateOf("") }
+  androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+      Text("Country", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+      TextField(
+        value = q,
+        onValueChange = { q = it },
+        singleLine = true,
+        placeholder = { Text("Search countries") },
+        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+        shape = RoundedCornerShape(24.dp),
+        colors = TextFieldDefaults.colors(focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+      )
+      androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().height(420.dp)) {
+        item {
+          androidx.compose.material3.ListItem(
+            headlineContent = { Text("All countries") },
+            trailingContent = { if (current == null) Icon(Icons.Rounded.Check, contentDescription = null) },
+            modifier = Modifier.clickable { onPick(null) },
+          )
+        }
+        items(countries.filter { q.isBlank() || it.name.contains(q, ignoreCase = true) || it.id.equals(q, ignoreCase = true) }, key = { it.id }) { c ->
+          androidx.compose.material3.ListItem(
+            headlineContent = { Text(flag(c.id) + "  " + c.name) },
+            supportingContent = { Text("%,d channels".format(c.count)) },
+            trailingContent = { if (current == c.id) Icon(Icons.Rounded.Check, contentDescription = null) },
+            modifier = Modifier.clickable { onPick(c.id) },
+          )
+        }
       }
     }
   }
@@ -657,10 +772,12 @@ private fun TvPage(catalog: TvCatalog) {
 @Composable
 private fun ChannelCard(c: TvChannel, modifier: Modifier = Modifier) {
   val context = LocalContext.current
+  val favorites by LiveTv.favorites.collectAsState()
+  val fav = favorites.any { it.id == c.id }
   Surface(
     shape = RoundedCornerShape(20.dp),
     color = MaterialTheme.colorScheme.surfaceContainer,
-    modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).pressable { liveSoon(context) },
+    modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).pressable { VideoSession.playChannel(context, c) },
   ) {
     Column {
       Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f).background(MaterialTheme.colorScheme.surfaceContainerHighest), contentAlignment = Alignment.Center) {
@@ -672,6 +789,18 @@ private fun ChannelCard(c: TvChannel, modifier: Modifier = Modifier) {
         )
         AsyncImage(model = c.logo, contentDescription = c.name, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(18.dp))
         Row(Modifier.align(Alignment.TopStart).padding(8.dp)) { LiveDot() }
+        IconButton(onClick = { LiveTv.toggleFavorite(context, c) }, modifier = Modifier.align(Alignment.TopEnd)) {
+          Icon(
+            if (fav) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            contentDescription = if (fav) "Remove from favourites" else "Add to favourites",
+            tint = if (fav) Color(0xFFFF6B8B) else MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+        if (c.streams.isNotEmpty() && c.streams.all { it.geoBlocked }) {
+          Surface(shape = RoundedCornerShape(6.dp), color = Color.Black.copy(alpha = 0.6f), modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)) {
+            Text("May be region-locked", color = Color.White, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+          }
+        }
       }
       Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
         Text(c.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -687,12 +816,8 @@ private fun ChannelCard(c: TvChannel, modifier: Modifier = Modifier) {
   }
 }
 
-private fun liveSoon(context: Context) {
-  Toast.makeText(context, "Live channels play in phase 8", Toast.LENGTH_SHORT).show()
-}
-
 /** "US" to the flag emoji. */
-private fun flag(code: String): String {
+fun flag(code: String): String {
   if (code.length != 2 || !code.all { it.isLetter() }) return ""
   val base = 0x1F1E6 - 'A'.code
   return code.uppercase().map { String(Character.toChars(base + it.code)) }.joinToString("")
@@ -716,7 +841,7 @@ fun LiveDot() {
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SportsPage(board: SportsBoard) {
+private fun SportsPage(board: SportsBoard, navController: NavController) {
   val context = LocalContext.current
   LaunchedEffect(board) {
     while (isActive) {
@@ -741,15 +866,15 @@ private fun SportsPage(board: SportsBoard) {
     }
     if (board.live.isNotEmpty()) {
       item(key = "live-h") { SportsHeading("Live now") }
-      items(board.live, key = { "l" + it.id }) { m -> MatchCard(m, Modifier.animateItem()) }
+      items(board.live, key = { "l" + it.id }) { m -> MatchCard(m, Modifier.animateItem(), onClick = { navController.navigate(VRoutes.match(m)) }) }
     }
     byDay.forEach { (label, matches) ->
       item(key = "d-$label") { SportsHeading(label) }
-      items(matches.take(40), key = { "u" + it.id }) { m -> MatchCard(m, Modifier.animateItem()) }
+      items(matches.take(40), key = { "u" + it.id }) { m -> MatchCard(m, Modifier.animateItem(), onClick = { navController.navigate(VRoutes.match(m)) }) }
     }
     if (board.results.isNotEmpty()) {
       item(key = "res-h") { SportsHeading("Results") }
-      items(board.results.take(40), key = { "r" + it.id }) { m -> MatchCard(m, Modifier.animateItem()) }
+      items(board.results.take(40), key = { "r" + it.id }) { m -> MatchCard(m, Modifier.animateItem(), onClick = { navController.navigate(VRoutes.match(m)) }) }
     }
   }
 }
@@ -775,8 +900,12 @@ private fun clock(kickoff: Long?): String =
 
 /** One fixture: league, both teams with badges, the score or the kickoff. */
 @Composable
-fun MatchCard(m: Match, modifier: Modifier = Modifier) {
-  Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
+fun MatchCard(m: Match, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+  Surface(
+    shape = RoundedCornerShape(22.dp),
+    color = MaterialTheme.colorScheme.surfaceContainer,
+    modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).then(if (onClick != null) Modifier.pressable(onClick) else Modifier),
+  ) {
     Column(Modifier.padding(14.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
         AsyncImage(model = m.league.badge, contentDescription = null, modifier = Modifier.size(18.dp))
