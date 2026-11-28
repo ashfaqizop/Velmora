@@ -3,7 +3,6 @@
   import { onMount } from "svelte";
   import Nav from "./components/Nav.svelte";
   import AppMock from "./components/AppMock.svelte";
-  import DownloadButton from "./components/DownloadButton.svelte";
   import Features from "./components/Features.svelte";
   import AniSection from "./components/AniSection.svelte";
   import Privacy from "./components/Privacy.svelte";
@@ -15,7 +14,8 @@
   import Shapes from "./components/Shapes.svelte";
   import Tiers from "./components/Tiers.svelte";
   import PoweredBy from "./components/PoweredBy.svelte";
-  import AndroidSoon from "./components/AndroidSoon.svelte";
+  import AndroidCard from "./components/AndroidCard.svelte";
+  import SmartDownload from "./components/SmartDownload.svelte";
   import DownloadCount from "./components/DownloadCount.svelte";
   import { latest } from "./lib/latest.svelte";
   import { REPO_URL } from "./lib/release";
@@ -46,23 +46,20 @@
     />
     <div class="wrap center">
       <a class="pill" href="/android/">
-        <span class="new dev"><i></i>Developing</span><span class="pill-text">Velmora for Android</span><span class="pill-sep"></span><span class="pill-go">Check progress</span>
+        <span class="new dev"><i></i>Out now</span><span class="pill-text">Velmora for Android</span><span class="pill-sep"></span><span class="pill-go">Get it</span>
         <m3e-icon name="arrow_forward"></m3e-icon>
       </a>
       <h1 class="display">Every source.<br /><em>One search.</em></h1>
       <p class="sub">
-        Velmora is a free Windows app for movies, series and anime. It searches many sites at once, picks the best link and plays it in a built-in 4K
-        player.
+        Velmora is a free app for movies, series and anime, on Windows and Android. It searches many sites at once, picks the best link and plays it
+        in a built-in 4K player.
       </p>
       <div class="ctas">
-        <DownloadButton />
-        <m3e-button variant="text" size={screen.big} href={REPO_URL} target="_blank" class="gh">
-          <m3e-icon slot="icon" name="code"></m3e-icon>View the source
-        </m3e-button>
+        <SmartDownload />
       </div>
       <div class="pills">
         <DownloadCount />
-        <a class="soon" href="/android/"><m3e-icon name="android"></m3e-icon>Android drops soon</a>
+        <a class="soon" href={REPO_URL} target="_blank" rel="noopener"><m3e-icon name="code"></m3e-icon>Open source, GPL-3.0</a>
       </div>
     </div>
     <div class="mock wrap"><AppMock /></div>
@@ -87,7 +84,7 @@
   <Tiers />
   <Install />
   <section id="android">
-    <div class="wrap" use:reveal><AndroidSoon /></div>
+    <div class="wrap" use:reveal><AndroidCard /></div>
   </section>
   <Ad kind="banner" />
   <Faq />
@@ -104,7 +101,7 @@
         />
         <h2 class="title">Tonight's pick is <em>waiting.</em></h2>
         <p class="lead">Free, open source and ready in a minute.</p>
-        <DownloadButton />
+        <SmartDownload />
         <div class="end-count"><DownloadCount /></div>
       </div>
     </div>
@@ -225,17 +222,15 @@
   }
   .ctas {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: flex-start;
-    gap: 16px;
+    gap: 16px 20px;
     margin-top: 40px;
     animation: in 1s 0.45s both cubic-bezier(0.2, 0.7, 0.2, 1);
   }
   .ctas :global(.dl) {
     align-items: center;
-  }
-  .gh {
-    --m3e-text-button-label-text-color: var(--ink);
-    --m3e-text-button-icon-color: var(--ink);
   }
   .pills {
     display: flex;
@@ -254,10 +249,13 @@
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
-    color: #8ff0b8;
-    background: rgb(61 220 132 / 10%);
-    border: 1px solid rgb(61 220 132 / 22%);
+    color: #e4dcff;
+    background: rgb(255 255 255 / 5%);
+    border: 1px solid rgb(255 255 255 / 12%);
     --m3e-icon-size: 16px;
+  }
+  .soon:hover {
+    border-color: rgb(255 255 255 / 28%);
   }
   @keyframes in {
     from {

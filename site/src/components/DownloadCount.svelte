@@ -2,7 +2,7 @@
   import { latest } from "../lib/latest.svelte";
   import { formatCount } from "../lib/release";
 
-  // Real installer downloads from GitHub, counting up once it loads.
+  // Real Windows and Android downloads from GitHub, counting up once it loads.
   // Shows nothing until the number is known.
   let shown = $state(0);
 
@@ -21,7 +21,7 @@
 </script>
 
 {#if latest.downloads !== null}
-  <span class="count" title="Installer downloads on GitHub, all versions">
+  <span class="count" title="Windows and Android downloads on GitHub, all versions">
     <m3e-icon name="download"></m3e-icon>
     <b>{formatCount(shown)}</b>
     {latest.downloads === 1 ? "download" : "downloads"}

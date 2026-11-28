@@ -11,10 +11,19 @@ export interface Release {
   date: string;
   url: string;
   notes: string;
-  installer?: { url: string; size: number; name: string; downloads: number };
+  installer?: Asset;
+  /** The Android APKs: the small 64-bit one most phones want, and one for every ARM phone. */
+  android?: { arm64?: Asset; universal?: Asset };
 }
 
-const CACHE = "velmora.site.releases.v2";
+export interface Asset {
+  url: string;
+  size: number;
+  name: string;
+  downloads: number;
+}
+
+const CACHE = "velmora.site.releases.v3";
 
 /** App releases, newest first (the runtime release and drafts are skipped). */
 export async function releases(): Promise<Release[]> {
@@ -37,14 +46,20 @@ export async function releases(): Promise<Release[]> {
   const list = raw
     .filter((r) => !r.draft && !r.prerelease && r.tag_name.startsWith("app-v"))
     .map((r): Release => {
-      const exe = r.assets.find((a) => /x64-setup\.exe$/i.test(a.name));
+      const pick = (end: string): Asset | undefined => {
+        const a = r.assets.find((x) => x.name.toLowerCase().endsWith(end));
+        return a && { url: a.browser_download_url, size: a.size, name: a.name, downloads: a.download_count };
+      };
+      const arm64 = pick("android-arm64.apk");
+      const universal = pick("android-universal.apk");
       return {
         version: r.tag_name.replace(/^app-v/, ""),
         name: r.name || r.tag_name,
         date: r.published_at,
         url: r.html_url,
         notes: r.body ?? "",
-        installer: exe ? { url: exe.browser_download_url, size: exe.size, name: exe.name, downloads: exe.download_count } : undefined,
+        installer: pick("x64-setup.exe"),
+        android: arm64 || universal ? { arm64, universal } : undefined,
       };
     });
   sessionStorage.setItem(CACHE, JSON.stringify(list));

@@ -1,6 +1,8 @@
 // Release data shared by the download buttons and the changelog.
 import { releases, type Release } from "./release";
 
+const total = (r: Release) => (r.installer?.downloads ?? 0) + (r.android?.arm64?.downloads ?? 0) + (r.android?.universal?.downloads ?? 0);
+
 class Latest {
   list = $state<Release[]>([]);
   failed = $state(false);
@@ -10,13 +12,19 @@ class Latest {
     return this.list[0];
   }
 
-  /** Installer downloads across every release, from GitHub's own counters. */
+  /** The newest release that has Android APKs. */
+  get android(): Release | undefined {
+    return this.list.find((r) => r.android);
+  }
+
+  /** Windows and Android downloads across every release, from GitHub's own counters. */
   get downloads(): number | null {
-    return this.list.length ? this.list.reduce((n, r) => n + (r.installer?.downloads ?? 0), 0) : null;
+    return this.list.length ? this.list.reduce((n, r) => n + total(r), 0) : null;
   }
 
   downloadsOf(version: string): number | null {
-    return this.list.find((r) => r.version === version)?.installer?.downloads ?? null;
+    const r = this.list.find((x) => x.version === version);
+    return r ? total(r) : null;
   }
 
   load() {

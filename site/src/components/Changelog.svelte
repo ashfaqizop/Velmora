@@ -2,7 +2,7 @@
   import { KIND_ICON, KIND_LABEL, longDate, NEXT, RELEASES, type ChangeKind } from "../lib/changes";
   import { reveal } from "../lib/reveal";
   import Shapes from "./Shapes.svelte";
-  import AndroidSoon from "./AndroidSoon.svelte";
+  import AndroidCard from "./AndroidCard.svelte";
   import DownloadCount from "./DownloadCount.svelte";
   import { latest } from "../lib/latest.svelte";
   import { formatCount } from "../lib/release";
@@ -47,7 +47,7 @@
       <div class="total"><DownloadCount /></div>
     </div>
 
-    <div class="next" use:reveal={0.1}><AndroidSoon title={NEXT.title} text={NEXT.text} /></div>
+    <div class="next" use:reveal={0.1}><AndroidCard chip={NEXT.chip} title={NEXT.title} text={NEXT.text} download={false} /></div>
 
     <div class="controls" use:reveal={0.15}>
       <div class="filters" role="group" aria-label="Show changes">

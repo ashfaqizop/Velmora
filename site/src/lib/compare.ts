@@ -56,7 +56,7 @@ export const VELMORA_LOGO = velmoraMark;
 // What's true of Velmora, in one place, so every page agrees.
 export const VELMORA = {
   price: "Free. Velmora Public shows a few quiet ads, never while a video plays. Velmora Max has none.",
-  platforms: "Windows 10 and 11 today. Android is in production development and drops soon; iPhone, iPad, Mac and Linux come later.",
+  platforms: "Windows 10 and 11, and Android 8 and up on phones and tablets. iPhone, iPad, Mac and Linux come later.",
   license: "Open source, GPL-3.0.",
   sources: "Built in. Velmora searches third-party sites for you, so there is nothing to find, install or trust first.",
   hosting: "No. Velmora hosts, uploads and stores no content.",
@@ -64,7 +64,7 @@ export const VELMORA = {
 };
 
 export const LIMITS = [
-  "Velmora runs on Windows only for now.",
+  "Velmora runs on Windows and Android only for now.",
   "The installer isn't code-signed yet, so Windows shows a SmartScreen warning.",
   "You need a free account, made once in your browser.",
   "What you can watch depends on third-party sites, so it varies and some links won't play.",
@@ -162,7 +162,7 @@ export const KODI: VsData = {
   faq: [
     { q: "Is Velmora a Kodi alternative?", a: "For some people. If you used Kodi mainly to find and play movies and series from online sources, Velmora does that without add-ons. If you used Kodi for your own library, skins and a media-center setup, Kodi is the better tool." },
     { q: "Does Velmora use Kodi add-ons?", a: "No. Velmora has its own built-in sources and doesn't run Kodi add-ons." },
-    { q: "Which runs on more devices?", a: "Kodi, by a long way. It runs on Windows, macOS, Linux, Android, iOS, tvOS and more. Velmora is Windows only for now." },
+    { q: "Which runs on more devices?", a: "Kodi, by a long way. It runs on Windows, macOS, Linux, Android, iOS, tvOS and more. Velmora runs on Windows and Android for now." },
     { q: "Does Kodi provide movies?", a: "No. The Kodi project says it doesn't provide any media. You supply your own content or set it up to use third-party services." },
   ],
   sources: [
@@ -263,12 +263,12 @@ export const APPS: Record<string, App> = {
     color: "#3271fe",
     shape: "12-sided-cookie",
     url: "/download/",
-    windows: "Yes: Windows 10 and 11. Other platforms are coming soon.",
+    windows: "Yes: Windows 10 and 11, and Android too.",
     price: "Free. Public has a few quiet ads, Max has none.",
     source: "Open source (GPL-3.0)",
     what: "One search across built-in third-party sources, the best link picked for you, and a built-in 4K player. Also Theatre, Velmora Social and music.",
     bestFor: "Windows users who want to search a title and press Play, with no add-ons to set up.",
-    watchOut: "Windows only for now, an unsigned installer, and a free account. What plays depends on third-party sites.",
+    watchOut: "Windows and Android only for now, an unsigned installer, and a free account. What plays depends on third-party sites.",
   },
   stremio: {
     name: "Stremio",

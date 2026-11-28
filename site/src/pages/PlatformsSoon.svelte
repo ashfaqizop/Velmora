@@ -1,9 +1,9 @@
 <script lang="ts">
-  // Other platforms. Android is in production development; the rest have no dates yet.
+  // Other platforms. Android is out; the rest have no dates yet.
   import { inview } from "./inview";
 
   const PLATFORMS = [
-    { icon: "android", shape: "12-sided-cookie", color: "#3ddc84", name: "Android", status: "In development · soon", text: "In production development now. A full native build for phones and tablets on Android 8 and up, with Material You or Liquid Glass." },
+    { icon: "android", shape: "12-sided-cookie", color: "#3ddc84", name: "Android", status: "Out now", href: "/android/", text: "The whole app for phones and tablets on Android 8 and up, free and with no ads. Tap to get it." },
     { icon: "phone_iphone", shape: "soft-burst", color: "#8fb4ff", name: "iPhone and iPad", text: "A native SwiftUI app, designed with Apple's Liquid Glass." },
     { icon: "laptop_mac", shape: "puffy-diamond", color: "#c9c1ff", name: "Mac", text: "A native SwiftUI app with Liquid Glass, made for macOS." },
     { icon: "terminal", shape: "4-leaf-clover", color: "#ffb74d", name: "Linux", text: "Linux builds, so Velmora runs on more than Windows." },
@@ -13,11 +13,11 @@
 <section class="pg-section">
   <div class="pg-wide">
     <span class="eyebrow" use:inview>More platforms</span>
-    <h2 class="pg-title" use:inview={0.05}>Coming <em>soon</em></h2>
-    <p class="pg-lead" use:inview={0.1}>Velmora runs on Windows today. Android is in production development and drops soon; the others are on the way, with no dates yet. This page changes when there's something to download.</p>
+    <h2 class="pg-title" use:inview={0.05}>On your phone <em>too</em></h2>
+    <p class="pg-lead" use:inview={0.1}>Velmora runs on Windows and Android. The others are on the way, with no dates yet. This page changes when there's something to download.</p>
     <div class="grid">
       {#each PLATFORMS as p, i (p.name)}
-        <article class="pg-card plat" style="--c: {p.color}" use:inview={i * 0.07}>
+        <svelte:element this={p.href ? "a" : "article"} href={p.href} class="pg-card plat" class:link={p.href} style="--c: {p.color}" use:inview={i * 0.07}>
           <span class="art">
             <m3e-shape name={p.shape}></m3e-shape>
             <m3e-icon name={p.icon}></m3e-icon>
@@ -25,7 +25,7 @@
           <span class="soon">{p.status ?? "Coming soon"}</span>
           <h3>{p.name}</h3>
           <p>{p.text}</p>
-        </article>
+        </svelte:element>
       {/each}
     </div>
     <p class="ask pg-lead" use:inview>Want one first? <a href="/contact/">Tell us which</a>.</p>
@@ -41,6 +41,14 @@
   }
   .plat {
     overflow: hidden;
+  }
+  .plat.link {
+    color: inherit;
+    text-decoration: none;
+    border-color: color-mix(in srgb, var(--c) 40%, transparent);
+  }
+  .plat.link:hover {
+    transform: translateY(-3px);
   }
   .art {
     position: relative;

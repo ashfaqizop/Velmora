@@ -13,14 +13,14 @@ developer PC.
 | 3 | Shell and navigation | done, tested on device |
 | 4 | Accounts and onboarding | done, tested on device (offline start moved to phase 5) |
 | 5 | Home, Browse, title pages, search | done, tested on device (offline start fixed) |
-| 6 | Video player | built, waiting for device testing |
-| 7 | Downloads | built green, waiting for device testing |
-| 8 | Live TV, Sports, Theatre | built green, waiting for device testing |
-| 9 | Social and the rest | building |
-| 10 | UI/UX I: look and layout | |
-| 11 | UI/UX II: transitions and motion | |
-| 12 | UI/UX III: polish with testers | |
-| 13 | Updates and release | |
+| 6 | Video player | done, tested on device |
+| 7 | Downloads | done, tested on device |
+| 8 | Live TV, Sports, Theatre | done, tested on device |
+| 9 | Social and the rest | done, tested on device |
+| 10 | UI/UX I: look and layout | later update |
+| 11 | UI/UX II: transitions and motion | later update |
+| 12 | UI/UX III: polish with testers | later update |
+| 13 | Updates and release | done: released in 0.6.7 (2026-11-28) |
 
 ## 1. Import and rebrand
 Echo Music copied into `android/` without its git history. Renamed to
@@ -323,7 +323,8 @@ How it is built (2026-11-28):
 
 Remapped on 2026-11-28: phones and tablets only for now (no foldable work),
 and the old "every screen size" phase became a whole phase for transitions
-and animation.
+and animation. The same day the user decided to release after phase 9: the
+app shipped in 0.6.7, and phases 10 to 12 come as later updates.
 
 ## 10. UI/UX I: look and layout
 Phases 3 to 9 make every screen work; these three make them feel like
@@ -356,6 +357,15 @@ contrast, touch targets), a copy pass in plain language, the onboarding
 refined from what testers stumble on, and the screenshots for the website.
 
 ## 13. Updates and release
+
+How it is built (2026-11-28): the `app-v` tag that builds desktop also runs
+`android.yml`, which builds the release APK (R8 on, keep rules for the
+engine), names it `Velmora-X.Y.Z-android-universal.apk`, makes the
+64-bit copy `...-android-arm64.apk`, waits for desktop's workflow to make the
+Release and attaches both. A manual run with `release: true` builds the
+release APKs as an artifact without publishing. The in-app updater reads
+`app-v` tags, offers only newer versions and picks the APK for the phone.
+The website reads the APKs from the release (`site/src/lib/release.ts`).
 In-app updater (background download, install prompt), one `app-v` tag builds
 both apps into one Release, the website offers the APK, a last speed check on
 all three devices, release.

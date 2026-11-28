@@ -63,7 +63,7 @@ export const FAQ: Faq[] = [
   },
   {
     q: "Is there a Mac, Linux, iPhone or Android version?",
-    a: "Android is in production development and drops soon: a full build for phones and tablets on Android 8 and up, with Material You or Liquid Glass. iPhone, iPad and Mac (native SwiftUI apps with Liquid Glass) and Linux builds come after that. Today Velmora runs on Windows.",
+    a: "Velmora runs on Windows and Android. The Android app is a full build for phones and tablets on Android 8 and up, free and with no ads: get it at getvelmora.dpdns.org/android. iPhone, iPad and Mac (native SwiftUI apps with Liquid Glass) and Linux builds come later.",
     group: "install",
     home: true,
   },

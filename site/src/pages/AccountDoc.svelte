@@ -48,9 +48,9 @@
 <PageShell
   eyebrow="Your account"
   title="One free account,"
-  accent="every PC."
+  accent="every device."
   crumb="Create your account"
-  lead="You make it once, in your browser. Your list, progress and settings follow you, and Velmora keeps working offline."
+  lead="You make it once, in your browser. Your list, progress and settings follow you between your PC and your phone, and Velmora keeps working offline."
   spots={[
     { x: "91%", y: "190px", size: 120, color: "#8fb4ff", spin: 22, opacity: 0.55 },
     { x: "5%", y: "420px", size: 54, color: "#f8e8c8", spin: -14, offset: 4, opacity: 0.7 },
@@ -61,12 +61,12 @@
     <article id="doc" class="pg-prose">
       <section class="pg-section first" id="why">
         <h2 class="pg-title" use:inview>Why there's <em>an account</em></h2>
-        <p>From Velmora 0.6.0 you need a free account. It gives you a username and profile, keeps your list, progress and settings in step across PCs, and brings Velmora Max with you to a new PC. You make it once. Only that first sign-in needs the internet. After it, Velmora opens offline too.</p>
+        <p>From Velmora 0.6.0 you need a free account. It gives you a username and profile, keeps your list, progress and settings in step on every PC and phone you use, and brings Velmora Max with you to a new PC. You make it once. Only that first sign-in needs the internet. After it, Velmora opens offline too.</p>
       </section>
 
       <section class="pg-section" id="make">
         <h2 class="pg-title" use:inview>Make <em>yours</em></h2>
-        <p>Open Velmora and choose to sign in. Your browser opens Velmora's sign-in page at <code>auth.getvelmora.dpdns.org</code>. Pick how you'd like to sign in:</p>
+        <p>Open Velmora, on Windows or Android, and choose to sign in. Your browser opens Velmora's sign-in page at <code>auth.getvelmora.dpdns.org</code>. Pick how you'd like to sign in:</p>
         <m3e-tabs class="tabs" aria-label="Sign-in method">
           {#each METHODS as m (m.id)}
             <m3e-tab selected={method === m.id} onclick={() => (method = m.id)}>
@@ -101,13 +101,14 @@
 
       <section class="pg-section" id="sync">
         <h2 class="pg-title" use:inview>What <em>syncs</em></h2>
-        <p>Your list, your progress in every episode, and your settings follow your account. Sign in on a new PC and they're there. AniList and Trakt are connected separately, in Settings.</p>
+        <p>Your list, your progress in every episode, and your settings follow your account. Sign in on a new PC or phone and they're there: stop an episode on your PC and carry on from the same spot on your phone. AniList and Trakt are connected separately, in Settings.</p>
+        <p>On Android, the same account also signs you in to Velmora Social inside the app, and your Theatre seats are the same seats on both.</p>
         <p>If you have Velmora Max, linking the key to your account means signing in on a new PC brings Max along. The old PC drops back to Public.</p>
       </section>
 
       <section class="pg-section" id="privacy">
         <h2 class="pg-title" use:inview>Your <em>privacy</em></h2>
-        <p>Your account stores your email, username, display name and picture, bio and links, and the list, progress and settings that sync. Velmora Social shows what you watch to the people who follow you, and that is on by default. One switch in Settings, under Privacy, turns it off, and adult titles are never posted.</p>
+        <p>Your account stores your email, username, display name and picture, bio and links, and the list, progress and settings that sync. Velmora Social shows what you watch to the people who follow you, and that is on by default. One switch turns it off: Settings, Privacy on Windows, or Settings › Velmora › Privacy on Android. Adult titles are never posted.</p>
         <p>The <a href="/privacy/">privacy policy</a> has the full list of what's kept and why.</p>
         <Note label="Copy or delete everything" icon="delete_sweep" variant="info">
           In Velmora, open Settings, then Velmora account. You can copy everything Velmora holds about you, or delete the account and all of it. Deleting can't be undone.
@@ -123,7 +124,7 @@
 
   <Related
     items={[
-      { href: "/docs/install/", icon: "menu_book", title: "Install guide", text: "Get Velmora onto your PC first." },
+      { href: "/docs/install/", icon: "menu_book", title: "Install guide", text: "Get Velmora onto your PC or phone first." },
       { href: "/privacy/", icon: "privacy_tip", title: "Privacy policy", text: "What's kept, who gets it and why." },
       { href: "/faq/", icon: "help", title: "FAQ", text: "Short answers about accounts, Max and sync." },
     ]}

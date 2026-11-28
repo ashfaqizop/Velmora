@@ -5,7 +5,7 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 // Material Symbols the site uses. The full font is 4 MB, so Google Fonts
 // serves just these. Keep the list sorted; add a name when you use a new icon.
 const ICONS = [
-  "science", "animation", "rocket_launch", "phone_android", "tablet_android", "photo_camera",
+  "science", "animation", "update", "devices", "smartphone", "signal_cellular_alt", "rocket_launch", "phone_android", "tablet_android", "photo_camera",
   "add", "add_circle", "android", "arrow_downward", "arrow_forward", "arrow_outward", "arrow_upward",
   "back_hand", "badge", "bedtime", "bookmark", "build", "calendar_month", "check_circle", "checklist",
   "close", "cloud_off", "code", "compare_arrows", "donut_large", "download", "edit_note", "equalizer",

@@ -38,6 +38,34 @@ export const KIND_ICON: Record<ChangeKind, string> = { new: "add_circle", improv
 
 export const RELEASES: ReleaseNote[] = [
   {
+    version: "0.6.7",
+    date: "2026-11-28",
+    name: "Velmora for Android",
+    summary:
+      "Velmora is on Android. The whole app for phones and tablets: search, the player, downloads, live TV, sports, Theatre, Velmora Social and a full music app, with the same free account as desktop and no ads. Desktop gets announcements from the team and quieter Theatre fixes.",
+    color: "#3ddc84",
+    shape: "12-sided-cookie",
+    highlights: [
+      { icon: "android", title: "Velmora for Android", text: "Phones and tablets on Android 8 and up. Download the APK from the website; it updates itself after that." },
+      { icon: "sync", title: "One account", text: "Sign in with your desktop account. My List and where you stopped follow you between Windows and Android." },
+      { icon: "theaters", title: "Theatre on your phone", text: "Book a seat, wait in the lobby, count down together and chat, from the couch." },
+      { icon: "library_music", title: "Music built in", text: "A whole YouTube Music app, and Transfer from Echo Music brings your library over." },
+    ],
+    changes: [
+      { kind: "new", title: "Android app", text: "Home, Browse, title pages and one search across every source, on phones and tablets." },
+      { kind: "new", title: "The player on Android", text: "Source picker, subtitles, audio tracks, quality, gestures, picture-in-picture, and cinema sound (AC3, E-AC3, DTS) on every phone." },
+      { kind: "new", title: "Downloads on Android", text: "Movies and whole seasons, kept encrypted so only Velmora plays them, with a Wi-Fi only rule. They keep going in the background." },
+      { kind: "new", title: "Live TV and sports on Android", text: "Channels that switch stream when one drops, favourites, match pages and where to watch in your country." },
+      { kind: "new", title: "Theatre on Android", text: "The lineup, booking and reminders, the lobby with its countdown, the synced show, live chat and reactions." },
+      { kind: "new", title: "Velmora Social in the app", text: "Your profile, friends, lists and reviews, inside the Android app and already signed in. Links to titles, profiles and screenings open the app." },
+      { kind: "new", title: "Transfer from Echo Music", text: "Pick an Echo Music backup and Velmora shows what's in it, then brings over your songs, playlists, albums, artists and history." },
+      { kind: "new", title: "Announcements", text: "Messages from the Velmora team now show in the app, on Windows and Android: news, heads-ups and maintenance." },
+      { kind: "improved", title: "Theatre changes reach you", text: "If a screening you booked is cancelled or moved, you're told, and a short note from the team shows on its card." },
+      { kind: "improved", title: "Downloads without ffmpeg", text: "Streams that come in pieces (HLS) now download even if ffmpeg is missing." },
+      { kind: "fixed", title: "Theatre start reports", text: "Whether a screening started is reported once, anonymously, so problems with a show get noticed and fixed." },
+    ],
+  },
+  {
     version: "0.6.6",
     date: "2026-11-24",
     name: "Theatre fixes",
@@ -348,8 +376,9 @@ export const RELEASES: ReleaseNote[] = [
 
 /** What's being worked on, shown above the releases. */
 export const NEXT = {
-  title: "Velmora for Android",
-  text: "The same app on your phone and tablet: search, the player, downloads and Ani. Work on the Android build has started.",
+  chip: "Next for Android",
+  title: "Look, layout and motion",
+  text: "The next Android updates are about how it feels: one design language, colors from each poster, tablet layouts made on purpose, and transitions where nothing jumps.",
 };
 
 export const longDate = (iso: string) =>

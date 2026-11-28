@@ -4,13 +4,19 @@
   import { latest } from "../lib/latest.svelte";
   import { REPO_URL, RELEASES_URL } from "../lib/release";
 
+  // Phones running Android get the APK; everything else the Windows installer.
+  const android = typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
+  const apk = $derived(latest.android?.android?.arm64 ?? latest.android?.android?.universal);
+  const download = $derived(android ? (apk?.url ?? "/android/") : (latest.current?.installer?.url ?? RELEASES_URL));
+
   let scrolled = $state(false);
   let open = $state(false);
   const LINKS = [
     ["/features/", "Features"],
     ["/ani/", "Ani"],
     ["/universeapi/", "Engine"],
-    ["/download/", "Download"],
+    [android ? "/android/" : "/download/", "Download"],
+    [android ? "/download/" : "/android/", android ? "Windows" : "Android"],
     ["/changelog/", "What's new"],
     ["/faq/", "FAQ"],
   ];
@@ -28,7 +34,7 @@
       <m3e-icon-button href={REPO_URL} target="_blank" aria-label="Velmora on GitHub">
         <m3e-icon name="code"></m3e-icon>
       </m3e-icon-button>
-      <m3e-button variant="tonal" size="small" href={latest.current?.installer?.url ?? RELEASES_URL}>
+      <m3e-button variant="tonal" size="small" href={download}>
         <m3e-icon slot="icon" name="download"></m3e-icon>Download
       </m3e-button>
       <m3e-icon-button class="menu-btn" aria-label={open ? "Close menu" : "Menu"} aria-expanded={open} onclick={() => (open = !open)}>

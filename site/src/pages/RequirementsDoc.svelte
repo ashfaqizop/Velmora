@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fly } from "svelte/transition";
+  import PlatformSwitch from "../components/PlatformSwitch.svelte";
   import { latest } from "../lib/latest.svelte";
+  import { detectPlatform, initialPlatform, type Platform } from "../lib/platform";
   import { megabytes } from "../lib/release";
   import { inview } from "./inview";
   import Note from "./Note.svelte";
@@ -8,15 +11,36 @@
   import Related from "./Related.svelte";
   import Toc from "./Toc.svelte";
 
-  // What this browser can tell us about the PC. Nothing leaves the page.
+  let platform = $state<Platform>("windows");
+  let detected = $state<Platform | null>(null);
+
+  // What this browser can tell us about the device. Nothing leaves the page.
   interface Check { label: string; value: string; state: "ok" | "no" | "info" }
   let checks = $state<Check[]>([]);
   let ready = $state(false);
 
   onMount(() => {
     if (!latest.loaded) latest.load();
+    detected = detectPlatform();
+    platform = initialPlatform();
     const nav = navigator as Navigator & { deviceMemory?: number; userAgentData?: { platform?: string } };
     const ua = nav.userAgent;
+    if (detected === "android") {
+      const ver = Number(/Android (\d+)/i.exec(ua)?.[1] ?? 0);
+      const list: Check[] = [
+        ver
+          ? ver >= 8
+            ? { label: "Android", value: `Android ${ver}`, state: "ok" }
+            : { label: "Android", value: `Android ${ver}. Velmora needs 8 or newer.`, state: "no" }
+          : { label: "Android", value: "Your browser doesn't say which version", state: "info" },
+        { label: "Processor", value: /arm64|aarch64/i.test(ua) ? "64-bit: get the arm64 APK" : "Get the arm64 APK; if it won't install, the universal one", state: "info" },
+      ];
+      if (nav.deviceMemory) list.push({ label: "Memory (rounded down by your browser)", value: `${nav.deviceMemory} GB or more`, state: "info" });
+      list.push({ label: "Screen", value: `${Math.round(screen.width * devicePixelRatio)} × ${Math.round(screen.height * devicePixelRatio)}`, state: "info" });
+      checks = list;
+      ready = true;
+      return;
+    }
     const windows = /Windows NT 10\.0/.test(ua) || nav.userAgentData?.platform === "Windows";
     const old = /Windows NT [5-6]\./.test(ua);
     const list: Check[] = [];
@@ -25,7 +49,7 @@
         ? { label: "Operating system", value: "Windows 10 or 11", state: "ok" }
         : old
           ? { label: "Operating system", value: "An older Windows. Velmora needs 10 or 11.", state: "no" }
-          : { label: "Operating system", value: "Not Windows. Velmora is Windows only for now.", state: "no" },
+          : { label: "Operating system", value: "Not Windows. On a phone or tablet, get Velmora for Android.", state: "no" },
     );
     list.push({ label: "Processor threads", value: nav.hardwareConcurrency ? String(nav.hardwareConcurrency) : "Your browser doesn't say", state: "info" });
     if (nav.deviceMemory) list.push({ label: "Memory (rounded down by your browser)", value: `${nav.deviceMemory} GB or more`, state: "info" });
@@ -36,8 +60,14 @@
     ready = true;
   });
 
+  const ANDROID_REQS = [
+    { icon: "android", title: "Android 8 or newer", text: "Phones and tablets. Both 64-bit phones (nearly all of them) and older 32-bit ones are supported, each with its own APK." },
+    { icon: "storage", title: "About 300 MB free", text: "The app itself is about 130 MB. Downloads and the Music cache come on top, as much as you choose to keep." },
+    { icon: "language", title: "Internet", text: "Needed for your first sign-in and for searching and playing online sources. After the first sign-in, Velmora opens offline, and downloads play offline." },
+  ];
+
   const REQS = [
-    { icon: "desktop_windows", title: "Windows 10 or 11, 64-bit", text: "Windows only for now. Android is in production development and drops soon; iPhone, iPad, Mac and Linux come later." },
+    { icon: "desktop_windows", title: "Windows 10 or 11, 64-bit", text: "On a phone or tablet, Velmora for Android needs Android 8 or newer. iPhone, iPad, Mac and Linux come later." },
     { icon: "person", title: "No administrator rights", text: "It installs for your own Windows user account only." },
     { icon: "language", title: "Internet", text: "Needed for your first sign-in, the first launch (about 80 MB of tools), and for searching and playing online sources. After the first sign-in, Velmora opens offline, and downloaded episodes play offline." },
   ];
@@ -46,17 +76,77 @@
 <PageShell
   eyebrow="System requirements"
   title="Will it run on"
-  accent="your PC?"
+  accent={platform === "android" ? "your phone?" : "your PC?"}
   crumb="System requirements"
-  lead="Almost any Windows 10 or 11 PC. Here's exactly what Velmora needs, and what makes 4K smooth."
+  lead={platform === "android"
+    ? "Almost any phone or tablet from the last several years. Here's exactly what Velmora for Android needs."
+    : "Almost any Windows 10 or 11 PC. Here's exactly what Velmora needs, and what makes 4K smooth."}
   spots={[
     { x: "91%", y: "190px", size: 118, color: "#2dd4bf", spin: 24, opacity: 0.5 },
     { x: "5%", y: "380px", size: 58, color: "#ffb74d", spin: -14, offset: 3, opacity: 0.65 },
   ]}
 >
-  <div class="pg-wide pg-split body">
+  {#snippet hero()}
+    <PlatformSwitch bind:value={platform} {detected} />
+  {/snippet}
+
+  {#key platform}
+  <div class="pg-wide pg-split body" in:fly={{ y: 12, duration: 380 }}>
     <Toc target="doc" />
     <article id="doc" class="pg-prose">
+      {#if platform === "android"}
+      <section class="pg-section first" id="needs">
+        <h2 class="pg-title" use:inview>What it <em>needs</em></h2>
+        <div class="cards">
+          {#each ANDROID_REQS as r, i (r.title)}
+            <div class="pg-card green" use:inview={i * 0.06}>
+              <m3e-icon name={r.icon}></m3e-icon>
+              <h3>{r.title}</h3>
+              <p>{r.text}</p>
+            </div>
+          {/each}
+        </div>
+      </section>
+
+      <section class="pg-section" id="space">
+        <h2 class="pg-title" use:inview>Storage <em>space</em></h2>
+        <table use:inview>
+          <tbody>
+            <tr><th scope="row">The APK</th><td>{latest.android?.android?.arm64 ? megabytes(latest.android?.android?.arm64.size) : "About 130 MB"}, everything included. Nothing is fetched on first launch.</td></tr>
+            <tr><th scope="row">Films you download</th><td>In <code>Movies/Velmora</code>, encrypted so only Velmora plays them. Settings › Downloads picks the quality, from 480p to the best there is.</td></tr>
+            <tr><th scope="row">Music</th><td>Songs you download, plus a cache of what you play, both cleared from Settings › Storage.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="pg-section" id="video">
+        <h2 class="pg-title" use:inview>Video and <em>sound</em></h2>
+        <p>Velmora plays video with Android's own player engine, ExoPlayer, so the phone's video chip does the decoding. H.264 plays everywhere; HEVC and AV1 depend on the chip, and most phones from the last few years handle at least HEVC. If a file can't play on yours, Velmora moves to the next source by itself.</p>
+        <p>Cinema sound (AC3, E-AC3 and DTS) usually needs special hardware. Velmora brings its own decoder for it, so films with that sound play with sound on every phone.</p>
+        <Note label="Mobile data" icon="signal_cellular_alt" variant="info">
+          On mobile data, Velmora picks 720p or lower and asks before streaming a torrent. Downloads wait for Wi-Fi. All three are settings.
+        </Note>
+      </section>
+
+      <section class="pg-section" id="check">
+        <h2 class="pg-title" use:inview>What your <em>browser can tell us</em></h2>
+        {#if detected === "android"}
+          <p>A web page can see only a little about your phone. This is that little. It's worked out in your browser and goes nowhere.</p>
+          <ul class="checks" aria-live="polite">
+            {#if !ready}<li class="wait">Checking…</li>{/if}
+            {#each checks as c, i (c.label)}
+              <li class={c.state} style="--i: {i}">
+                <m3e-icon name={c.state === "ok" ? "check_circle" : c.state === "no" ? "error" : "info"} filled></m3e-icon>
+                <span class="lbl">{c.label}</span>
+                <strong>{c.value}</strong>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p>Open this page on your phone and it checks the phone's Android version for you.</p>
+        {/if}
+      </section>
+      {:else}
       <section class="pg-section first" id="needs">
         <h2 class="pg-title" use:inview>What it <em>needs</em></h2>
         <div class="cards">
@@ -106,20 +196,26 @@
             </li>
           {/each}
         </ul>
+        {#if detected === "android"}
+          <p class="small">You're on a phone, so this is about the phone. Switch to Android above for what it needs.</p>
+        {/if}
         <p class="small">Whether your graphics card can decode a codec in hardware isn't something a web page can see. Velmora checks that itself when it plays something.</p>
       </section>
 
+      {/if}
+
       <section class="pg-section" id="not-yet">
         <h2 class="pg-title" use:inview>Not <em>supported yet</em></h2>
-        <p>Android is in production development and drops soon, as a full build for Android 8 and up with Material You or Liquid Glass. macOS, Linux, iPhone and iPad come later: iPhone, iPad and Mac as native SwiftUI apps with Liquid Glass, and Linux builds. Smart TVs and consoles aren't planned yet. There are no dates, and this page will say when that changes.</p>
+        <p><a href="/android/">Velmora for Android</a> is out, for phones and tablets on Android 8 and up. macOS, Linux, iPhone and iPad come later: iPhone, iPad and Mac as native SwiftUI apps with Liquid Glass, and Linux builds. Smart TVs and consoles aren't planned yet. There are no dates, and this page will say when that changes.</p>
       </section>
     </article>
   </div>
+  {/key}
 
   <Related
     items={[
-      { href: "/download/", icon: "download", title: "Download", text: "Free for Windows 10 and 11." },
-      { href: "/docs/install/", icon: "menu_book", title: "Install guide", text: "Every step, including the SmartScreen warning." },
+      { href: "/download/", icon: "download", title: "Download", text: "Free for Windows 10 and 11, and Android 8 and up." },
+      { href: "/docs/install/", icon: "menu_book", title: "Install guide", text: "Every step, on Windows and Android." },
       { href: "/faq/", icon: "help", title: "FAQ", text: "Short answers to common questions." },
     ]}
   />
@@ -152,6 +248,16 @@
   .pg-card m3e-icon {
     color: var(--blue);
     --m3e-icon-size: 26px;
+  }
+  .pg-card.green m3e-icon {
+    color: #3ddc84;
+  }
+  code {
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: rgb(255 255 255 / 8%);
+    color: var(--cream);
+    font-size: 0.92em;
   }
   table {
     width: 100%;

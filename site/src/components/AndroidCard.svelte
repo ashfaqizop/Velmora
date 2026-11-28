@@ -1,11 +1,15 @@
 <script lang="ts">
+  import AndroidDownloadButton from "./AndroidDownloadButton.svelte";
   import Logo from "./Logo.svelte";
 
-  // Android is in production development: a card with a small phone drawn in CSS.
+  // Velmora for Android: a card with a small phone drawn in CSS. On the home
+  // page it offers the download; the changelog uses it for what's next.
   let {
+    chip = "Out now",
     title = "Velmora for Android",
-    text = "Movies, series, anime, live TV, sports, Theatre and Music on your phone and tablet, with Material You or Liquid Glass. It's in production development now and drops soon.",
-  }: { title?: string; text?: string } = $props();
+    text = "Movies, series, anime, live TV, sports, Theatre and Music on your phone and tablet. The same free account as desktop, no ads, and it opens offline once you've signed in.",
+    download = true,
+  }: { chip?: string; title?: string; text?: string; download?: boolean } = $props();
 
   const POSTERS = [
     ["#ff7a59", "#3b1d6e"],
@@ -17,11 +21,11 @@
 
 <div class="android">
   <div class="text">
-    <span class="chip"><m3e-icon name="android"></m3e-icon>In development · dropping soon</span>
+    <span class="chip"><m3e-icon name="android"></m3e-icon>{chip}</span>
     <h3 class="display">{title}</h3>
     <p>{text}</p>
-    <span class="hint"><m3e-icon name="schedule"></m3e-icon>Android 8 and up, phones and tablets. It will be a free download from this site, like the Windows app.</span>
-    <a class="progress" href="/android/">See the build progress, phase by phase<m3e-icon name="arrow_forward"></m3e-icon></a>
+    {#if download}<div class="get"><AndroidDownloadButton size="medium" /></div>{/if}
+    <a class="progress" href="/android/">{download ? "Everything about Velmora for Android" : "See what's in it"}<m3e-icon name="arrow_forward"></m3e-icon></a>
   </div>
 
   <div class="phone" aria-hidden="true">
@@ -86,14 +90,8 @@
     line-height: 1.6;
     color: var(--muted);
   }
-  .hint {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 18px;
-    font-size: 13px;
-    color: var(--muted);
-    --m3e-icon-size: 16px;
+  .get {
+    margin-top: 22px;
   }
 
   .progress {
