@@ -113,7 +113,8 @@ jobs:
         run: |
           mkdir -p out/universal out/arm64
           if [ -n "$RELEASE" ]; then
-            ver=$(grep -oP 'versionName = "K[^"]+' app/build.gradle.kts)
+            ver=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)
+            [ -n "$ver" ] || { echo "no versionName"; exit 1; }
             if [[ "$GITHUB_REF_NAME" == app-v* && "$GITHUB_REF_NAME" != "app-v$ver" ]]; then echo "tag and versionName differ"; exit 1; fi
             echo "VERSION=$ver" >> "$GITHUB_ENV"
             cp app/build/outputs/apk/universalGms/release/*.apk "out/universal/Velmora-$ver-android-universal.apk"
