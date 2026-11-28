@@ -285,7 +285,7 @@ fun SocialScreen(to: String, navController: NavController) {
       }
     }
     Box(Modifier.fillMaxWidth().height(3.dp)) {
-      AnimatedVisibility(loading && !failed, enter = fadeIn(), exit = fadeOut()) {
+      Fade(loading && !failed) {
         LinearProgressIndicator(
           progress = { progress.coerceAtLeast(0.05f) },
           modifier = Modifier.fillMaxWidth().height(3.dp),
@@ -298,7 +298,7 @@ fun SocialScreen(to: String, navController: NavController) {
     Box(Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).imePadding()) {
       AndroidView(factory = { web }, modifier = Modifier.fillMaxSize())
       // Until the first paint: the mark on night, never a white flash.
-      AnimatedVisibility(!shown && !failed, enter = fadeIn(), exit = fadeOut()) {
+      Fade(!shown && !failed) {
         Column(
           Modifier.fillMaxSize().background(Brand.Night),
           horizontalAlignment = Alignment.CenterHorizontally,
@@ -313,7 +313,7 @@ fun SocialScreen(to: String, navController: NavController) {
           Text("Opening Velmora Social…", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodyMedium)
         }
       }
-      AnimatedVisibility(failed, enter = fadeIn(), exit = fadeOut()) {
+      Fade(failed) {
         Column(
           Modifier.fillMaxSize().background(Brand.Night).padding(32.dp),
           horizontalAlignment = Alignment.CenterHorizontally,
@@ -344,6 +344,12 @@ fun SocialScreen(to: String, navController: NavController) {
       }
     }
   }
+}
+
+/** Fades in and out; outside any Row or Column scope, so it can sit in a Box. */
+@Composable
+private fun Fade(visible: Boolean, content: @Composable () -> Unit) {
+  AnimatedVisibility(visible, enter = fadeIn(), exit = fadeOut()) { content() }
 }
 
 /** "Ana (@ana) · Velmora Social" → "Ana (@ana)". */
