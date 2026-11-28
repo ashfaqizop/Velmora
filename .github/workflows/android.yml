@@ -3,6 +3,8 @@ name: Velmora Android
 # Every build runs here: there is no Gradle, Android Studio or cargo on the dev PC.
 # A push to main that touches android/ or the engine produces a signed debug APK
 # to test (it installs as com.velmora.stepbyte.debug, next to a release build).
+# A release tag (app-vX.Y.Z, the same tag as desktop) builds the release APKs
+# and attaches them to that GitHub Release, next to the Windows installer.
 #
 # The Rust engine (android/engine/rust, a UniFFI wrapper around UniverseAPI) is
 # built first with cargo-ndk into android/engine/src/main/jniLibs, and its Kotlin
@@ -11,8 +13,15 @@ name: Velmora Android
 on:
   push:
     branches: [main]
+    # Path filters don't apply to tags, so every app-v tag builds.
     paths: ["android/**", "universeapi/crates/universeapi/**", ".github/workflows/android.yml"]
+    tags: ["app-v*"]
   workflow_dispatch:
+    inputs:
+      release:
+        description: Build the release APKs (to test them before tagging)
+        type: boolean
+        default: false
 
 concurrency:
   group: android-${{ github.ref }}
@@ -20,9 +29,13 @@ concurrency:
 
 jobs:
   debug:
-    name: Debug APK
+    name: ${{ (startsWith(github.ref, 'refs/tags/app-v') || inputs.release) && 'Release APK' || 'Debug APK' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      RELEASE: ${{ (startsWith(github.ref, 'refs/tags/app-v') || inputs.release) && '1' || '' }}
     defaults:
       run:
         working-directory: android
@@ -89,13 +102,25 @@ jobs:
           LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleUniversalGmsDebug --stacktrace --no-configuration-cache
+          if [ -n "$RELEASE" ]; then
+            [ -f keystore.jks ] || { echo "a release needs the signing key"; exit 1; }
+            ./gradlew :app:assembleUniversalGmsRelease --stacktrace --no-configuration-cache
+          else
+            ./gradlew :app:assembleUniversalGmsDebug --stacktrace --no-configuration-cache
+          fi
 
       - name: Name the APK
         run: |
-          short=$(git rev-parse --short HEAD)
           mkdir -p out/universal out/arm64
-          cp app/build/outputs/apk/universalGms/debug/*.apk "out/universal/Velmora-debug-$short.apk"
+          if [ -n "$RELEASE" ]; then
+            ver=$(grep -oP 'versionName = "K[^"]+' app/build.gradle.kts)
+            if [[ "$GITHUB_REF_NAME" == app-v* && "$GITHUB_REF_NAME" != "app-v$ver" ]]; then echo "tag and versionName differ"; exit 1; fi
+            echo "VERSION=$ver" >> "$GITHUB_ENV"
+            cp app/build/outputs/apk/universalGms/release/*.apk "out/universal/Velmora-$ver-android-universal.apk"
+          else
+            short=$(git rev-parse --short HEAD)
+            cp app/build/outputs/apk/universalGms/debug/*.apk "out/universal/Velmora-debug-$short.apk"
+          fi
 
       # A smaller copy for 64-bit phones (most of them): the same APK without
       # the 32-bit libraries, re-signed with the same key so it installs over
@@ -107,7 +132,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           [ -f keystore.jks ] || { echo "no signing key, skipping"; exit 0; }
-          short=$(git rev-parse --short HEAD)
+          if [ -n "$RELEASE" ]; then name="Velmora-$VERSION-android-arm64.apk"; else name="Velmora-debug-$(git rev-parse --short HEAD)-arm64.apk"; fi
           bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           work=$(mktemp -d)
           cp out/universal/*.apk "$work/in.apk"
@@ -115,8 +140,8 @@ jobs:
           "$bt/zipalign" -f -p 4 "$work/in.apk" "$work/aligned.apk"
           "$bt/apksigner" sign --ks keystore.jks --ks-pass env:STORE_PASSWORD \
             --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD \
-            --out "out/arm64/Velmora-debug-$short-arm64.apk" "$work/aligned.apk"
-          "$bt/apksigner" verify "out/arm64/Velmora-debug-$short-arm64.apk"
+            --out "out/arm64/$name" "$work/aligned.apk"
+          "$bt/apksigner" verify "out/arm64/$name"
           rm -rf "$work"
           ls -la out/universal out/arm64
 
@@ -132,6 +157,19 @@ jobs:
           path: android/out/arm64/*.apk
           if-no-files-found: ignore
           retention-days: 14
+
+      # Desktop's workflow makes the Release for the same tag; wait for it,
+      # then add the APKs.
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/app-v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in $(seq 1 90); do
+            gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 && break
+            echo "waiting for the release ($i)"; sleep 30
+          done
+          gh release upload "$GITHUB_REF_NAME" out/arm64/*.apk out/universal/*.apk --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Remove the key
         if: always()

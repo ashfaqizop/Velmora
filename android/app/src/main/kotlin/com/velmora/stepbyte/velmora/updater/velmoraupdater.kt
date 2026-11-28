@@ -687,9 +687,10 @@ suspend fun checkForUpdate(
 
       val currentVersion = BuildConfig.VERSION_NAME
       val targetTagName = targetRelease.getString("tag_name")
-      val currentClean = currentVersion.removePrefix("b").removePrefix("v").trim()
-      val targetClean = targetTagName.removePrefix("b").removePrefix("v").trim()
-      val shouldShow = currentClean != targetClean
+      val currentClean = cleanTag(currentVersion)
+      val targetClean = cleanTag(targetTagName)
+      // Only a newer version: tags are app-vX.Y.Z, shared with desktop.
+      val shouldShow = isNewer(targetClean, currentClean)
 
       if (shouldShow) {
         val tagWithPrefix = targetRelease.getString("tag_name")
@@ -741,18 +742,22 @@ suspend fun checkForUpdate(
 
         var apkSizeInMB = ""
         var apkDownloadUrl = ""
-        for (j in 0 until assets.length()) {
-          val asset = assets.getJSONObject(j)
-          val assetName = asset.getString("name")
-          if (
-            assetName.endsWith(".apk", ignoreCase = true) &&
-              !assetName.lowercase().contains("debug")
-          ) {
-            val apkSizeInBytes = asset.getLong("size")
-            apkSizeInMB = String.format("%.1f", apkSizeInBytes / (1024.0 * 1024.0))
-            apkDownloadUrl = asset.getString("browser_download_url")
-            break
-          }
+        // The release has a 64-bit APK and a universal one; take the one for this phone.
+        val apks =
+          (0 until assets.length())
+            .map { assets.getJSONObject(it) }
+            .filter { a ->
+              val n = a.getString("name").lowercase()
+              n.endsWith(".apk") && !n.contains("debug")
+            }
+        val wantArm64 = Build.SUPPORTED_64_BIT_ABIS.any { it == "arm64-v8a" }
+        val pick =
+          apks.firstOrNull { it.getString("name").lowercase().contains(if (wantArm64) "arm64" else "universal") }
+            ?: apks.firstOrNull { !it.getString("name").lowercase().contains("arm64") }
+            ?: apks.firstOrNull()
+        if (pick != null) {
+          apkSizeInMB = String.format("%.1f", pick.getLong("size") / (1024.0 * 1024.0))
+          apkDownloadUrl = pick.getString("browser_download_url")
         }
 
         if (apkDownloadUrl.isNotEmpty()) {
@@ -819,7 +824,7 @@ private fun openTimedStream(url: String): java.io.InputStream =
 suspend fun fetchChangelogForVersion(currentVersion: String): WhatsNewInfo? =
   withContext(Dispatchers.IO) {
     try {
-      val cleanCurrent = currentVersion.removePrefix("b").removePrefix("v").trim()
+      val cleanCurrent = cleanTag(currentVersion)
       val releasesJson =
         openTimedStream("https://api.github.com/repos/ashfaqizop/Velmora/releases")
           .bufferedReader()
@@ -829,7 +834,7 @@ suspend fun fetchChangelogForVersion(currentVersion: String): WhatsNewInfo? =
       var matchedRelease: JSONObject? = null
       for (i in 0 until releases.length()) {
         val release = releases.getJSONObject(i)
-        val tagClean = release.getString("tag_name").removePrefix("b").removePrefix("v").trim()
+        val tagClean = cleanTag(release.getString("tag_name"))
         if (tagClean == cleanCurrent) {
           matchedRelease = release
           break
@@ -954,4 +959,18 @@ fun String.extractUrls(): List<Pair<IntRange, String>> {
   }
 
   return urlList
+}
+
+/** "app-v0.6.7", "v0.6.7" or "0.6.7" → "0.6.7". */
+internal fun cleanTag(tag: String): String = tag.trim().removePrefix("app-").removePrefix("b").removePrefix("v").trim()
+
+/** Whether version [a] is newer than [b], comparing X.Y.Z numbers. */
+internal fun isNewer(a: String, b: String): Boolean {
+  val x = a.split('.').map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
+  val y = b.split('.').map { it.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
+  for (i in 0 until maxOf(x.size, y.size)) {
+    val d = x.getOrElse(i) { 0 } - y.getOrElse(i) { 0 }
+    if (d != 0) return d > 0
+  }
+  return false
 }

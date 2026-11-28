@@ -27,8 +27,8 @@ android {
     minSdk = 26
     targetSdk = 36
     // Same numbers as the desktop app. Code = major * 1,000,000 + minor * 1,000 + patch.
-    versionCode = 6006
-    versionName = "0.6.6"
+    versionCode = 6007
+    versionName = "0.6.7"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true

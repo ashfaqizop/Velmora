@@ -184,3 +184,11 @@
 -keepclasseswithmembers class com.velmora.stepbyte.listentogether.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+## Velmora: the Rust engine's bindings are reached through JNA by name, and
+## Velmora's own screens and saved models are small enough to keep whole.
+-keep class com.velmora.stepbyte.engine.** { *; }
+-keep class com.velmora.stepbyte.velmora.** { *; }
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.** { *; }
+-dontwarn java.awt.**
