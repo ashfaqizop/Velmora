@@ -143,14 +143,7 @@ fun NavGraphBuilder.velmoraGraph(navController: NavController) {
     )
   }
   composable(Screens.VelmoraSearch.route) { VelmoraSearchScreen(navController) }
-  composable(VelmoraRoutes.DOWNLOADS) {
-    ComingScreen(
-      icon = R.drawable.download,
-      title = "Downloads",
-      text = "Movies and episodes you save, locked to Velmora and playable offline.",
-      phase = 7,
-    )
-  }
+  composable(VelmoraRoutes.DOWNLOADS) { com.velmora.stepbyte.velmora.downloads.DownloadsScreen(navController) }
   composable(VRoutes.TITLE, arguments = listOf(navArgument("t") { type = NavType.StringType })) { entry ->
     val title = remember(entry) { entry.arguments?.getString("t")?.let(::decodeTitle) }
     if (title != null) TitleScreen(title, navController) else LaunchedEffect(Unit) { navController.navigateUp() }

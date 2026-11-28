@@ -190,6 +190,41 @@ How it is built (2026-11-28), in `velmora/player/`:
 `.vlm` downloads in `Movies/Velmora` through a decrypting data source, a
 download service with the Wi-Fi rule, the movie and music downloads pages.
 
+How it is built (2026-11-28):
+
+- The engine's download manager does the transfer and seals each file into
+  a `.vlm` vault file with the install's key (the bridge now hands the
+  stream server's vault to `downloads().set_vault`). The key is backed up to
+  the account since phase 4, so a reinstall still opens old downloads.
+- HLS without ffmpeg: Android has no ffmpeg sidecar, so the engine gained
+  `hls.rs`, a native joiner. It takes the best variant, fetches segments four
+  at a time and writes them in order, decrypts AES-128 ones (RustCrypto `aes`
+  and `cbc`), and resumes from a `.part.idx` mark after a pause or a dropped
+  connection. It refuses what it can't do (live, audio in its own playlist,
+  SAMPLE-AES, byte ranges) in plain words. Desktop uses it too when its
+  ffmpeg is missing. DASH still needs ffmpeg, so those sources only stream.
+- `velmora/downloads/VelmoraDownloads.kt` keeps the list in
+  `files/velmora/downloads.json`, so a download outlives the app: after a
+  restart it goes back to the engine with the same source and continues from
+  its `.part` file. It picks the source (best ranked at or under the chosen
+  quality, direct files before torrents, no DASH), falls over to the next
+  source twice, checks free space with `StatFs`, and follows the Wi-Fi rule:
+  on mobile data, running jobs pause and new ones wait, then carry on when
+  Wi-Fi is back. Whole seasons queue one record per episode.
+- `DownloadService` is a `dataSync` foreground service with one progress
+  notification (and "Pause all"); it always reaches the foreground before
+  stopping, so Android never kills the app for a late `startForeground`.
+  A finished download posts its own notification that opens Downloads.
+- Offline play: `VideoSession` checks `VelmoraDownloads.localFile` first and
+  plays the file through `open_local` (vault files decrypt on the fly from
+  `/v/`), with subtitles saved beside it, no lookup and no network.
+- UI: the title page has a download button whose icon shows the state (ring
+  with progress, paused, done) and a sheet for quality, Wi-Fi only, this
+  episode or the whole season; episode rows have one-tap download buttons.
+  The Downloads page shows Velmora's share of the storage, active downloads
+  with wavy progress, speed and time left, then what's on the phone: movies,
+  and shows grouped with their episodes, with how much was watched.
+
 ## 8. Live TV, Sports, Theatre
 Channels player, matches and where to watch, Theatre lineup, booking, lobby,
 chat, synced show, Max perks, start-event report.

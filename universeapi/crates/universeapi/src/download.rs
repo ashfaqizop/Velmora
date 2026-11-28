@@ -85,8 +85,15 @@ impl Job {
 }
 
 /// The in-progress files a download leaves next to its target.
-fn partials(target: &Path) -> [PathBuf; 2] {
-    [PathBuf::from(format!("{}.part", target.display())), target.with_extension("part.mkv")]
+fn partials(target: &Path) -> Vec<PathBuf> {
+    let mut v = vec![PathBuf::from(format!("{}.part", target.display())), target.with_extension("part.mkv")];
+    // The HLS joiner (see `hls`) writes beside the target with its own container and a resume mark.
+    for ext in ["remux.ts", "remux.mp4", "ts", "mp4"] {
+        let plain = target.with_extension(ext);
+        v.push(PathBuf::from(format!("{}.part", plain.display())));
+        v.push(PathBuf::from(format!("{}.part.idx", plain.display())));
+    }
+    v
 }
 
 async fn discard_partials(target: &Path) {
@@ -99,7 +106,7 @@ fn is_video(name: &str) -> bool {
     Path::new(name)
         .extension()
         .and_then(|x| x.to_str())
-        .is_some_and(|x| matches!(x.to_ascii_lowercase().as_str(), "mkv" | "mp4" | "webm" | "avi" | "m4v" | "vlm"))
+        .is_some_and(|x| matches!(x.to_ascii_lowercase().as_str(), "mkv" | "mp4" | "webm" | "avi" | "m4v" | "ts" | "vlm"))
 }
 
 /// Seal every video under `dir` (an extracted season pack) into vault files.
@@ -458,12 +465,12 @@ impl DownloadManager {
                 // ffmpeg writes a plain MKV beside the vault file, which is sealed and removed.
                 Some(v) => {
                     let target = self.claim_target(job, planned.with_extension(crate::vault::EXT)).await;
-                    let plain = self.remux(job, &target.with_extension("remux.mkv")).await?;
+                    let plain = self.remux_any(job, &target.with_extension("remux.mkv")).await?;
                     v.seal(&plain, &target).await?
                 }
                 None => {
                     let target = self.claim_target(job, planned.with_extension("mkv")).await;
-                    self.remux(job, &target).await?
+                    self.remux_any(job, &target).await?
                 }
             },
             _ => match &vault {
@@ -581,6 +588,60 @@ impl DownloadManager {
     }
 
     /// HLS/DASH → MKV through the ffmpeg sidecar, keeping every track.
+    /// HLS or DASH to one file: ffmpeg where there is one, and for HLS the
+    /// built-in joiner on Android (no ffmpeg there) or when ffmpeg is missing.
+    async fn remux_any(&self, job: &Job, target: &Path) -> Result<PathBuf> {
+        let hls = job.req.source.format == StreamFormat::Hls;
+        if !cfg!(target_os = "android") {
+            match self.remux(job, target).await {
+                Err(Error::Unsupported(m)) if hls && m.starts_with("ffmpeg not available") => {}
+                other => return other,
+            }
+        }
+        if !hls {
+            return Err(Error::Unsupported("DASH downloads need ffmpeg; this one only streams".into()));
+        }
+        self.hls_native(job, target).await
+    }
+
+    /// Join an HLS stream's segments without ffmpeg (see `hls`). The file
+    /// takes the segments' own container (.ts or .mp4) in place of `target`'s.
+    async fn hls_native(&self, job: &Job, target: &Path) -> Result<PathBuf> {
+        let src = &job.req.source;
+        let http = self.ctx.http.client();
+        let plan = crate::hls::plan(http, &src.url, &src.headers).await?;
+        let out = target.with_extension(plan.extension());
+        let count = plan.segments.len();
+        let mut window = (Instant::now(), 0u64);
+        crate::hls::download(
+            http,
+            &src.headers,
+            &plan,
+            &out,
+            |bytes, done| {
+                let elapsed = window.0.elapsed();
+                let speed = if elapsed.as_millis() >= 500 {
+                    let s = ((bytes.saturating_sub(window.1)) as f64 / elapsed.as_secs_f64()) as u64;
+                    window = (Instant::now(), bytes);
+                    Some(s)
+                } else {
+                    None
+                };
+                // The size is only known at the end: estimate from the segments so far.
+                let estimate = if done > 0 { bytes / done as u64 * count as u64 } else { 0 };
+                job.update(|s| {
+                    s.downloaded = bytes;
+                    s.total = Some(estimate.max(bytes));
+                    if let Some(sp) = speed {
+                        s.bytes_per_sec = sp;
+                    }
+                });
+            },
+            || job.interrupted(),
+        )
+        .await
+    }
+
     async fn remux(&self, job: &Job, target: &Path) -> Result<PathBuf> {
         let src = &job.req.source;
         let tmp = target.with_extension("part.mkv");

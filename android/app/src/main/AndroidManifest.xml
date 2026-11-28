@@ -283,6 +283,12 @@
             android:exported="false"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
+        <!-- Velmora downloads: keeps them going with the app closed. -->
+        <service
+            android:name=".velmora.downloads.DownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- The video's media session: lock screen controls and background play. -->
         <service
             android:name=".velmora.player.VideoService"

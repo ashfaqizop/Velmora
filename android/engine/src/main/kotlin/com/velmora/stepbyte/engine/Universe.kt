@@ -125,6 +125,46 @@ class Universe private constructor(private val ffi: VelmoraEngine) {
   /** Anime from AniList filters: search, genres, sort, year, season, status, format. */
   suspend fun anilistFind(filters: JsonObject): List<Title> = call { titles(parse(ffi.anilistFind(filters.toString())).jsonArray) }
 
+  // ── Downloads ──
+
+  /**
+   * Queue a download; returns its id. [name] becomes the file name ("Dune
+   * (2021)", "Frieren S01E03"). The file is sealed into a `.vlm` vault file
+   * that only Velmora opens.
+   */
+  suspend fun downloadStart(source: Source, name: String, target: Target = Target.Movie): Long = call {
+    val ep = target as? Target.Episode
+    ffi.downloadStart(source.json.toString(), name, ep?.season?.toUInt(), ep?.episode?.toUInt()).toLong()
+  }
+
+  suspend fun downloads(): List<DownloadStatus> = call {
+    parse(ffi.downloadsList()).jsonArray.mapNotNull { runCatching { json.decodeFromJsonElement(DownloadStatus.serializer(), it) }.getOrNull() }
+  }
+
+  suspend fun downloadPause(id: Long) = call { ffi.downloadPause(id.toULong()) }
+
+  suspend fun downloadResume(id: Long) = call { ffi.downloadResume(id.toULong()) }
+
+  suspend fun downloadCancel(id: Long) = call { ffi.downloadCancel(id.toULong()) }
+
+  suspend fun downloadsClear() = call { ffi.downloadsClear() }
+
+  /** Finished videos in the download folder, newest first. */
+  suspend fun downloadsLibrary(): List<LocalFile> = call {
+    parse(ffi.downloadsLibrary()).jsonArray.mapNotNull { runCatching { json.decodeFromJsonElement(LocalFile.serializer(), it) }.getOrNull() }
+  }
+
+  val downloadDir: String
+    get() = ffi.downloadDir()
+
+  fun setDownloadDir(dir: String) = mapErrors { ffi.setDownloadDir(dir) }
+
+  /** A downloaded file, ready for ExoPlayer (vault files decrypt on the fly). */
+  fun openLocal(path: String): OpenedStream = mapErrors { json.decodeFromString(OpenedStream.serializer(), ffi.openLocal(path)) }
+
+  /** Delete a downloaded video and its subtitles (only inside the download folder). */
+  fun deleteLocal(path: String) = mapErrors { ffi.deleteLocal(path) }
+
   // ── Live TV ──
 
   suspend fun tvChannels(query: TvQuery): TvPage = call {

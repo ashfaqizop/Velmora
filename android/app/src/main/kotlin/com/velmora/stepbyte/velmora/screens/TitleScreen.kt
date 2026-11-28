@@ -178,7 +178,7 @@ fun TitleScreen(title: Title, navController: NavController) {
           scrollOffset = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset.toFloat() else heroPx },
         )
       }
-      item(key = "actions") { Actions(shown, detail, onTrailer = info?.trailer) }
+      item(key = "actions") { Actions(shown, detail, onTrailer = info?.trailer, onOpenDownloads = { navController.navigate(com.velmora.stepbyte.velmora.shell.VelmoraRoutes.DOWNLOADS) }) }
       item(key = "sources") { SourcesAhead(title, detail) }
 
       info?.extra?.tagline?.takeIf { it.isNotBlank() }?.let { tagline ->
@@ -209,7 +209,7 @@ fun TitleScreen(title: Title, navController: NavController) {
       }
 
       if (info != null && info.seasons.isNotEmpty() && v.episodic) {
-        item(key = "episodes") { Episodes(shown, info.seasons) }
+        item(key = "episodes") { Episodes(shown, info.seasons, onOpenDownloads = { navController.navigate(com.velmora.stepbyte.velmora.shell.VelmoraRoutes.DOWNLOADS) }) }
       }
 
       val cast = info?.extra?.cast?.takeIf { it.isNotEmpty() }
@@ -391,7 +391,7 @@ private fun MetaLine(title: Title, detail: TitleDetail?) {
 // ── Actions ────────────────────────────────────────────────────────────
 
 @Composable
-private fun Actions(title: Title, detail: TitleDetail?, onTrailer: String?) {
+private fun Actions(title: Title, detail: TitleDetail?, onTrailer: String?, onOpenDownloads: () -> Unit) {
   val context = LocalContext.current
   val haptics = LocalHapticFeedback.current
   val uriHandler = LocalUriHandler.current
@@ -420,7 +420,7 @@ private fun Actions(title: Title, detail: TitleDetail?, onTrailer: String?) {
           title.value.episodic -> "Play S1 E1"
           else -> "Play"
         }
-      Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+      Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
     FilledTonalIconToggleButton(
       checked = saved,
@@ -444,6 +444,10 @@ private fun Actions(title: Title, detail: TitleDetail?, onTrailer: String?) {
         Icon(if (on) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, contentDescription = if (on) "Remove from My List" else "Add to My List")
       }
     }
+    // Download: the movie, or the episode Play would play (the sheet offers the season).
+    val seasons = detail?.info?.seasons.orEmpty()
+    val target = remember(title, seasons, progress) { VideoSession.targetFor(title, seasons) }
+    com.velmora.stepbyte.velmora.downloads.DownloadButton(title, target, seasons, onOpenDownloads = onOpenDownloads)
     if (onTrailer != null) {
       OutlinedIconButton(onClick = { uriHandler.openUri(onTrailer) }, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(18.dp)) {
         Icon(Icons.Rounded.SmartDisplay, contentDescription = "Trailer")
@@ -537,7 +541,7 @@ private fun Story(overview: String) {
 // ── Episodes ───────────────────────────────────────────────────────────
 
 @Composable
-private fun Episodes(title: Title, seasons: List<com.velmora.stepbyte.engine.Season>) {
+private fun Episodes(title: Title, seasons: List<com.velmora.stepbyte.engine.Season>, onOpenDownloads: () -> Unit) {
   val context = LocalContext.current
   val playable = seasons.filter { it.episodes.isNotEmpty() }.ifEmpty { seasons }
   // Specials (season 0) go last; the first real season opens.
@@ -579,7 +583,9 @@ private fun Episodes(title: Title, seasons: List<com.velmora.stepbyte.engine.Sea
         }
         s.episodes.forEach { ep ->
           val watching = last?.takeIf { it.season == ep.season && it.episode == ep.number }
-          EpisodeRow(ep, title.value.backdrop, watching?.fraction, onClick = { VideoSession.play(context, title, com.velmora.stepbyte.engine.Target.Episode(ep.season, ep.number)) })
+          EpisodeRow(ep, title.value.backdrop, watching?.fraction, onClick = { VideoSession.play(context, title, com.velmora.stepbyte.engine.Target.Episode(ep.season, ep.number)) }) {
+            com.velmora.stepbyte.velmora.downloads.EpisodeDownloadButton(title, ep.season, ep.number, ep.title, onOpenDownloads)
+          }
         }
       }
     }
@@ -587,7 +593,7 @@ private fun Episodes(title: Title, seasons: List<com.velmora.stepbyte.engine.Sea
 }
 
 @Composable
-private fun EpisodeRow(ep: Episode, fallbackArt: String?, fraction: Float?, onClick: () -> Unit) {
+private fun EpisodeRow(ep: Episode, fallbackArt: String?, fraction: Float?, onClick: () -> Unit, trailing: @Composable () -> Unit = {}) {
   Row(
     Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
@@ -618,6 +624,7 @@ private fun EpisodeRow(ep: Episode, fallbackArt: String?, fraction: Float?, onCl
         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
       }
     }
+    trailing()
   }
 }
 

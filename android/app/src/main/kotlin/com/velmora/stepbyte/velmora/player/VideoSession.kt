@@ -73,6 +73,8 @@ data class PlaybackUi(
   val dub: Boolean = false,
   /** The next episode, offered near the end. */
   val next: Episode? = null,
+  /** Playing a downloaded file, not a stream. */
+  val local: Boolean = false,
 )
 
 /**
@@ -161,6 +163,11 @@ object VideoSession {
         }
       }
     }
+    // Downloaded: play the file, no lookup, no network.
+    com.velmora.stepbyte.velmora.downloads.VelmoraDownloads.localFile(title, target)?.let { path ->
+      playLocal(path)
+      return
+    }
     job =
       scope.launch {
         val finding = SourceFinder.find(app, lookup, target, dub)
@@ -182,6 +189,41 @@ object VideoSession {
         }
         _ui.update { it.copy(sources = report.sources) }
         pickAndPlay()
+      }
+  }
+
+  private fun playLocal(path: String) {
+    _ui.update { it.copy(phase = Phase.Opening, local = true, message = null) }
+    job =
+      scope.launch {
+        try {
+          val stream = Universe.get(app).openLocal(path)
+          opened = null
+          val title = _ui.value.title
+          val subs =
+            stream.subtitles.mapNotNull { t ->
+              val mime = subtitleMime(t.url) ?: return@mapNotNull null
+              MediaItem.SubtitleConfiguration.Builder(Uri.parse(t.url)).setMimeType(mime).setLanguage(t.lang).setLabel(t.label).build()
+            }
+          val item =
+            MediaItem.Builder()
+              .setUri(stream.url)
+              .setMediaId(stream.id)
+              .setSubtitleConfigurations(subs)
+              .setMediaMetadata(MediaMetadata.Builder().setTitle(title?.value?.name).setSubtitle(episodeLabel(_ui.value.target)).build())
+              .build()
+          val p = ensurePlayer()
+          p.setMediaItem(item, startAtMs.coerceAtLeast(0))
+          p.prepare()
+          p.playWhenReady = true
+          _ui.update { it.copy(phase = Phase.Playing) }
+          VideoService.start(app)
+          startTicker()
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Throwable) {
+          fail("Your download didn't open: ${e.message ?: e.javaClass.simpleName}")
+        }
       }
   }
 
@@ -311,7 +353,8 @@ object VideoSession {
   }
 
   private fun subtitleMime(url: String): String? {
-    val path = url.substringBefore('?').lowercase()
+    // Downloaded subtitles carry their type in the fragment: /f/{token}#.vtt
+    val path = url.substringAfter('#', url.substringBefore('?')).lowercase()
     return when {
       path.endsWith(".vtt") -> MimeTypes.TEXT_VTT
       path.endsWith(".srt") -> MimeTypes.APPLICATION_SUBRIP
@@ -400,6 +443,10 @@ object VideoSession {
       }
 
       override fun onPlayerError(error: PlaybackException) {
+        if (_ui.value.local) {
+          fail("Your download didn't play (${error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')}). Delete it and download again, or stream it.")
+          return
+        }
         val cur = _ui.value.current ?: return
         Log.w(TAG, "playback error on ${cur.value.label}: ${error.errorCodeName}", error)
         val at = player?.currentPosition ?: 0L

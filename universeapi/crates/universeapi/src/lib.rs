@@ -20,6 +20,7 @@ pub mod config;
 pub mod download;
 pub mod engine;
 pub mod error;
+mod hls;
 #[cfg(feature = "impersonate")]
 pub mod impersonate;
 pub mod metadata;

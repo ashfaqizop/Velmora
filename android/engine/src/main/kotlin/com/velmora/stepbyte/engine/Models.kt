@@ -307,3 +307,41 @@ data class Match(
   val live: Boolean
     get() = status == "live"
 }
+
+// ── Downloads (universeapi/src/download.rs) ──
+
+/** A download this run. [state] is queued, running, paused, extracting, completed, failed or cancelled. */
+@Serializable
+data class DownloadStatus(
+  val id: Long,
+  val title: String,
+  val state: DownloadState,
+  val downloaded: Long = 0,
+  val total: Long? = null,
+  @SerialName("bytes_per_sec") val bytesPerSec: Long = 0,
+) {
+  val fraction: Float
+    get() = total?.takeIf { it > 0 }?.let { (downloaded.toDouble() / it).toFloat().coerceIn(0f, 1f) } ?: 0f
+}
+
+@Serializable
+data class DownloadState(
+  val state: String,
+  /** The finished file, once completed. */
+  val path: String? = null,
+  val error: String? = null,
+) {
+  val active: Boolean
+    get() = state == "queued" || state == "running" || state == "extracting"
+}
+
+/** A finished video in the download folder. */
+@Serializable
+data class LocalFile(
+  val path: String,
+  /** File name without the extension: "Dune (2021) 1080p". */
+  val title: String,
+  val size: Long,
+  /** Unix seconds. */
+  val modified: Long,
+)

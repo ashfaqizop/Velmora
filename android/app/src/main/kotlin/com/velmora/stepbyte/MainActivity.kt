@@ -419,6 +419,7 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     VelmoraAccount.init(this)
     com.velmora.stepbyte.velmora.library.VelmoraLibrary.init(this)
+    com.velmora.stepbyte.velmora.downloads.VelmoraDownloads.init(this)
 
     try {
       startService(Intent(this, com.velmora.stepbyte.playback.MusicService::class.java))
@@ -1128,6 +1129,16 @@ class MainActivity : ComponentActivity() {
             appMode = to
             navController.switchMode(to)
             coroutineScope.launch { dataStore.edit { it[AppModeKey] = to.name } }
+          }
+        }
+        // The download notification opens Downloads, in Velmora mode.
+        val openRequest by com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.collectAsState()
+        LaunchedEffect(openRequest) {
+          if (openRequest == "downloads") {
+            com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.value = null
+            switchModeNow(AppMode.VELMORA)
+            kotlinx.coroutines.delay(250)
+            navController.navigate(com.velmora.stepbyte.velmora.shell.VelmoraRoutes.DOWNLOADS) { launchSingleTop = true }
           }
         }
         val switchWithReveal: (AppMode, androidx.compose.ui.geometry.Offset) -> Unit = { to, center ->
@@ -1983,6 +1994,11 @@ class MainActivity : ComponentActivity() {
 
   private fun handleDeepLinkIntent(intent: Intent, navController: NavHostController) {
     if (VelmoraAccount.handleLink(intent.data)) return
+    intent.getStringExtra("velmora_open")?.let {
+      com.velmora.stepbyte.velmora.downloads.OpenRequests.flow.value = it
+      intent.removeExtra("velmora_open")
+      return
+    }
     var uri = intent.data
     if (uri == null) {
       val extraText = intent.extras?.getString(Intent.EXTRA_TEXT)

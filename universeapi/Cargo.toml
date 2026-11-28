@@ -11,6 +11,8 @@ repository = "https://github.com/ashfaqizop/Velmora"
 authors = ["siliconcode-dev <siliconxcode@gmail.com>", "ashfaqizop <ashfaqizop@gmail.com>"]
 
 [workspace.dependencies]
+aes = "0.8"
+cbc = "0.1"
 universeapi = { path = "crates/universeapi" }
 async-trait = "0.1"
 base64 = "0.22"

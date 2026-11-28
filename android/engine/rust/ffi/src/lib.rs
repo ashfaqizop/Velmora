@@ -215,6 +215,8 @@ impl VelmoraEngine {
         let rt = runtime();
         // The download manager spawns tasks, so the engine is built inside the runtime.
         let engine = Arc::new(rt.block_on(async move { Engine::new(opts) }).map_err(failed)?);
+        // Downloads are sealed with the same key the stream server opens them with.
+        engine.downloads().set_vault(Some(sealed.vault.clone()));
         let port = rt.block_on(stream::start(engine.clone(), sealed.clone())).map_err(failed)?;
         tracing::info!("engine ready, stream server on 127.0.0.1:{port}");
 
@@ -342,6 +344,140 @@ impl VelmoraEngine {
         let filters: serde_json::Value = from_json("filters", &filters_json)?;
         let engine = self.engine.clone();
         on_runtime(async move { to_json(&engine.anilist().find(filters).await.map_err(failed)?) }).await
+    }
+
+    // ── Downloads ──
+
+    /// Queue a download of `source_json`; returns its id. `title` names the
+    /// file ("Dune (2021)", "Frieren S01E03"); season and episode pick the
+    /// file inside a torrent pack. Files are sealed into `.vlm` vault files.
+    pub async fn download_start(&self, source_json: String, title: String, season: Option<u32>, episode: Option<u32>) -> Result<u64, EngineError> {
+        let source: Source = from_json("source", &source_json)?;
+        let engine = self.engine.clone();
+        on_runtime(async move {
+            let req = universeapi::download::DownloadRequest { source, title, dest_dir: None, episode: season.zip(episode) };
+            Ok(engine.downloads().enqueue(req).await)
+        })
+        .await
+    }
+
+    /// Every download this run, as `DownloadStatus[]`.
+    pub async fn downloads_list(&self) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.downloads().list().await) }).await
+    }
+
+    pub async fn download_pause(&self, id: u64) -> Result<(), EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move {
+            engine.downloads().pause(id).await;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Resume a paused or failed download; HTTP and HLS pick up where they stopped.
+    pub async fn download_resume(&self, id: u64) -> Result<(), EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { engine.downloads().resume(id).await.map_err(failed) }).await
+    }
+
+    pub async fn download_cancel(&self, id: u64) -> Result<(), EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move {
+            engine.downloads().cancel(id).await;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Forget finished and cancelled downloads (failed ones stay to retry).
+    pub async fn downloads_clear(&self) -> Result<(), EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move {
+            engine.downloads().clear_finished().await;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Finished videos in the download folder, newest first, as `LocalFile[]`.
+    pub async fn downloads_library(&self) -> Result<String, EngineError> {
+        let engine = self.engine.clone();
+        on_runtime(async move { to_json(&engine.downloads().library().await) }).await
+    }
+
+    pub fn download_dir(&self) -> String {
+        self.engine.downloads().dir().display().to_string()
+    }
+
+    pub fn set_download_dir(&self, dir: String) -> Result<(), EngineError> {
+        let path = PathBuf::from(&dir);
+        std::fs::create_dir_all(&path).map_err(|e| failed(format!("{dir}: {e}")))?;
+        self.engine.downloads().set_dir(path);
+        Ok(())
+    }
+
+    /// Make a downloaded file playable, as `OpenedStream`: vault files are
+    /// decrypted on the fly from `/v/`, plain ones served from `/f/`, and
+    /// subtitles saved beside the video come along.
+    pub fn open_local(&self, path: String) -> Result<String, EngineError> {
+        let file = PathBuf::from(&path);
+        if !file.is_file() {
+            return Err(EngineError::BadInput { reason: format!("{path} isn't a file") });
+        }
+        let name = file.file_name().and_then(|n| n.to_str()).unwrap_or_default().to_string();
+        let token = if universeapi::vault::is_vault(&name) {
+            format!("/v/{}", self.sealed.register(file.clone()).map_err(failed)?)
+        } else {
+            format!("/f/{}", self.sealed.register_plain(file.clone()).map_err(failed)?)
+        };
+        let stem = file.file_stem().and_then(|s| s.to_str()).unwrap_or_default().to_string();
+        let mut subtitles = Vec::new();
+        if let Some(dir) = file.parent() {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for e in entries.flatten() {
+                    let n = e.file_name().to_string_lossy().to_string();
+                    let Some(rest) = n.strip_prefix(&format!("{stem}.")) else { continue };
+                    let ext = rest.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+                    if !matches!(ext.as_str(), "vtt" | "srt" | "ass" | "ssa") {
+                        continue;
+                    }
+                    let lang = rest.rsplit_once('.').map(|(l, _)| l.to_string()).filter(|l| !l.is_empty() && !l.starts_with("sub"));
+                    if let Ok(t) = self.sealed.register_plain(e.path()) {
+                        subtitles.push(SubtitleTrack { label: lang.clone().unwrap_or_else(|| "Subtitles".into()), lang, url: format!("{}/f/{t}#.{ext}", self.stream_base()) });
+                    }
+                }
+            }
+        }
+        to_json(&OpenedStream { id: token.clone(), url: format!("{}{token}", self.stream_base()), torrent: false, subtitles })
+    }
+
+    /// Delete a downloaded video and the subtitles saved beside it.
+    pub fn delete_local(&self, path: String) -> Result<(), EngineError> {
+        let file = PathBuf::from(&path);
+        let downloads = self.engine.downloads().dir();
+        // Only files inside the download folder.
+        let inside = file.canonicalize().ok().zip(downloads.canonicalize().ok()).is_some_and(|(f, d)| f.starts_with(d));
+        if !inside {
+            return Err(EngineError::BadInput { reason: "that file isn't in the download folder".into() });
+        }
+        let stem = file.file_stem().and_then(|s| s.to_str()).unwrap_or_default().to_string();
+        if let Some(dir) = file.parent() {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for e in entries.flatten() {
+                    let n = e.file_name().to_string_lossy().to_string();
+                    let sub = n.strip_prefix(&format!("{stem}.")).is_some_and(|r| {
+                        let ext = r.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+                        matches!(ext.as_str(), "vtt" | "srt" | "ass" | "ssa")
+                    });
+                    if sub {
+                        let _ = std::fs::remove_file(e.path());
+                    }
+                }
+            }
+        }
+        std::fs::remove_file(&file).map_err(|e| failed(format!("couldn't delete {path}: {e}")))
     }
 
     // ── Live TV ──
