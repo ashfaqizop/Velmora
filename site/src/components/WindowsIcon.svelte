@@ -1,11 +1,14 @@
 <script lang="ts">
-  // The Windows mark (four panes), for where Windows sits next to Android.
-  // Material Symbols has the Android robot but no Windows logo.
+  // The Windows 11 mark (four equal squares), for where Windows sits next to
+  // Android. Material Symbols has the Android robot but no Windows logo.
   let { size = 20 }: { size?: number } = $props();
 </script>
 
 <svg class="win" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-  <path d="M3 5.1 10.4 4v7.3H3zM11.4 3.9 21 2.5v8.8h-9.6zM3 12.3h7.4v7.3L3 18.5zM11.4 12.3H21v8.8l-9.6-1.4z" />
+  <rect x="2" y="2" width="9.5" height="9.5" rx="0.6" />
+  <rect x="12.5" y="2" width="9.5" height="9.5" rx="0.6" />
+  <rect x="2" y="12.5" width="9.5" height="9.5" rx="0.6" />
+  <rect x="12.5" y="12.5" width="9.5" height="9.5" rx="0.6" />
 </svg>
 
 <style>
