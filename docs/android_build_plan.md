@@ -12,8 +12,8 @@ developer PC.
 | 2 | Rust engine on Android | done, tested on device (search, sources, direct and torrent playback) |
 | 3 | Shell and navigation | done, tested on device |
 | 4 | Accounts and onboarding | done, tested on device (offline start moved to phase 5) |
-| 5 | Home, Browse, title pages, search | building |
-| 6 | Video player | |
+| 5 | Home, Browse, title pages, search | done, tested on device (offline start fixed) |
+| 6 | Video player | building |
 | 7 | Downloads | |
 | 8 | Live TV, Sports, Theatre | |
 | 9 | Social and the rest | |

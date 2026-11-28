@@ -24,7 +24,7 @@ export interface PhaseGroup {
   to: number;
 }
 
-export const UPDATED = "2026-11-27";
+export const UPDATED = "2026-11-28";
 
 export const DEVICES = [
   { icon: "phone_android", label: "Android 9 phone" },
@@ -87,7 +87,8 @@ export const PHASES: Phase[] = [
     n: 5,
     title: "Home, Browse, title pages, search",
     icon: "movie",
-    status: "building",
+    status: "done",
+    date: "2026-11-28",
     summary:
       "Trending rows, Browse tabs for Movies, Series, Anime, Live TV and Sports, title pages with seasons and episodes, My List, and one search across everything. It also fixes what phase 4 testing found offline: once you've signed in, the app opens straight to your library with no network, and a slow connection never flashes the sign-in screen.",
     result: "Finding something to watch, online or not.",
@@ -97,11 +98,11 @@ export const PHASES: Phase[] = [
     n: 6,
     title: "Video player",
     icon: "play_circle",
-    status: "planned",
+    status: "building",
     summary:
-      "ExoPlayer on the engine's sources, with a source picker, subtitles, audio tracks, quality, picture-in-picture, continue watching and torrent streaming.",
+      "ExoPlayer on the engine's sources, with a source picker, subtitles, audio tracks, quality, picture-in-picture, continue watching and torrent streaming. Cinema audio (AC3, E-AC3, DTS) plays on every phone through a built-in decoder, and your spot syncs with desktop.",
     result: "Pressing play.",
-    pieces: ["Source picker", "Subtitles and audio", "Picture-in-picture", "Continue watching"],
+    pieces: ["Source picker", "Subtitles and audio", "Picture-in-picture", "Continue watching", "Gestures", "Mobile data rule"],
   },
   {
     n: 7,
